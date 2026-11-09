@@ -619,7 +619,11 @@
       } });
     });
     rows.push({ h: 'Sustav' });
-    rows.push({ type: 'btn', label: 'Otvori originalni LG Home', act: function () { closeSettings(); launch({ id: 'com.webos.app.home', title: 'LG Home', params: {} }); } });
+    rows.push({ type: 'btn', label: 'Otvori originalni LG Home', act: function () {
+      closeSettings();
+      var go = function () { launch({ id: 'com.webos.app.home', title: 'LG Home', params: {} }); };
+      if (DEMO) go(); else exec('touch /tmp/dom-allow-home').then(go, go);
+    } });
     rows.push({ type: 'btn', label: 'Poništi redoslijed aplikacija', act: function () {
       S.order = []; store.set('order', []); buildList(); renderGrid(); toast('Redoslijed poništen'); renderSettings();
     } });

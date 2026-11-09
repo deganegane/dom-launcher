@@ -2,6 +2,9 @@
 # Uklanja Dom launcher i autostart. LG Home ostaje netaknut.
 APPID="com.deganegane.dom"
 rm -f /var/lib/webosbrew/init.d/90-dom-launcher
+[ -f /tmp/dom-homeguard.pid ] && kill "$(cat /tmp/dom-homeguard.pid)" 2>/dev/null
+pkill -f "getForegroundAppInfo" 2>/dev/null
+rm -f /home/root/dom-homeguard.sh
 luna-send-pub -w 20000 -i 'luna://com.webos.appInstallService/dev/remove' "{\"id\":\"$APPID\",\"subscribe\":true}" &
 sleep 8; kill $! 2>/dev/null || true
-echo "Uklonjeno. Ne zaboravi maknuti Home keybind u LG Input Hooku."
+echo "Uklonjeno. Home tipka opet otvara LG Home."

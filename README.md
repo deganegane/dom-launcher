@@ -23,11 +23,11 @@ Skripta skida zadnji `.ipk` iz GitHub Releases, instalira ga i dodaje autostart
 
 ## Home tipka
 
-1. U Homebrew Channelu instaliraj **LG Input Hook** i jednom ga pokreni.
-2. *Add keybind* → ID Home tipke (vidi log u aplikaciji kad pritisneš Home) → akcija: pokreni aplikaciju `com.deganegane.dom`.
-3. U LG postavkama isključi *Home automatsko pokretanje* (Općenito → Postavke početnog zaslona).
+Instalacija pokreće mali servis (`/home/root/dom-homeguard.sh`) koji prati aplikaciju u prvom planu:
+kad god se pojavi LG Home (Home tipka, paljenje TV-a, izlaz iz aplikacije), odmah otvara Dom.
+LG Home može nakratko bljesnuti. Originalni LG Home i dalje se otvara iz Postavki u launcheru.
 
-Originalni LG Home i dalje postoji — otvara se iz Postavki u launcheru.
+LG Input Hook nije potreban (na webOS-u 11 ne zaustavlja Home tipku).
 
 ## Stremio
 

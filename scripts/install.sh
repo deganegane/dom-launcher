@@ -33,11 +33,22 @@ if [ $OK -ne 1 ]; then
 fi
 rm -f "$IPK"
 
+echo "==> Home guard (Home tipka otvara Dom)"
+GUARD="/home/root/dom-homeguard.sh"
+curl -fsSL -o "$GUARD" "https://raw.githubusercontent.com/$REPO/main/scripts/dom-homeguard.sh"
+chmod +x "$GUARD"
+if [ -f /tmp/dom-homeguard.pid ]; then
+  kill "$(cat /tmp/dom-homeguard.pid)" 2>/dev/null || true
+fi
+pkill -f "getForegroundAppInfo" 2>/dev/null || true
+nohup "$GUARD" >/dev/null 2>&1 &
+
 echo "==> Autostart pri paljenju TV-a"
 mkdir -p "$INITD"
 cat > "$INITD/90-dom-launcher" <<EOF
 #!/bin/sh
-# Pokreni Dom launcher nakon paljenja TV-a
+# Dom: home guard + pokretanje nakon paljenja TV-a
+nohup $GUARD >/dev/null 2>&1 &
 (
   sleep 15
   luna-send -n 1 luna://com.webos.applicationManager/launch '{"id":"$APPID"}' >/dev/null 2>&1
@@ -49,4 +60,4 @@ echo "==> Pokrećem Dom"
 luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\"}" >/dev/null 2>&1 || true
 
 echo
-echo "Gotovo. Ostaje još preusmjeriti Home tipku (vidi README: LG Input Hook)."
+echo "Gotovo. Home tipka sada otvara Dom (keybind u LG Input Hooku možeš maknuti)."
