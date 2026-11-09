@@ -29,6 +29,15 @@ LG Home može nakratko bljesnuti. Log: `cat /tmp/dom-homeguard.log`. Originalni 
 
 LG Input Hook nije potreban (na webOS-u 11 ne zaustavlja Home tipku).
 
+## Pozadine
+
+Aplikacije koje imaju svoju pozadinu (npr. Netflix) koriste nju. Ostale dobiju ambijentalnu
+pozadinu u boji svoje ikone (PS5, Xbox i Switch u boji svog brenda).
+
+Vlastita slika: stavi je u `/home/root/dom-backgrounds/` nazvanu po ID-u ili nazivu aplikacije,
+npr. `PS5 Game Console.jpg` ili `youtube.leanback.v4.png` (jpg, png ili webp, idealno 1920×1080).
+Učitava se kad se launcher ponovno otvori.
+
 ## Stremio
 
 Postavke (zupčanik na kraju mreže) → upiši Stremio email i lozinku. Launcher sprema samo

@@ -134,8 +134,21 @@
       app[field + 'Direct'] = 'file://' + src;
     }
     apps.forEach(function (a) { plan(a, 'icon', a.iconPath, ''); plan(a, 'bg', a.bgPath, '_bg'); });
+    // own pictures: /home/root/dom-backgrounds/<app id or title>.jpg|png
+    cmds.push('B=/home/root/dom-backgrounds');
+    apps.forEach(function (a) {
+      var base = a.key.replace(/[^A-Za-z0-9._-]/g, '_') + '_custom';
+      var names = [a.id, a.title].filter(Boolean).map(shq).join(' ');
+      cmds.push('for n in ' + names + '; do for e in jpg jpeg png webp; do if [ -f "$B/$n.$e" ]; then cp -f "$B/$n.$e" "$D/' + base + '.$e" && echo "CUSTOM|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e"; break 2; fi; done; done');
+    });
     cmds.push('echo ok');
-    return exec(cmds.join('; '), 30000).then(function () {
+    return exec(cmds.join('; '), 30000).then(function (out) {
+      var byKey = {};
+      apps.forEach(function (a) { byKey[a.key.replace(/[|'"\\$`]/g, '')] = a; });
+      (out || '').split('\n').forEach(function (line) {
+        var m = /^CUSTOM\|(.*)\|(.*)$/.exec(line.trim());
+        if (m && byKey[m[1]]) { byKey[m[1]].bg = 'cache/' + m[2]; byKey[m[1]].custom = true; }
+      });
       var v = '?v=' + BOOT;
       apps.forEach(function (a) { if (/^cache\//.test(a.icon)) a.icon += v; if (/^cache\//.test(a.bg)) a.bg += v; });
       return apps;
@@ -264,7 +277,25 @@
   }
 
   /* ---------- icon look: make small webOS icons fill the tile like Apple TV art ---------- */
-  var iconLooks = store.get('iconLooks', {});
+  var iconLooks = store.get('iconLooks2', {});
+  // most saturated colour in the icon (the brand colour), or null for grey icons
+  function accentOf(d) {
+    var list = [];
+    for (var k = 0; k < d.length; k += 4) {
+      if (d[k + 3] < 200) continue;
+      var r = d[k], g = d[k + 1], b = d[k + 2];
+      var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      if (mx < 40) continue;
+      list.push([(mx - mn) / mx * (mx / 255), r, g, b]);
+    }
+    if (!list.length) return null;
+    list.sort(function (x, y) { return y[0] - x[0]; });
+    var top = list.slice(0, Math.max(3, Math.round(list.length * 0.1)));
+    if (top[0][0] < 0.3) return null;
+    var c = [0, 0, 0];
+    top.forEach(function (t) { c[0] += t[1]; c[1] += t[2]; c[2] += t[3]; });
+    return 'rgb(' + c.map(function (v) { return Math.round(v / top.length); }).join(',') + ')';
+  }
   function iconKey(src) { return (src || '').replace(/\?.*$/, ''); }
   function analyzeIcon(img) {
     try {
@@ -281,15 +312,16 @@
         if (d[k + 3] < 200) { transp++; continue; }
         px.push([d[k], d[k + 1], d[k + 2]]);
       }
-      if (!px.length || transp / tot > 0.25) return { mode: 'trans' };
+      if (!px.length || transp / tot > 0.25) return { mode: 'trans', accent: accentOf(d) };
       var m = [0, 0, 0];
       px.forEach(function (p) { m[0] += p[0]; m[1] += p[1]; m[2] += p[2]; });
       m = m.map(function (v) { return Math.round(v / px.length); });
       var spread = 0;
       px.forEach(function (p) { spread += Math.abs(p[0] - m[0]) + Math.abs(p[1] - m[1]) + Math.abs(p[2] - m[2]); });
       spread /= px.length;
-      if (spread > 60) return { mode: 'photo' };  // picture icon: fill the tile with it
-      return { mode: 'solid', color: 'rgb(' + m.join(',') + ')' };
+      var accent = accentOf(d);
+      if (spread > 60) return { mode: 'photo', accent: accent };  // picture icon: fill the tile with it
+      return { mode: 'solid', color: 'rgb(' + m.join(',') + ')', accent: accent };
     } catch (e) { return null; }                  // canvas blocked: keep defaults
   }
   function applyLook(el, look) {
@@ -319,7 +351,7 @@
           applyLook(el, look);
           iconLooks[iconKey(a.icon)] = look;
           clearTimeout(saveLooksTimer);
-          saveLooksTimer = setTimeout(function () { store.set('iconLooks', iconLooks); }, 1500);
+          saveLooksTimer = setTimeout(function () { store.set('iconLooks2', iconLooks); }, 1500);
         };
         img.onerror = function () {
           if (a.iconDirect && img.src.indexOf('file:') !== 0) { img.src = a.iconDirect; return; }
@@ -377,14 +409,41 @@
     };
     setImage(img, urls, function (ok) {
       if (!ok) {
-        if (blurredFallback && blurredFallback.icon) {
-          img.className = 'bg-img blurred';
-          img.style.backgroundImage = 'url("' + blurredFallback.icon + '")';
-        }
-        img.style.backgroundColor = (blurredFallback && blurredFallback.color) || '#1c1c1e';
+        if (blurredFallback && blurredFallback.ambient) img.style.backgroundImage = blurredFallback.ambient;
+        img.style.backgroundColor = (blurredFallback && blurredFallback.color) || '#0b0b0d';
       }
       show();
     });
+  }
+
+  /* ---------- ambient background for apps without artwork ---------- */
+  function toRgb(c) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(c || '');
+    if (m) return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+    m = /rgba?\((\d+)\D+(\d+)\D+(\d+)/.exec(c || '');
+    return m ? [+m[1], +m[2], +m[3]] : null;
+  }
+  function brandColor(a) {
+    var t = (a.title || '') + ' ' + (a.id || '');
+    if (/ps5|ps4|playstation/i.test(t)) return [0, 112, 209];
+    if (/xbox/i.test(t)) return [16, 124, 16];
+    if (/nintendo|switch/i.test(t)) return [230, 0, 18];
+    var look = iconLooks[iconKey(a.icon)] || {};
+    return toRgb(look.accent) || toRgb(look.color) || toRgb(a.color) || [72, 72, 80];
+  }
+  function ambientFor(a) {
+    var c = brandColor(a);
+    // keep very light colours (white tiles) from washing out the screen
+    var lum = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) / 255;
+    if (lum > 0.7) c = c.map(function (v) { return Math.round(v * 0.55); });
+    var dark = c.map(function (v) { return Math.round(v * 0.22); });
+    function rgba(x, al) { return 'rgba(' + x[0] + ',' + x[1] + ',' + x[2] + ',' + al + ')'; }
+    return [
+      'radial-gradient(ellipse 55% 75% at 78% 18%, ' + rgba(c, 0.85) + ' 0%, ' + rgba(c, 0) + ' 70%)',
+      'radial-gradient(ellipse 45% 55% at 30% 0%, ' + rgba(c, 0.35) + ' 0%, ' + rgba(c, 0) + ' 70%)',
+      'radial-gradient(ellipse 70% 60% at 10% 90%, ' + rgba(dark, 0.9) + ' 0%, rgba(0,0,0,0) 70%)',
+      'linear-gradient(160deg, rgb(' + dark.join(',') + ') 0%, #050506 75%)'
+    ].join(', ');
   }
 
   /* ---------- top shelf ---------- */
@@ -414,7 +473,7 @@
     } else if (a) {
       key = 'app:' + a.key;
       var sub = isStremio(a) ? (S.authKey ? 'Nema ničega za nastaviti' : 'Prijavi se u Postavkama za "Nastavi gledati"') : '';
-      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: [a.bg], fb: { icon: a.icon, color: a.color } };
+      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: [a.bg], fb: { ambient: ambientFor(a) } };
     } else return;
 
     if (key === shelfKey && !force) return;
