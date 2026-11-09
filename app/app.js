@@ -255,16 +255,50 @@
     if (a.key === SETTINGS_KEY) {
       return '<div class="tile-art">' + gearSvg + '<div class="tile-sheen"></div></div><div class="tile-label">Postavke</div>';
     }
-    var color = a.color || '#3a3a3c';
-    var art = '<div class="tile-fill" style="background:linear-gradient(160deg,' + esc(color) + ',rgba(0,0,0,.55))"></div>';
-    if (a.icon) {
-      art += '<div class="tile-blur" style="background-image:url(\'' + esc(a.icon) + '\')"></div>' +
-             '<img class="tile-icon" src="' + esc(a.icon) + '" alt="">';
-    } else {
-      art += '<div class="tile-letter">' + esc((a.title || '?').charAt(0)) + '</div>';
-    }
-    return '<div class="tile-art">' + art + '<div class="tile-sheen"></div></div><div class="tile-label">' + esc(a.title) + '</div>';
+    var look = iconLooks[iconKey(a.icon)];
+    var fill = look && look.color ? look.color : (a.color || '#3a3a3c');
+    var art = '<div class="tile-fill" style="background:' + esc(fill) + '"></div>';
+    if (a.icon) art += '<img class="tile-icon" src="' + esc(a.icon) + '" alt="">';
+    else art += '<div class="tile-letter">' + esc((a.title || '?').charAt(0)) + '</div>';
+    return '<div class="tile-art">' + art + '<div class="tile-gloss"></div><div class="tile-sheen"></div></div><div class="tile-label">' + esc(a.title) + '</div>';
   }
+
+  /* ---------- icon look: make small webOS icons fill the tile like Apple TV art ---------- */
+  var iconLooks = store.get('iconLooks', {});
+  function iconKey(src) { return (src || '').replace(/\?.*$/, ''); }
+  function analyzeIcon(img) {
+    try {
+      var n = 40, c = document.createElement('canvas');
+      c.width = c.height = n;
+      var x = c.getContext('2d');
+      x.drawImage(img, 0, 0, n, n);
+      var d = x.getImageData(0, 0, n, n).data;
+      var px = [], transp = 0, tot = 0;
+      for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
+        var ring = Math.min(i, j, n - 1 - i, n - 1 - j);
+        if (ring !== 3) continue;               // a ring just inside the edge (skips rounded corners' outer pixels)
+        var k = (j * n + i) * 4; tot++;
+        if (d[k + 3] < 200) { transp++; continue; }
+        px.push([d[k], d[k + 1], d[k + 2]]);
+      }
+      if (!px.length || transp / tot > 0.25) return { mode: 'trans' };
+      var m = [0, 0, 0];
+      px.forEach(function (p) { m[0] += p[0]; m[1] += p[1]; m[2] += p[2]; });
+      m = m.map(function (v) { return Math.round(v / px.length); });
+      var spread = 0;
+      px.forEach(function (p) { spread += Math.abs(p[0] - m[0]) + Math.abs(p[1] - m[1]) + Math.abs(p[2] - m[2]); });
+      spread /= px.length;
+      if (spread > 60) return { mode: 'photo' };  // picture icon: fill the tile with it
+      return { mode: 'solid', color: 'rgb(' + m.join(',') + ')' };
+    } catch (e) { return null; }                  // canvas blocked: keep defaults
+  }
+  function applyLook(el, look) {
+    if (!look) return;
+    el.classList.remove('m-solid', 'm-photo', 'm-trans');
+    el.classList.add('m-' + look.mode);
+    if (look.color) el.querySelector('.tile-fill').style.background = look.color;
+  }
+  var saveLooksTimer;
   function renderGrid() {
     var g = $('#grid');
     g.innerHTML = '';
@@ -277,12 +311,22 @@
       el.addEventListener('mouseleave', function () { resetTilt(el); });
       el.addEventListener('click', function () { if (S.zone === 'settings') return; S.zone = 'grid'; setIdx(i); activate(); });
       var img = el.querySelector('.tile-icon');
-      if (img) img.onerror = function () {
-        if (a.iconDirect && img.src.indexOf('file:') !== 0) { img.src = a.iconDirect; return; }
-        var b = el.querySelector('.tile-blur'); if (b) b.remove();
-        var l = document.createElement('div'); l.className = 'tile-letter'; l.textContent = (a.title || '?').charAt(0);
-        img.parentNode.replaceChild(l, img);
-      };
+      if (img) {
+        applyLook(el, iconLooks[iconKey(a.icon)] || (a.color ? { mode: 'solid' } : { mode: 'trans' }));
+        img.onload = function () {
+          var look = analyzeIcon(img);
+          if (!look) return;
+          applyLook(el, look);
+          iconLooks[iconKey(a.icon)] = look;
+          clearTimeout(saveLooksTimer);
+          saveLooksTimer = setTimeout(function () { store.set('iconLooks', iconLooks); }, 1500);
+        };
+        img.onerror = function () {
+          if (a.iconDirect && img.src.indexOf('file:') !== 0) { img.src = a.iconDirect; return; }
+          var l = document.createElement('div'); l.className = 'tile-letter'; l.textContent = (a.title || '?').charAt(0);
+          img.parentNode.replaceChild(l, img);
+        };
+      }
       g.appendChild(el);
     });
     applyFocus();
