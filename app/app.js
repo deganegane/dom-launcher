@@ -254,8 +254,9 @@
   function playCW(item) {
     var app = stremioApp();
     if (!app) { toast('Stremio nije instaliran'); return; }
-    var path = 'detail/' + item.type + '/' + encodeURIComponent(item.id) + (item.videoId ? '/' + encodeURIComponent(item.videoId) : '');
-    launch(app, { contentTarget: 'stremio:///' + path, url: 'stremio:///' + path });
+    // Stremio deep link format: stremio:///detail/{type}/{id}/{videoId}, ids unencoded (tt123:1:2)
+    var path = 'detail/' + item.type + '/' + item.id + (item.videoId ? '/' + item.videoId : '');
+    launch(app, { contentTarget: 'stremio:///' + path });
   }
   function remaining(item) {
     if (!item.duration) return '';
