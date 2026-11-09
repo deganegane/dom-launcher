@@ -48,6 +48,10 @@ Postavke (zupčanik na kraju mreže) → upiši Stremio email i lozinku. Launche
 `authKey`, a "Nastavi gledati" čita s `api.strem.io` (isti API koji koriste službene aplikacije).
 Ako zahtjev iz aplikacije ne prođe, launcher ga ponovi preko Homebrew Channel root servisa (`curl`).
 
+Vlastita ikona: stavi sliku u `/home/root/dom-icons/` nazvanu po ID-u ili nazivu aplikacije
+(npr. `PS5 Game Console.png`). Konzole na HDMI-ju (PS5, Xbox, Switch) inače dobiju pločicu u
+boji brenda s crtežom kontrolera i pozadinu u istoj boji, bez snimke ekrana.
+
 ## Stremio epizoda s kartice
 
 Stremio na webOS-u ne prima deep linkove, pa ih Dom zaobilazi: zatvori Stremio, ponovno ga

@@ -141,6 +141,13 @@
       var names = [a.id, a.title].filter(Boolean).map(shq).join(' ');
       cmds.push('for n in ' + names + '; do for e in jpg jpeg png webp; do if [ -f "$B/$n.$e" ]; then cp -f "$B/$n.$e" "$D/' + base + '.$e" && echo "CUSTOM|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e"; break 2; fi; done; done');
     });
+    // own icons: /home/root/dom-icons/<app id or title>.png|jpg|webp
+    cmds.push('I=/home/root/dom-icons');
+    apps.forEach(function (a) {
+      var base = a.key.replace(/[^A-Za-z0-9._-]/g, '_') + '_icon';
+      var names = [a.id, a.title].filter(Boolean).map(shq).join(' ');
+      cmds.push('for n in ' + names + '; do for e in png jpg jpeg webp; do if [ -f "$I/$n.$e" ]; then cp -f "$I/$n.$e" "$D/' + base + '.$e" && echo "ICON|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e|$(date -r "$I/$n.$e" +%s)"; break 2; fi; done; done');
+    });
     // last frame of what was watched in each app, captured by dom-homeguard.sh
     cmds.push('H=/home/root/dom-shots');
     apps.forEach(function (a) {
@@ -156,10 +163,13 @@
       (out || '').split('\n').forEach(function (line) {
         var m = /^CUSTOM\|(.*)\|(.*)$/.exec(line.trim());
         if (m && byKey[m[1]]) { byKey[m[1]].bg = 'cache/' + m[2]; byKey[m[1]].custom = true; }
+        var ic = /^ICON\|(.*)\|(.*)\|(\d*)$/.exec(line.trim());
+        if (ic && byKey[ic[1]]) { byKey[ic[1]].customIcon = 'cache/' + ic[2] + '?t=' + ic[3]; }
         var sh = /^SHOT\|(.*)\|(.*)\|(\d*)$/.exec(line.trim());
         if (sh && byKey[sh[1]]) byKey[sh[1]].shot = 'cache/' + sh[2] + '?t=' + sh[3];
       });
       var v = '?v=' + BOOT;
+      apps.forEach(function (a) { if (a.customIcon) { a.icon = a.customIcon; a.iconDirect = ''; } });
       apps.forEach(function (a) { if (/^cache\//.test(a.icon)) a.icon += v; if (/^cache\//.test(a.bg)) a.bg += v; });
       return apps;
     }).catch(function () {
@@ -283,9 +293,31 @@
   /* ================= rendering ================= */
   var gearSvg = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>';
 
+  // game consoles on HDMI: brand-coloured tile with a generic controller drawing
+  var CONSOLES = [
+    { re: /ps5|ps4|playstation/i, rgb: [0, 112, 209], from: '#1f6fd6', to: '#062a6e' },
+    { re: /xbox/i, rgb: [16, 124, 16], from: '#2f9a2f', to: '#0b3d0b' },
+    { re: /nintendo|switch/i, rgb: [230, 0, 18], from: '#e8323f', to: '#6e0710' }
+  ];
+  function consoleOf(a) {
+    var t = (a.title || '') + ' ' + (a.id || '');
+    for (var i = 0; i < CONSOLES.length; i++) if (CONSOLES[i].re.test(t)) return CONSOLES[i];
+    return null;
+  }
+  var padSvg = '<svg class="tile-pad" viewBox="0 0 120 72" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round">' +
+    '<path d="M30 8h60c14 0 22 10 26 26l3 16c2 12-10 20-19 11l-9-9H29l-9 9c-9 9-21 1-19-11l3-16C8 18 16 8 30 8z"/>' +
+    '<path d="M33 24v16M25 32h16" stroke-linecap="round"/>' +
+    '<circle cx="84" cy="26" r="3.5" fill="#fff" stroke="none"/><circle cx="94" cy="34" r="3.5" fill="#fff" stroke="none"/>' +
+    '<circle cx="74" cy="34" r="3.5" fill="#fff" stroke="none"/><circle cx="84" cy="42" r="3.5" fill="#fff" stroke="none"/></svg>';
+
   function tileHtml(a) {
     if (a.key === SETTINGS_KEY) {
       return '<div class="tile-art">' + gearSvg + '<div class="tile-sheen"></div></div><div class="tile-label">Postavke</div>';
+    }
+    var con = !a.customIcon && consoleOf(a);
+    if (con) {
+      return '<div class="tile-art"><div class="tile-fill" style="background:linear-gradient(150deg,' + con.from + ',' + con.to + ')"></div>' +
+        padSvg + '<div class="tile-gloss"></div><div class="tile-sheen"></div></div><div class="tile-label">' + esc(a.title) + '</div>';
     }
     var look = iconLooks[iconKey(a.icon)];
     var fill = look && look.color ? look.color : (a.color || '#3a3a3c');
@@ -444,9 +476,8 @@
   }
   function brandColor(a) {
     var t = (a.title || '') + ' ' + (a.id || '');
-    if (/ps5|ps4|playstation/i.test(t)) return [0, 112, 209];
-    if (/xbox/i.test(t)) return [16, 124, 16];
-    if (/nintendo|switch/i.test(t)) return [230, 0, 18];
+    var con = consoleOf(a);
+    if (con) return con.rgb.slice();
     var look = iconLooks[iconKey(a.icon)] || {};
     return toRgb(look.accent) || toRgb(look.color) || toRgb(a.color) || [72, 72, 80];
   }
@@ -490,9 +521,9 @@
       key = 'settings';
       info = { kicker: '', title: 'Postavke', sub: 'Stremio račun, skrivanje aplikacija i ostalo', progress: -1, bg: [], fb: { color: '#26262a' } };
     } else if (a) {
-      key = 'app:' + a.key + (a.shot || '');
+      key = 'app:' + a.key + (consoleOf(a) ? '' : (a.shot || ''));
       var sub = isStremio(a) ? (S.authKey ? 'Nema ničega za nastaviti' : 'Prijavi se u Postavkama za "Nastavi gledati"') : '';
-      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: [a.shot, a.bg], fb: { ambient: ambientFor(a) } };
+      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: [consoleOf(a) ? '' : a.shot, a.bg], fb: { ambient: ambientFor(a) } };
     } else return;
 
     if (key === shelfKey && !force) return;
