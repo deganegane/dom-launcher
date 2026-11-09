@@ -780,7 +780,15 @@
       toast('Ne mogu učitati aplikacije: ' + e.message);
     });
   }
+  // handlesRelaunch=true: the TV only brings us to the front after activate()
+  function bringToFront() {
+    try {
+      if (window.webOSSystem && window.webOSSystem.activate) window.webOSSystem.activate();
+      else if (window.PalmSystem && window.PalmSystem.activate) window.PalmSystem.activate();
+    } catch (e) {}
+  }
   function onShow() {
+    bringToFront();
     if (S.zone === 'settings') closeSettings();
     if (S.moving) endMove();
     S.zone = 'grid';
