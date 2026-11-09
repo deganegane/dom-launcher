@@ -306,7 +306,7 @@
       var el = document.createElement('div');
       el.className = 'tile' + (a.key === SETTINGS_KEY ? ' tile-settings' : '');
       el.innerHTML = tileHtml(a);
-      el.addEventListener('mouseenter', function () { if (!S.moving && S.zone !== 'settings') { S.zone = 'grid'; setIdx(i); } });
+      el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (!S.moving && S.zone !== 'settings') { S.zone = 'grid'; setIdx(i); } });
       el.addEventListener('mousemove', function (ev) { tiltFromPointer(el, ev); });
       el.addEventListener('mouseleave', function () { resetTilt(el); });
       el.addEventListener('click', function () { if (S.zone === 'settings') return; S.zone = 'grid'; setIdx(i); activate(); });
@@ -341,7 +341,7 @@
       el.innerHTML = '<div class="card-title">' + esc(item.name) + (item.season ? ' · S' + item.season + 'E' + item.episode : '') + '</div>' +
         '<div class="card-bar"><div style="width:' + pct + '%"></div></div>';
       setImage(el, [item.thumb, item.thumbFallback, item.poster]);
-      el.addEventListener('mouseenter', function () { if (S.zone !== 'settings') { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
+      el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings') { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
       el.addEventListener('click', function () { playCW(item); });
       c.appendChild(el);
     });
@@ -532,7 +532,7 @@
 
   /* ================= keys ================= */
   var okTimer = null, okHeld = false, okLong = false;
-  document.addEventListener('keydown', function (e) {
+  function onKeyDown(e) {
     var k = e.keyCode;
     if (S.zone === 'settings') { settingsKey(e); return; }
     if (k === KEY.OK) {
@@ -578,7 +578,27 @@
       else return;
       e.preventDefault();
     }
-  });
+  }
+  document.addEventListener('keydown', onKeyDown);
+
+  // Magic Remote scroll wheel: one notch = one step up/down (throttled)
+  var wheelAcc = 0, wheelLast = 0;
+  // ignore hover caused by content scrolling under a still pointer
+  var lastMouseMove = 0;
+  document.addEventListener('mousemove', function () { lastMouseMove = Date.now(); }, true);
+  function pointerMoved() { return Date.now() - lastMouseMove < 150; }
+  document.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    if (S.moving) return;
+    wheelAcc += e.deltaY;
+    var now = Date.now();
+    if (Math.abs(wheelAcc) < 30 || now - wheelLast < 160) return;
+    var k = wheelAcc > 0 ? KEY.DOWN : KEY.UP;
+    wheelAcc = 0; wheelLast = now;
+    if (S.zone === 'shelf' && k === KEY.UP) return;
+    if (S.zone === 'settings') { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); settingsKey({ keyCode: k, preventDefault: function () {} }); return; }
+    onKeyDown({ keyCode: k, preventDefault: function () {} });
+  }, { passive: false });
   document.addEventListener('keyup', function (e) {
     if (e.keyCode !== KEY.OK || S.zone === 'settings') return;
     okHeld = false;
@@ -662,7 +682,7 @@
     var rowsEl = document.querySelectorAll('#settings-body .s-row');
     for (var m = 0; m < rowsEl.length; m++) {
       (function (el, p) {
-        el.addEventListener('mouseenter', function () { SET.pos = p; settingsFocus(false); });
+        el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; SET.pos = p; settingsFocus(false); });
         el.addEventListener('click', function () { SET.pos = p; settingsFocus(false); settingsOk(); });
       })(rowsEl[m], m);
     }

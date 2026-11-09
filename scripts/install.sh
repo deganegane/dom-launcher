@@ -40,6 +40,7 @@ chmod +x "$GUARD"
 if [ -f /tmp/dom-homeguard.pid ]; then
   kill "$(cat /tmp/dom-homeguard.pid)" 2>/dev/null || true
 fi
+pkill -f "dom-homeguard.sh" 2>/dev/null || true
 pkill -f "getForegroundAppInfo" 2>/dev/null || true
 nohup "$GUARD" >/dev/null 2>&1 &
 
