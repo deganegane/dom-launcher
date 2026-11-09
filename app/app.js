@@ -523,7 +523,7 @@
     } else if (a) {
       key = 'app:' + a.key + (consoleOf(a) ? '' : (a.shot || ''));
       var sub = isStremio(a) ? (S.authKey ? 'Nema ničega za nastaviti' : 'Prijavi se u Postavkama za "Nastavi gledati"') : '';
-      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: [consoleOf(a) ? '' : a.shot, a.bg], fb: { ambient: ambientFor(a) } };
+      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: consoleOf(a) ? [a.custom ? a.bg : ''] : [a.shot, a.bg], fb: { ambient: ambientFor(a) } };
     } else return;
 
     if (key === shelfKey && !force) return;
