@@ -44,6 +44,16 @@ pkill -f "dom-homeguard.sh" 2>/dev/null || true
 pkill -f "getForegroundAppInfo" 2>/dev/null || true
 nohup "$GUARD" >/dev/null 2>&1 &
 
+echo "==> Stremio: pomoćnik za tipke"
+curl -fsSL -o /home/root/dom-keys.js "https://raw.githubusercontent.com/$REPO/main/scripts/dom-keys.js"
+NODE=$(command -v node || ls /usr/bin/node /usr/local/bin/node 2>/dev/null | head -1)
+if [ -z "$NODE" ]; then
+  echo "!! Node nije pronađen; otvaranje Stremio epizoda neće raditi."
+elif [ ! -s /home/root/dom-ssap-key ]; then
+  echo "   >>> Na TV-u će se pojaviti upit za dozvolu — prihvati ga daljinskim (OK). <<<"
+  "$NODE" /home/root/dom-keys.js pair || echo "!! Uparivanje nije uspjelo (možeš ponoviti: $NODE /home/root/dom-keys.js pair)"
+fi
+
 echo "==> Autostart pri paljenju TV-a"
 mkdir -p "$INITD"
 cat > "$INITD/90-dom-launcher" <<EOF

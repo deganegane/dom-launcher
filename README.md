@@ -48,6 +48,16 @@ Postavke (zupčanik na kraju mreže) → upiši Stremio email i lozinku. Launche
 `authKey`, a "Nastavi gledati" čita s `api.strem.io` (isti API koji koriste službene aplikacije).
 Ako zahtjev iz aplikacije ne prođe, launcher ga ponovi preko Homebrew Channel root servisa (`curl`).
 
+## Stremio epizoda s kartice
+
+Stremio na webOS-u ne prima deep linkove, pa ih Dom zaobilazi: zatvori Stremio, ponovno ga
+otvori i preko TV-ovog SSAP sučelja "pritisne" tipke do odabrane kartice (`/home/root/dom-keys.js`).
+Pri instalaciji TV jednom traži dozvolu — prihvati je.
+
+Redoslijed tipki je u `/home/root/dom-stremio-keys.txt` (ako ne postoji: `9000 {RIGHT} ENTER`):
+prvi broj je čekanje u ms, `{RIGHT}` se ponavlja onoliko puta koliko je kartica udaljena od prve.
+Log: `cat /tmp/dom-keys.log`.
+
 ## Razvoj
 
 Otvori `app/index.html` u pregledniku — bez webOS-a radi u demo modu s lažnim podacima

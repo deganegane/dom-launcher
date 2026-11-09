@@ -256,7 +256,15 @@
     if (!app) { toast('Stremio nije instaliran'); return; }
     // Stremio deep link format: stremio:///detail/{type}/{id}/{videoId}, ids unencoded (tt123:1:2)
     var path = 'detail/' + item.type + '/' + item.id + (item.videoId ? '/' + item.videoId : '');
-    launch(app, { contentTarget: 'stremio:///' + path });
+    var index = Math.max(0, S.cw.indexOf(item));
+    if (DEMO) { launch(app, { contentTarget: 'stremio:///' + path }); return; }
+    // Stremio on webOS ignores deep links, so start it fresh (focus lands on its
+    // Continue Watching row) and let dom-keys.js press the remote buttons to the item.
+    toast('Otvaram ' + item.name + '…');
+    exec('luna-send -n 1 luna://com.webos.service.applicationManager/closeByAppId ' + shq(JSON.stringify({ id: app.id })) + ' >/dev/null 2>&1; sleep 1; ' +
+         'luna-send -n 1 luna://com.webos.applicationManager/launch ' + shq(JSON.stringify({ id: app.id, params: { contentTarget: 'stremio:///' + path } })) + ' >/dev/null 2>&1; ' +
+         'N=$(command -v node || echo /usr/bin/node); nohup "$N" /home/root/dom-keys.js play ' + index + ' > /tmp/dom-keys.log 2>&1 &', 15000)
+      .catch(function () { launch(app, { contentTarget: 'stremio:///' + path }); });
   }
   function remaining(item) {
     if (!item.duration) return '';
