@@ -141,6 +141,14 @@
       var names = [a.id, a.title].filter(Boolean).map(shq).join(' ');
       cmds.push('for n in ' + names + '; do for e in jpg jpeg png webp; do if [ -f "$B/$n.$e" ]; then cp -f "$B/$n.$e" "$D/' + base + '.$e" && echo "CUSTOM|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e"; break 2; fi; done; done');
     });
+    // last frame of what was watched in each app, captured by dom-homeguard.sh
+    cmds.push('H=/home/root/dom-shots');
+    apps.forEach(function (a) {
+      if (!/^[A-Za-z0-9._-]+$/.test(a.id)) return;
+      var name = a.key.replace(/[^A-Za-z0-9._-]/g, '_') + '_shot.jpg';
+      cmds.push('if [ -f "$H/' + a.id + '.jpg" ]; then [ "$D/' + name + '" -nt "$H/' + a.id + '.jpg" ] || cp -f "$H/' + a.id + '.jpg" "$D/' + name +
+        '"; echo "SHOT|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + name + '|$(date -r "$H/' + a.id + '.jpg" +%s)"; fi');
+    });
     cmds.push('echo ok');
     return exec(cmds.join('; '), 30000).then(function (out) {
       var byKey = {};
@@ -148,6 +156,8 @@
       (out || '').split('\n').forEach(function (line) {
         var m = /^CUSTOM\|(.*)\|(.*)$/.exec(line.trim());
         if (m && byKey[m[1]]) { byKey[m[1]].bg = 'cache/' + m[2]; byKey[m[1]].custom = true; }
+        var sh = /^SHOT\|(.*)\|(.*)\|(\d*)$/.exec(line.trim());
+        if (sh && byKey[sh[1]]) byKey[sh[1]].shot = 'cache/' + sh[2] + '?t=' + sh[3];
       });
       var v = '?v=' + BOOT;
       apps.forEach(function (a) { if (/^cache\//.test(a.icon)) a.icon += v; if (/^cache\//.test(a.bg)) a.bg += v; });
@@ -471,9 +481,9 @@
       key = 'settings';
       info = { kicker: '', title: 'Postavke', sub: 'Stremio račun, skrivanje aplikacija i ostalo', progress: -1, bg: [], fb: { color: '#26262a' } };
     } else if (a) {
-      key = 'app:' + a.key;
+      key = 'app:' + a.key + (a.shot || '');
       var sub = isStremio(a) ? (S.authKey ? 'Nema ničega za nastaviti' : 'Prijavi se u Postavkama za "Nastavi gledati"') : '';
-      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: [a.bg], fb: { ambient: ambientFor(a) } };
+      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: [a.shot, a.bg], fb: { ambient: ambientFor(a) } };
     } else return;
 
     if (key === shelfKey && !force) return;

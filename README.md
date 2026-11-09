@@ -31,7 +31,11 @@ LG Input Hook nije potreban (na webOS-u 11 ne zaustavlja Home tipku).
 
 ## Pozadine
 
-Aplikacije koje imaju svoju pozadinu (npr. Netflix) koriste nju. Ostale dobiju ambijentalnu
+Dok gledaš neku aplikaciju, servis svakih ~20 s spremi kadar ekrana (`/home/root/dom-shots/`),
+a launcher ga koristi kao pozadinu te aplikacije — "ono što si zadnje gledao". DRM sadržaj
+(Netflix i sl.) snima se kao crno pa se preskače.
+
+Aplikacije koje imaju svoju pozadinu (npr. Netflix) inače koriste nju. Ostale dobiju ambijentalnu
 pozadinu u boji svoje ikone (PS5, Xbox i Switch u boji svog brenda).
 
 Vlastita slika: stavi je u `/home/root/dom-backgrounds/` nazvanu po ID-u ili nazivu aplikacije,
