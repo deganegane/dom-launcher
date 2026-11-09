@@ -10,6 +10,7 @@
   var COLS = 5;
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
+  var BOOT = Date.now();
 
   var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461, BKSP: 8, ESC: 27 };
 
@@ -106,12 +107,42 @@
           key: lp.launchPointId || lp.id,
           id: lp.id,
           title: lp.title || lp.id,
-          icon: fileUrl(lp.extraLargeIcon || lp.largeIcon || lp.mediumLargeIcon || lp.icon),
+          iconPath: lp.extraLargeIcon || lp.largeIcon || lp.mediumLargeIcon || lp.icon || '',
+          bgPath: lp.bgImage || '',
+          icon: '',
           color: lp.iconColor || lp.bgColor || '',
-          bg: fileUrl(lp.bgImage || ''),
+          bg: '',
           params: lp.params || {}
         };
       });
+    }).then(cacheAssets);
+  }
+
+  // The web sandbox can't read other apps' folders (Store apps live in root-only cryptofs),
+  // so copy icons/backgrounds into our own app folder as root, then load them by relative path.
+  function cacheAssets(apps) {
+    var appDir = decodeURIComponent(location.pathname).replace(/\/[^\/]*$/, '');
+    var cmds = ['D=' + shq(appDir + '/cache'), 'mkdir -p "$D"'];
+    function plan(app, field, src, suffix) {
+      if (!src) return;
+      if (/^https?:|^data:/.test(src)) { app[field] = src; return; }
+      src = src.replace(/^file:\/\//, '');
+      var ext = (/\.(png|jpe?g|webp|gif)$/i.exec(src) || ['', 'png'])[1].toLowerCase();
+      var name = (app.key + suffix).replace(/[^A-Za-z0-9._-]/g, '_') + '.' + ext;
+      cmds.push('[ "$D/' + name + '" -nt ' + shq(src) + ' ] || cp -f ' + shq(src) + ' "$D/' + name + '" 2>/dev/null');
+      app[field] = 'cache/' + name;
+      app[field + 'Direct'] = 'file://' + src;
+    }
+    apps.forEach(function (a) { plan(a, 'icon', a.iconPath, ''); plan(a, 'bg', a.bgPath, '_bg'); });
+    cmds.push('echo ok');
+    return exec(cmds.join('; '), 30000).then(function () {
+      var v = '?v=' + BOOT;
+      apps.forEach(function (a) { if (/^cache\//.test(a.icon)) a.icon += v; if (/^cache\//.test(a.bg)) a.bg += v; });
+      return apps;
+    }).catch(function () {
+      // no root service: fall back to direct paths (works for system apps on some firmwares)
+      apps.forEach(function (a) { a.icon = a.iconDirect || a.icon; a.bg = a.bgDirect || a.bg; });
+      return apps;
     });
   }
   function isStremio(a) { return a && (/stremio/i.test(a.id) || /stremio/i.test(a.title)); }
@@ -246,7 +277,12 @@
       el.addEventListener('mouseleave', function () { resetTilt(el); });
       el.addEventListener('click', function () { if (S.zone === 'settings') return; S.zone = 'grid'; setIdx(i); activate(); });
       var img = el.querySelector('.tile-icon');
-      if (img) img.onerror = function () { img.remove(); var b = el.querySelector('.tile-blur'); if (b) b.remove(); };
+      if (img) img.onerror = function () {
+        if (a.iconDirect && img.src.indexOf('file:') !== 0) { img.src = a.iconDirect; return; }
+        var b = el.querySelector('.tile-blur'); if (b) b.remove();
+        var l = document.createElement('div'); l.className = 'tile-letter'; l.textContent = (a.title || '?').charAt(0);
+        img.parentNode.replaceChild(l, img);
+      };
       g.appendChild(el);
     });
     applyFocus();
