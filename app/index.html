@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Dom</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <div id="bg">
+    <div class="bg-layer" id="bgA"><div class="bg-img"></div></div>
+    <div class="bg-layer" id="bgB"><div class="bg-img"></div></div>
+    <div id="bg-shade"></div>
+  </div>
+
+  <div id="topbar">
+    <div id="date"></div>
+    <div id="clock"></div>
+  </div>
+
+  <div id="shelf">
+    <div id="shelf-info">
+      <div id="shelf-kicker"></div>
+      <img id="shelf-logo" alt="">
+      <div id="shelf-title"></div>
+      <div id="shelf-sub"></div>
+      <div id="shelf-progress"><div></div></div>
+    </div>
+    <div id="cards"></div>
+  </div>
+
+  <div id="grid-wrap"><div id="grid"></div></div>
+
+  <div id="move-hint">Strelicama premjesti aplikaciju · OK za kraj</div>
+
+  <div id="settings" class="hidden">
+    <div id="settings-panel">
+      <h1>Postavke</h1>
+      <div id="settings-body"></div>
+      <div class="settings-foot">Natrag za zatvaranje</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

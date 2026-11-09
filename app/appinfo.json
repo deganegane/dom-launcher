@@ -1,0 +1,17 @@
+{
+  "id": "com.deganegane.dom",
+  "version": "1.0.0",
+  "vendor": "deganegane",
+  "type": "web",
+  "main": "index.html",
+  "title": "Dom",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#000000",
+  "iconColor": "#1c1c1e",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": true,
+  "noSplashOnLaunch": true,
+  "spinnerOnLaunch": false
+}

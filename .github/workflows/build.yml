@@ -1,0 +1,41 @@
+name: Build IPK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install webOS CLI
+        run: npm install -g @webos-tools/cli
+
+      - name: Set version
+        run: |
+          jq --arg v "1.0.${{ github.run_number }}" '.version = $v' app/appinfo.json > /tmp/appinfo.json
+          mv /tmp/appinfo.json app/appinfo.json
+
+      - name: Package
+        run: |
+          ares-package app -o dist -n
+          mv dist/*.ipk dist/com.deganegane.dom.ipk
+          ls -la dist
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Dom 1.0.${{ github.run_number }}
+          files: dist/com.deganegane.dom.ipk
+          make_latest: true
