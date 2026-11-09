@@ -1,8 +1,9 @@
 #!/bin/sh
 # Dom launcher — instalacija na rootani LG webOS TV.
 # Pokreni na TV-u (SSH kao root):
-#   curl -fsSL https://raw.githubusercontent.com/deganegane/dom-launcher/main/scripts/install.sh | sh
+#   curl -fsSL "https://raw.githubusercontent.com/deganegane/dom-launcher/main/scripts/install.sh?$(date +%s)" | sh
 set -e
+NOCACHE="?$(date +%s)"   # raw.githubusercontent caches files for ~5 min
 
 REPO="deganegane/dom-launcher"
 APPID="com.deganegane.dom"
@@ -35,7 +36,7 @@ rm -f "$IPK"
 
 echo "==> Home guard (Home tipka otvara Dom)"
 GUARD="/home/root/dom-homeguard.sh"
-curl -fsSL -o "$GUARD" "https://raw.githubusercontent.com/$REPO/main/scripts/dom-homeguard.sh"
+curl -fsSL -o "$GUARD" "https://raw.githubusercontent.com/$REPO/main/scripts/dom-homeguard.sh$NOCACHE"
 chmod +x "$GUARD"
 if [ -f /tmp/dom-homeguard.pid ]; then
   kill "$(cat /tmp/dom-homeguard.pid)" 2>/dev/null || true
@@ -45,7 +46,7 @@ pkill -f "getForegroundAppInfo" 2>/dev/null || true
 nohup "$GUARD" >/dev/null 2>&1 &
 
 echo "==> Stremio: pomoćnik za tipke"
-curl -fsSL -o /home/root/dom-keys.js "https://raw.githubusercontent.com/$REPO/main/scripts/dom-keys.js"
+curl -fsSL -o /home/root/dom-keys.js "https://raw.githubusercontent.com/$REPO/main/scripts/dom-keys.js$NOCACHE"
 NODE=$(command -v node || ls /usr/bin/node /usr/local/bin/node 2>/dev/null | head -1)
 if [ -z "$NODE" ]; then
   echo "!! Node nije pronađen; otvaranje Stremio epizoda neće raditi."
@@ -68,6 +69,9 @@ EOF
 chmod +x "$INITD/90-dom-launcher"
 
 echo "==> Pokrećem Dom"
+# close the running copy so the new version is actually loaded
+luna-send -n 1 luna://com.webos.service.applicationManager/closeByAppId "{\"id\":\"$APPID\"}" >/dev/null 2>&1 || true
+sleep 1
 luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\"}" >/dev/null 2>&1 || true
 
 echo

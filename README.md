@@ -15,7 +15,7 @@ Preduvjeti: rootan TV, Homebrew Channel, uključen SSH (Homebrew Channel → Set
 Na TV-u, preko SSH-a kao root:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/deganegane/dom-launcher/main/scripts/install.sh | sh
+curl -fsSL "https://raw.githubusercontent.com/deganegane/dom-launcher/main/scripts/install.sh?$(date +%s)" | sh
 ```
 
 Skripta skida zadnji `.ipk` iz GitHub Releases, instalira ga i dodaje autostart
