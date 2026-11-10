@@ -204,77 +204,106 @@ body {
 #stage.instant #cover { transition: none; }
 
 /* ================= layouts ================= */
-#bgblur, #dockbar, #shelf-hint { display: none; }
-
-/* one-row dock shared by Kino, Staklo, Posteri */
+#bgblur, #dockbar, #shelf-hint, #greet { display: none; }
 #stage.dock #grid { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 300px; column-gap: 48px; row-gap: 0; }
 #stage.dock #grid-wrap { width: auto; transform-origin: 0 0; transform: scale(var(--dock-scale, 1)); }
+#stage[class*="layout-"]:not(.layout-classic) #shelf-logo { display: none !important; }
+#stage[class*="layout-"]:not(.layout-classic) #shelf-title.hide { display: block; }
 
-/* ---- Kino: the whole screen belongs to what you're watching ---- */
-#stage.layout-kino #bg-shade {
+/* ---- Bočni izbornik: apps listed on the left, what's on them on the right ---- */
+#stage.layout-sidebar #dockbar { display: block; position: absolute; left: 0; top: 0; bottom: 0; width: 420px; background: #0c0c0f; z-index: 1; }
+#stage.layout-sidebar #bg { inset: auto; left: 420px; right: 0; top: 0; bottom: 0; width: auto; }
+#stage.layout-sidebar .bg-img { background-position: center center; }
+#stage.layout-sidebar #bg-shade {
   background:
-    linear-gradient(90deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.35) 45%, rgba(0,0,0,0) 70%),
-    linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.85) 80%, #000 100%);
+    linear-gradient(90deg, #0c0c0f 0%, rgba(12,12,15,.55) 30%, rgba(12,12,15,0) 60%),
+    linear-gradient(180deg, rgba(12,12,15,0) 35%, rgba(12,12,15,.92) 62%, #0c0c0f 82%);
 }
-#stage.layout-kino #shelf-info, #stage.layout-kino #shelf.has-cards #shelf-info { top: 250px; width: 1000px; }
-#stage.layout-kino #shelf-title { font-size: 104px; font-weight: 800; line-height: .95; letter-spacing: -2px; margin-bottom: 22px; }
-#stage.layout-kino #shelf-logo { max-width: 720px; max-height: 210px; }
-#stage.layout-kino #shelf-progress { width: 520px; height: 7px; }
-#stage.layout-kino #shelf.has-cards #shelf-hint { display: block; margin-top: 30px; font-size: 22px; font-weight: 600; opacity: .7; }
-#stage.layout-kino.zone-shelf #shelf-hint { display: none !important; }
-#stage.layout-kino #cards { top: 610px; }
-#stage.layout-kino #shelf.has-cards #cards { opacity: 0; transform: translateY(30px); pointer-events: none; }
-#stage.layout-kino.zone-shelf #shelf.has-cards #cards { opacity: 1; transform: none; pointer-events: auto; }
-#stage.layout-kino #grid-wrap { top: 852px; transition: opacity 300ms ease; }
-#stage.layout-kino.zone-shelf #grid-wrap { opacity: .35; }
+#stage.layout-sidebar #topbar { left: 54px; right: auto; top: 60px; text-align: left; display: flex; flex-direction: column-reverse; z-index: 2; }
+#stage.layout-sidebar #clock { font-size: 64px; font-weight: 700; letter-spacing: -1px; }
+#stage.layout-sidebar #date { font-size: 22px; opacity: .6; margin-top: 2px; }
+#stage.layout-sidebar #grid-wrap { left: 36px; top: 240px; width: 348px; height: 800px; overflow: hidden; z-index: 2; padding: 0; }
+#stage.layout-sidebar #grid { grid-template-columns: 348px; row-gap: 6px; column-gap: 0; }
+#stage.layout-sidebar .tile { width: 348px; height: 95px; border-radius: 18px; transition: background 150ms ease; }
+#stage.layout-sidebar .tile.focus { background: #ffffff; }
+#stage.layout-sidebar .tile-art { inset: auto; left: 18px; top: 14px; width: 300px; height: 180px; transform-origin: 0 0; }
+#stage.layout-sidebar .tile .tile-art, #stage.layout-sidebar .tile.focus .tile-art { --s: .373; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+#stage.layout-sidebar .tile-sheen { display: none; }
+#stage.layout-sidebar .tile-label, #stage.layout-sidebar .tile.focus .tile-label {
+  left: 150px; right: 12px; top: 0; height: 95px; line-height: 95px; text-align: left; font-size: 27px;
+  opacity: .8; transform: none; color: #fff;
+}
+#stage.layout-sidebar .tile.focus .tile-label { opacity: 1; color: #0b0b0e; font-weight: 700; }
+#stage.layout-sidebar.zone-shelf .tile.sel { background: rgba(255,255,255,.12); }
+#stage.layout-sidebar #shelf { left: 520px; top: 110px; width: 1300px; }
+#stage.layout-sidebar #shelf-info, #stage.layout-sidebar #shelf.has-cards #shelf-info { top: 0; width: 1100px; }
+#stage.layout-sidebar #shelf-title { font-size: 80px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+#stage.layout-sidebar #cards { top: 370px; width: 1130px; flex-wrap: wrap; column-gap: 34px; row-gap: 40px; }
+#stage.layout-sidebar .card { width: 354px; height: 199px; border-radius: 16px; }
+#stage.layout-sidebar.zone-shelf .card.focus { transform: scale(1.06); }
 
-/* ---- Staklo: artwork in a rounded card, apps on a glass bar ---- */
-#stage.layout-glass #bgblur {
-  display: block; position: absolute; left: 0; top: 0; width: 192px; height: 108px;
-  background: #111 center / cover no-repeat; transform-origin: 0 0; transform: scale(10.1);
-  filter: blur(4px) brightness(.5) saturate(1.3);
+/* ---- Bento: tiles of different sizes ---- */
+#stage.layout-bento #greet { display: block; position: absolute; left: 114px; top: 56px; font-size: 34px; font-weight: 700; }
+#stage.layout-bento #topbar { top: 62px; display: flex; gap: 14px; align-items: baseline; }
+#stage.layout-bento #date { font-size: 26px; opacity: .7; margin: 0; }
+#stage.layout-bento #clock { font-size: 26px; font-weight: 600; opacity: .9; }
+#stage.layout-bento #bg { inset: auto; left: 114px; top: 150px; width: 1120px; height: 624px; border-radius: 28px; overflow: hidden; }
+#stage.layout-bento #bg-shade {
+  background: linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,0) 62%), linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.65) 100%);
 }
-#stage.layout-glass #bg {
-  inset: auto; left: 114px; top: 150px; width: 1692px; height: 520px;
-  border-radius: 36px; overflow: hidden; box-shadow: 0 40px 90px rgba(0,0,0,.55);
-}
-#stage.layout-glass #bg-shade {
-  background:
-    linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.3) 45%, rgba(0,0,0,0) 70%),
-    linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.6) 100%);
-}
-#stage.layout-glass #shelf { left: 178px; top: 150px; width: 1564px; height: 520px; }
-#stage.layout-glass #shelf-info, #stage.layout-glass #shelf.has-cards #shelf-info { top: 56px; width: 760px; }
-#stage.layout-glass #shelf-title { font-size: 76px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
-#stage.layout-glass #cards { top: 343px; gap: 26px; }
-#stage.layout-glass .card { width: 236px; height: 133px; }
-#stage.layout-glass #dockbar {
-  display: block; position: absolute; left: 114px; right: 114px; bottom: 70px; height: 246px; border-radius: 40px;
-  background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.16); box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
-}
-#stage.layout-glass #grid-wrap { left: 154px; top: 815px; width: 2015px; clip-path: inset(-90px 0 -90px 0); }
-#stage.layout-glass .tile-label { display: none; }
+#stage.layout-bento #shelf { left: 94px; top: 130px; width: 1732px; height: 664px; overflow: hidden; }
+#stage.layout-bento #shelf-info, #stage.layout-bento #shelf.has-cards #shelf-info { top: auto; bottom: 68px; left: 68px; width: 960px; }
+#stage.layout-bento #shelf-title { font-size: 72px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+#stage.layout-bento #cards { left: 1184px; top: 20px; flex-direction: column; gap: 24px; }
+#stage.layout-bento .card { width: 548px; height: 300px; border-radius: 22px; }
+#stage.layout-bento.zone-shelf .card.focus { transform: scale(1.03); box-shadow: 0 0 0 5px #fff, 0 20px 40px rgba(0,0,0,.6); }
+#stage.layout-bento #grid-wrap { left: 114px; top: 798px; }
+#stage.layout-bento #grid { column-gap: 27px; }
+#stage.layout-bento .tile-label { display: none; }
+#stage.layout-bento .tile.focus .tile-art { --s: 1.08; }
 
-/* ---- Posteri: big clock, what you're watching as posters ---- */
-#stage.layout-posters #bg { left: auto; right: 0; width: 1300px; height: 760px; }
-#stage.layout-posters #bg-shade {
-  background:
-    linear-gradient(90deg, #07070a 0%, rgba(7,7,10,.6) 35%, rgba(7,7,10,0) 70%),
-    linear-gradient(180deg, rgba(7,7,10,0) 40%, #07070a 92%);
+/* ---- Karusel: the focused app big in the middle ---- */
+#stage.layout-carousel #bg-shade { background: radial-gradient(ellipse 75% 65% at 50% 38%, rgba(0,0,0,0) 0%, rgba(0,0,0,.55) 70%, rgba(0,0,0,.85) 100%); }
+#stage.layout-carousel #topbar { left: 0; right: 0; top: 52px; text-align: center; display: flex; justify-content: center; gap: 16px; align-items: baseline; }
+#stage.layout-carousel #clock { font-size: 30px; font-weight: 600; }
+#stage.layout-carousel #date { font-size: 30px; opacity: .7; margin: 0; }
+#stage.layout-carousel #grid-wrap { left: 0; top: 262px; width: 1920px; height: 180px; }
+#stage.layout-carousel #grid { display: block; position: relative; height: 180px; transform: none !important; }
+#stage.layout-carousel .tile { position: absolute; top: 0; transition: left 380ms cubic-bezier(.2,.8,.2,1), opacity 300ms ease; }
+#stage.layout-carousel .tile-label { display: none; }
+#stage.layout-carousel .tile .tile-art { transition: transform 380ms cubic-bezier(.2,.8,.2,1), box-shadow 240ms ease; }
+#stage.layout-carousel #shelf { left: 0; top: 0; width: 1920px; }
+#stage.layout-carousel #shelf-info, #stage.layout-carousel #shelf.has-cards #shelf-info { left: 0; top: 590px; width: 1920px; text-align: center; }
+#stage.layout-carousel #shelf-kicker { display: none; }
+#stage.layout-carousel #shelf-title { font-size: 52px; font-weight: 800; margin-bottom: 10px; }
+#stage.layout-carousel #shelf-sub { font-size: 26px; opacity: .78; }
+#stage.layout-carousel #shelf-progress { display: none !important; }
+#stage.layout-carousel #cards { top: 790px; left: 0; width: 1920px; justify-content: center; gap: 28px; }
+#stage.layout-carousel .card { width: 248px; height: 140px; }
+#stage.layout-carousel.zone-shelf #grid-wrap { opacity: .4; transition: opacity 300ms ease; }
+
+/* ---- Ambijent: a picture, a clock and round icons ---- */
+#stage.layout-ambient #bg-shade { background: linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 28%, rgba(0,0,0,0) 48%, rgba(0,0,0,.72) 100%); }
+#stage.layout-ambient #topbar { left: 114px; right: auto; top: auto; bottom: 290px; text-align: left; display: flex; flex-direction: column-reverse; transition: opacity 300ms ease; }
+#stage.layout-ambient #clock { font-size: 200px; font-weight: 300; letter-spacing: -6px; line-height: .9; }
+#stage.layout-ambient #date { font-size: 34px; font-weight: 500; opacity: .85; margin-top: 10px; }
+#stage.layout-ambient.zone-shelf #topbar { opacity: 0; }
+#stage.layout-ambient #shelf-info, #stage.layout-ambient #shelf.has-cards #shelf-info {
+  top: 70px; width: auto; max-width: 1000px; padding: 16px 32px; border-radius: 60px; background: rgba(0,0,0,.45);
 }
-#stage.layout-posters { background: #07070a; }
-#stage.layout-posters .bg-layer.on { opacity: .6; }
-#stage.layout-posters #topbar { left: 114px; right: auto; top: 70px; text-align: left; }
-#stage.layout-posters #clock { font-size: 120px; font-weight: 800; letter-spacing: -3px; line-height: 1; }
-#stage.layout-posters #date { font-size: 30px; font-weight: 500; margin-bottom: 6px; }
-#stage.layout-posters #shelf-info { display: none; }
-#stage.layout-posters #cards { top: 380px; gap: 34px; }
-#stage.layout-posters #cards::before {
-  content: "Nastavi gledati"; position: absolute; left: 0; top: -50px; font-size: 26px; font-weight: 700;
-}
-#stage.layout-posters .card { width: 220px; height: 330px; border-radius: 16px; transform-origin: bottom center; }
-#stage.layout-posters.zone-shelf .card.focus { transform: scale(1.1); }
-#stage.layout-posters #grid-wrap { top: 862px; }
-#stage.layout-posters #grid-wrap::before {
-  content: "Aplikacije"; position: absolute; left: 0; top: -60px; font-size: 32px; font-weight: 700; opacity: .8;
-}
+#stage.layout-ambient #shelf-kicker { font-size: 16px; margin-bottom: 4px; min-height: 0; }
+#stage.layout-ambient #shelf-title { font-size: 28px; font-weight: 600; margin: 0; text-shadow: none; }
+#stage.layout-ambient #shelf-sub { font-size: 19px; min-height: 0; margin-top: 2px; }
+#stage.layout-ambient #shelf-progress { display: none !important; }
+#stage.layout-ambient #shelf.has-cards #cards { top: 560px; opacity: 0; transform: translateY(30px); pointer-events: none; }
+#stage.layout-ambient.zone-shelf #shelf.has-cards #cards { opacity: 1; transform: none; pointer-events: auto; }
+#stage.layout-ambient #dockbar { display: block; position: absolute; left: 114px; right: 114px; bottom: 46px; height: 210px; border-radius: 105px; background: rgba(0,0,0,.42); }
+#stage.layout-ambient #grid-wrap { left: 174px; top: 853px; }
+#stage.layout-ambient #grid { grid-auto-columns: 180px; column-gap: 40px; }
+#stage.layout-ambient .tile { width: 180px; }
+#stage.layout-ambient .tile-art { inset: auto; left: -60px; top: 0; width: 300px; height: 180px; clip-path: circle(90px at 50% 50%); box-shadow: none; }
+#stage.layout-ambient .tile .tile-art { --s: .78; }
+#stage.layout-ambient .tile.focus .tile-art { --s: 1.02; }
+#stage.layout-ambient .tile-icon, #stage.layout-ambient .tile-brand, #stage.layout-ambient .tile-conicon,
+#stage.layout-ambient .tile-pad, #stage.layout-ambient .tile-art > svg { transform: scale(.7); }
+#stage.layout-ambient .tile-label, #stage.layout-ambient .tile.focus .tile-label { top: -52px; transform: none; font-size: 26px; font-weight: 600; }

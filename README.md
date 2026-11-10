@@ -36,10 +36,14 @@ LG Input Hook nije potreban (na webOS-u 11 ne zaustavlja Home tipku).
 
 ## Izgled
 
-Postavke → "Izgled početnog zaslona" mijenja između: **Klasično** (mreža aplikacija),
-**Kino** (cijeli ekran za ono što gledaš, aplikacije u jednom redu), **Staklo** (slika u
-zaobljenoj kartici, aplikacije na staklenoj traci) i **Posteri** (veliki sat, "Nastavi gledati"
-kao posteri). Izbor se pamti.
+Postavke → "Izgled početnog zaslona" mijenja između:
+- **Klasično**: mreža aplikacija, gore "Nastavi gledati".
+- **Bočni izbornik**: aplikacije u popisu lijevo; strelica desno ulazi u mrežu kartica.
+- **Bento**: velika pločica za ono što gledaš, dvije sporedne, aplikacije u redu ispod (strelica gore).
+- **Karusel**: fokusirana aplikacija velika u sredini, susjedne okrenute u 3D; strelica dolje za kartice.
+- **Ambijent**: slika preko cijelog ekrana, veliki sat i okrugle ikone; strelica gore za kartice.
+
+Izbor se pamti.
 
 ## Isključivanje Doma
 

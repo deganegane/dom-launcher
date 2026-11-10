@@ -8,15 +8,17 @@
   var STREMIO_API = 'https://api.strem.io/api/';
   var DEMO = typeof window.PalmServiceBridge === 'undefined';
   // layouts: classic = 5-column grid; the others put apps in one row (a dock)
+  // classic = 5-column grid; the others change both the look and how the remote moves
   var LAYOUTS = {
-    classic: { name: 'Klasično' },
-    kino:    { name: 'Kino', dock: true, scale: 0.82, view: 1692, cardView: 1692 },
-    glass:   { name: 'Staklo', dock: true, scale: 0.8, view: 2015, cardView: 1400 },
-    posters: { name: 'Posteri', dock: true, scale: 0.78, view: 2169, cardView: 1692 }
+    classic:  { name: 'Klasično' },
+    sidebar:  { name: 'Bočni izbornik', mode: 'list', enter: 'right', cardAxis: 'grid3', listView: 780 },
+    bento:    { name: 'Bento', mode: 'dock', scale: 0.873, view: 1938, enter: 'up', cardAxis: 'v', fallback: true },
+    carousel: { name: 'Karusel', mode: 'carousel', enter: 'down', cardAxis: 'h', cardView: 1692, maxCards: 6 },
+    ambient:  { name: 'Ambijent', mode: 'dock', scale: 0.8, view: 1965, enter: 'up', cardAxis: 'h', cardView: 1692 }
   };
-  var LAYOUT_ORDER = ['classic', 'kino', 'glass', 'posters'];
+  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient'];
   function L() { return LAYOUTS[S.layout] || LAYOUTS.classic; }
-  function cols() { return L().dock ? Math.max(1, S.list.length) : 5; }
+  function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : 5); }
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
 
@@ -354,8 +356,9 @@
   function shelfItems(a) {
     if (!a || a.key === SETTINGS_KEY) return [];
     var items = isStremio(a) ? S.cw : (S.appRows[a.id] || []);
-    if (!items.length && S.layout === 'posters') items = S.cw;
-    return items;
+    if (!items.length && L().fallback) items = S.cw;   // keep the row filled with what you're watching
+    var mx = L().maxCards;
+    return mx ? items.slice(0, mx) : items;
   }
   function activateItem(item) {
     if (!item) return;
@@ -639,7 +642,7 @@
       var pct = item.duration ? Math.min(100, Math.round(item.offset / item.duration * 100)) : 0;
       el.innerHTML = '<div class="card-title">' + esc(item.name) + (item.season ? ' · S' + item.season + 'E' + item.episode : '') + '</div>' +
         '<div class="card-bar"><div style="width:' + pct + '%"></div></div>';
-      setImage(el, S.layout === 'posters' ? [item.poster, item.thumb, item.thumbFallback] : [item.thumb, item.thumbFallback, item.poster]);
+      setImage(el, [item.thumb, item.thumbFallback, item.poster]);
       el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings' && !S.moving) { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
       // look the item up at click time: launch parameters are refreshed in the background
       el.addEventListener('click', function () { if (S.zone !== 'settings' && !S.moving) activateItem(shelfItems(S.list[S.idx])[i]); });
@@ -743,6 +746,15 @@
         bg: [item.backdrop, item.poster], fb: { color: '#202024' }
       };
       }
+    }
+    // Karusel: while on the apps, the big line names the app; the art waits for the card row
+    if (S.layout === 'carousel' && S.zone !== 'shelf' && a && a.key !== SETTINGS_KEY) {
+      var first = showCards ? items[0] : null;
+      key = 'car:' + a.key;
+      info = { kicker: '', title: a.title, progress: -1, bg: [], fb: { ambient: ambientFor(a) },
+               sub: first ? 'Nastavi gledati: ' + first.name + (first.season ? ' · S' + first.season + ' · E' + first.episode : '') : '' };
+    } else if (info) {
+      // already set from the card row
     } else if (a && a.key === SETTINGS_KEY) {
       key = 'settings';
       info = { kicker: '', title: 'Postavke', sub: 'Stremio račun, skrivanje aplikacija i ostalo', progress: -1, bg: [], fb: { color: '#26262a' } };
@@ -787,25 +799,50 @@
     }
     var cards = document.querySelectorAll('.card');
     for (var j = 0; j < cards.length; j++) cards[j].classList.toggle('focus', S.zone === 'shelf' && j === S.card);
-    // keep the focused card on screen; the rest scroll in
-    var cstep = cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : 302;
-    var cview = L().cardView || 1692, cvis = Math.max(1, Math.floor((cview + 30) / cstep));
-    var maxX = Math.max(0, cards.length * cstep - 30 - cview);
-    var cx = S.zone === 'shelf' ? Math.min(maxX, Math.max(0, S.card - (cvis - 1)) * cstep) : 0;
-    $('#cards').style.transform = 'translateX(' + (-cx) + 'px)';
-    var r = rowOf(S.idx), lay = L();
-    if (lay.dock) {
-      // one row: slide it so the focused tile stays on screen
+    var lay = L(), r = rowOf(S.idx);
+    // card row/column/grid: keep the focused card on screen
+    var cardsEl = $('#cards'), ax = lay.cardAxis || 'h';
+    if (ax === 'h') {
+      var cstep = cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : 302;
+      var cview = lay.cardView || 1692, cvis = Math.max(1, Math.floor((cview + 30) / cstep));
+      var cmax = Math.max(0, cards.length * cstep - 30 - cview);
+      var cx = S.zone === 'shelf' ? Math.min(cmax, Math.max(0, S.card - (cvis - 1)) * cstep) : 0;
+      cardsEl.style.transform = 'translateX(' + (-cx) + 'px)';
+    } else {
+      var per = ax === 'grid3' ? 3 : 1;
+      var rstep = cards.length > per ? cards[per].offsetTop - cards[0].offsetTop : 0;
+      var row = Math.floor(S.card / per), cy = S.zone === 'shelf' ? Math.max(0, row - 1) * rstep : 0;
+      cardsEl.style.transform = 'translateY(' + (-cy) + 'px)';
+    }
+    var grid = $('#grid');
+    if (lay.mode === 'list') {
+      var lstep = tiles.length > 1 ? tiles[1].offsetTop - tiles[0].offsetTop : 101;
+      var lvis = Math.max(1, Math.floor(lay.listView / lstep));
+      var ly = Math.min(Math.max(0, tiles.length * lstep - lay.listView), Math.max(0, S.idx - (lvis - 2)) * lstep);
+      grid.style.transform = 'translateY(' + (-ly) + 'px)';
+    } else if (lay.mode === 'carousel') {
+      // focused app big in the middle, neighbours turned away in 3D
+      var OFF = [0, 420, 690, 880], SC = [1.6, 1, 0.74, 0.6], OP = [1, 0.85, 0.45, 0];
+      for (var t = 0; t < tiles.length; t++) {
+        var d = t - S.idx, ad = Math.min(3, Math.abs(d)), art = tiles[t].querySelector('.tile-art');
+        tiles[t].style.left = (810 + (d < 0 ? -1 : 1) * OFF[ad]) + 'px';
+        tiles[t].style.opacity = OP[ad];
+        tiles[t].style.zIndex = 10 - ad;
+        art.style.setProperty('--s', SC[ad]);
+        art.style.setProperty('--ry', d === 0 ? '0deg' : (d > 0 ? '-30deg' : '30deg'));
+      }
+      grid.style.transform = 'none';
+    } else if (lay.mode === 'dock') {
       var step = tiles.length > 1 ? tiles[1].offsetLeft - tiles[0].offsetLeft : 348;
-      var vis = Math.max(1, Math.floor((lay.view + 48) / step));
-      var maxX = Math.max(0, tiles.length * step - 48 - lay.view);
-      var gx = Math.min(maxX, Math.max(0, S.idx - (vis - 1)) * step);
-      $('#grid').style.transform = 'translateX(' + (-gx) + 'px)';
+      var gap = step - (tiles[0] ? tiles[0].offsetWidth : 300);
+      var vis = Math.max(1, Math.floor((lay.view + gap) / step));
+      var gmax = Math.max(0, tiles.length * step - gap - lay.view);
+      grid.style.transform = 'translateX(' + (-Math.min(gmax, Math.max(0, S.idx - (vis - 1)) * step)) + 'px)';
     } else {
       var y = (S.zone === 'shelf' || r === 0) ? 0 : (430 - 640 - r * ROW_H);
-      $('#grid').style.transform = 'translateY(' + y + 'px)';
+      grid.style.transform = 'translateY(' + y + 'px)';
     }
-    stage.classList.toggle('scrolled', S.zone !== 'shelf' && r > 0);
+    stage.classList.toggle('scrolled', !lay.mode && S.zone !== 'shelf' && r > 0);
     stage.classList.toggle('zone-shelf', S.zone === 'shelf');
     stage.classList.toggle('moving-mode', S.moving);
   }
@@ -821,6 +858,7 @@
   /* ---------- parallax tilt ---------- */
   function focusedTileEl() { return document.querySelectorAll('.tile')[S.idx]; }
   function nudge(dir) {
+    if (S.layout === 'carousel' || S.layout === 'sidebar') return;
     var el = focusedTileEl();
     if (!el) return;
     var art = el.querySelector('.tile-art');
@@ -835,6 +873,7 @@
     el._t = setTimeout(function () { art.style.setProperty('--rx', '0deg'); art.style.setProperty('--ry', '0deg'); }, 260);
   }
   function tiltFromPointer(el, ev) {
+    if (S.layout === 'carousel' || S.layout === 'sidebar') return;
     if (!el.classList.contains('focus')) return;
     var r = el.getBoundingClientRect();
     var px = (ev.clientX - r.left) / r.width - 0.5, py = (ev.clientY - r.top) / r.height - 0.5;
@@ -847,6 +886,7 @@
     sh.style.setProperty('--gy', ((py + 0.5) * 100 - 30).toFixed(0) + '%');
   }
   function resetTilt(el) {
+    if (S.layout === 'carousel' || S.layout === 'sidebar') return;
     var art = el.querySelector('.tile-art');
     art.style.setProperty('--rx', '0deg'); art.style.setProperty('--ry', '0deg');
   }
@@ -905,6 +945,10 @@
     }
     if (S.zone === 'grid') {
       var COLS = cols(), col = S.idx % COLS;
+      var ek = { up: KEY.UP, down: KEY.DOWN, right: KEY.RIGHT }[L().enter || 'up'];
+      if (k === ek && (ek !== KEY.UP || rowOf(S.idx) === 0) && shelfItems(S.list[S.idx]).length) {
+        S.zone = 'shelf'; S.card = 0; applyFocus(); updateShelf(); e.preventDefault(); return;
+      }
       if (k === KEY.LEFT && col > 0) setIdx(S.idx - 1, 'left');
       else if (k === KEY.RIGHT && col < COLS - 1 && S.idx + 1 < S.list.length) setIdx(S.idx + 1, 'right');
       else if (k === KEY.DOWN) {
@@ -921,12 +965,24 @@
       return;
     }
     if (S.zone === 'shelf') {
-      var n = shelfItems(S.list[S.idx]).length;
-      if (k === KEY.LEFT && S.card > 0) { S.card--; applyFocus(); updateShelf(); }
-      else if (k === KEY.RIGHT && S.card < n - 1) { S.card++; applyFocus(); updateShelf(); }
-      else if (k === KEY.DOWN || k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) { S.zone = 'grid'; applyFocus(); updateShelf(); }
-      else return;
+      var n = shelfItems(S.list[S.idx]).length, c = S.card, ax = L().cardAxis || 'h', out = false, to = c;
+      var exitKey = { up: KEY.DOWN, down: KEY.UP, right: KEY.LEFT }[L().enter || 'up'];
+      if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) out = true;
+      else if (ax === 'h') {
+        if (k === KEY.LEFT) to = c - 1; else if (k === KEY.RIGHT) to = c + 1;
+        else if (k === exitKey) out = true; else return;
+      } else if (ax === 'v') {
+        if (k === KEY.UP) to = c - 1;
+        else if (k === KEY.DOWN) { if (c < n - 1) to = c + 1; else out = true; }
+        else if (k === KEY.LEFT) out = true; else return;
+      } else {   // grid of 3 columns
+        if (k === KEY.LEFT) { if (c % 3) to = c - 1; else out = true; }
+        else if (k === KEY.RIGHT) { if (c % 3 < 2) to = c + 1; }
+        else if (k === KEY.UP) to = c - 3; else if (k === KEY.DOWN) to = c + 3; else return;
+      }
       e.preventDefault();
+      if (out) { S.zone = 'grid'; applyFocus(); updateShelf(); return; }
+      if (to >= 0 && to < n && to !== c) { S.card = to; applyFocus(); updateShelf(); }
     }
   }
   document.addEventListener('keydown', onKeyDown);
@@ -964,10 +1020,11 @@
   function applyLayout() {
     if (!LAYOUTS[S.layout]) S.layout = 'classic';
     LAYOUT_ORDER.forEach(function (k) { stage.classList.toggle('layout-' + k, S.layout === k); });
-    stage.classList.toggle('dock', !!L().dock);
+    stage.classList.toggle('dock', L().mode === 'dock');
     stage.style.setProperty('--dock-scale', L().scale || 1);
     if (S.list.length) renderGrid();
-    S.cardsFor = null; shelfKey = '';
+    S.cardsFor = null; shelfKey = ''; bgKey = '';
+    if (S.zone === 'shelf') S.zone = 'grid';
     updateShelf(true);
   }
 
@@ -1149,6 +1206,8 @@
     $('#clock').textContent = d.toLocaleTimeString('hr-HR', { hour: '2-digit', minute: '2-digit' });
     var ds = d.toLocaleDateString('hr-HR', { weekday: 'long', day: 'numeric', month: 'long' }).toLowerCase();
     $('#date').textContent = ds.charAt(0).toUpperCase() + ds.slice(1);
+    var h = d.getHours();
+    $('#greet').textContent = h >= 5 && h < 12 ? 'Dobro jutro' : (h >= 12 && h < 18 ? 'Dobar dan' : 'Dobra večer');
   }
   function fit() {
     var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
