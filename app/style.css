@@ -202,3 +202,79 @@ body {
 #stage.out #cover { opacity: 1; }
 #stage.leaving #cover { transition: opacity 180ms ease-out; }
 #stage.instant #cover { transition: none; }
+
+/* ================= layouts ================= */
+#bgblur, #dockbar, #shelf-hint { display: none; }
+
+/* one-row dock shared by Kino, Staklo, Posteri */
+#stage.dock #grid { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 300px; column-gap: 48px; row-gap: 0; }
+#stage.dock #grid-wrap { width: auto; transform-origin: 0 0; transform: scale(var(--dock-scale, 1)); }
+
+/* ---- Kino: the whole screen belongs to what you're watching ---- */
+#stage.layout-kino #bg-shade {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.35) 45%, rgba(0,0,0,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.85) 80%, #000 100%);
+}
+#stage.layout-kino #shelf-info, #stage.layout-kino #shelf.has-cards #shelf-info { top: 250px; width: 1000px; }
+#stage.layout-kino #shelf-title { font-size: 104px; font-weight: 800; line-height: .95; letter-spacing: -2px; margin-bottom: 22px; }
+#stage.layout-kino #shelf-logo { max-width: 720px; max-height: 210px; }
+#stage.layout-kino #shelf-progress { width: 520px; height: 7px; }
+#stage.layout-kino #shelf.has-cards #shelf-hint { display: block; margin-top: 30px; font-size: 22px; font-weight: 600; opacity: .7; }
+#stage.layout-kino.zone-shelf #shelf-hint { display: none !important; }
+#stage.layout-kino #cards { top: 610px; }
+#stage.layout-kino #shelf.has-cards #cards { opacity: 0; transform: translateY(30px); pointer-events: none; }
+#stage.layout-kino.zone-shelf #shelf.has-cards #cards { opacity: 1; transform: none; pointer-events: auto; }
+#stage.layout-kino #grid-wrap { top: 852px; transition: opacity 300ms ease; }
+#stage.layout-kino.zone-shelf #grid-wrap { opacity: .35; }
+
+/* ---- Staklo: artwork in a rounded card, apps on a glass bar ---- */
+#stage.layout-glass #bgblur {
+  display: block; position: absolute; left: 0; top: 0; width: 192px; height: 108px;
+  background: #111 center / cover no-repeat; transform-origin: 0 0; transform: scale(10.1);
+  filter: blur(4px) brightness(.5) saturate(1.3);
+}
+#stage.layout-glass #bg {
+  inset: auto; left: 114px; top: 150px; width: 1692px; height: 520px;
+  border-radius: 36px; overflow: hidden; box-shadow: 0 40px 90px rgba(0,0,0,.55);
+}
+#stage.layout-glass #bg-shade {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.3) 45%, rgba(0,0,0,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.6) 100%);
+}
+#stage.layout-glass #shelf { left: 178px; top: 150px; width: 1564px; height: 520px; }
+#stage.layout-glass #shelf-info, #stage.layout-glass #shelf.has-cards #shelf-info { top: 56px; width: 760px; }
+#stage.layout-glass #shelf-title { font-size: 76px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+#stage.layout-glass #cards { top: 343px; gap: 26px; }
+#stage.layout-glass .card { width: 236px; height: 133px; }
+#stage.layout-glass #dockbar {
+  display: block; position: absolute; left: 114px; right: 114px; bottom: 70px; height: 246px; border-radius: 40px;
+  background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.16); box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+}
+#stage.layout-glass #grid-wrap { left: 154px; top: 815px; width: 2015px; clip-path: inset(-90px 0 -90px 0); }
+#stage.layout-glass .tile-label { display: none; }
+
+/* ---- Posteri: big clock, what you're watching as posters ---- */
+#stage.layout-posters #bg { left: auto; right: 0; width: 1300px; height: 760px; }
+#stage.layout-posters #bg-shade {
+  background:
+    linear-gradient(90deg, #07070a 0%, rgba(7,7,10,.6) 35%, rgba(7,7,10,0) 70%),
+    linear-gradient(180deg, rgba(7,7,10,0) 40%, #07070a 92%);
+}
+#stage.layout-posters { background: #07070a; }
+#stage.layout-posters .bg-layer.on { opacity: .6; }
+#stage.layout-posters #topbar { left: 114px; right: auto; top: 70px; text-align: left; }
+#stage.layout-posters #clock { font-size: 120px; font-weight: 800; letter-spacing: -3px; line-height: 1; }
+#stage.layout-posters #date { font-size: 30px; font-weight: 500; margin-bottom: 6px; }
+#stage.layout-posters #shelf-info { display: none; }
+#stage.layout-posters #cards { top: 380px; gap: 34px; }
+#stage.layout-posters #cards::before {
+  content: "Nastavi gledati"; position: absolute; left: 0; top: -50px; font-size: 26px; font-weight: 700;
+}
+#stage.layout-posters .card { width: 220px; height: 330px; border-radius: 16px; transform-origin: bottom center; }
+#stage.layout-posters.zone-shelf .card.focus { transform: scale(1.1); }
+#stage.layout-posters #grid-wrap { top: 862px; }
+#stage.layout-posters #grid-wrap::before {
+  content: "Aplikacije"; position: absolute; left: 0; top: -60px; font-size: 32px; font-weight: 700; opacity: .8;
+}

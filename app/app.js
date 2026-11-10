@@ -7,7 +7,16 @@
   var AM = 'luna://com.webos.applicationManager';
   var STREMIO_API = 'https://api.strem.io/api/';
   var DEMO = typeof window.PalmServiceBridge === 'undefined';
-  var COLS = 5;
+  // layouts: classic = 5-column grid; the others put apps in one row (a dock)
+  var LAYOUTS = {
+    classic: { name: 'Klasično' },
+    kino:    { name: 'Kino', dock: true, scale: 0.82, view: 1692, cardView: 1692 },
+    glass:   { name: 'Staklo', dock: true, scale: 0.8, view: 2015, cardView: 1400 },
+    posters: { name: 'Posteri', dock: true, scale: 0.78, view: 2169, cardView: 1692 }
+  };
+  var LAYOUT_ORDER = ['classic', 'kino', 'glass', 'posters'];
+  function L() { return LAYOUTS[S.layout] || LAYOUTS.classic; }
+  function cols() { return L().dock ? Math.max(1, S.list.length) : 5; }
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
 
@@ -83,6 +92,7 @@
     order: store.get('order', []),
     hidden: store.get('hidden', []),
     cw: store.get('cw', []),  // stremio continue watching
+    layout: store.get('layout', 'classic'),
     authKey: store.get('authKey', ''),
     stremioUser: store.get('stremioUser', ''),
     zone: 'grid',             // grid | shelf | settings
@@ -343,8 +353,9 @@
   }
   function shelfItems(a) {
     if (!a || a.key === SETTINGS_KEY) return [];
-    if (isStremio(a)) return S.cw;
-    return S.appRows[a.id] || [];
+    var items = isStremio(a) ? S.cw : (S.appRows[a.id] || []);
+    if (!items.length && S.layout === 'posters') items = S.cw;
+    return items;
   }
   function activateItem(item) {
     if (!item) return;
@@ -628,7 +639,7 @@
       var pct = item.duration ? Math.min(100, Math.round(item.offset / item.duration * 100)) : 0;
       el.innerHTML = '<div class="card-title">' + esc(item.name) + (item.season ? ' · S' + item.season + 'E' + item.episode : '') + '</div>' +
         '<div class="card-bar"><div style="width:' + pct + '%"></div></div>';
-      setImage(el, [item.thumb, item.thumbFallback, item.poster]);
+      setImage(el, S.layout === 'posters' ? [item.poster, item.thumb, item.thumbFallback] : [item.thumb, item.thumbFallback, item.poster]);
       el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings' && !S.moving) { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
       // look the item up at click time: launch parameters are refreshed in the background
       el.addEventListener('click', function () { if (S.zone !== 'settings' && !S.moving) activateItem(shelfItems(S.list[S.idx])[i]); });
@@ -668,6 +679,9 @@
       layer.classList.add('on');
       $('#bg' + bgFront).classList.remove('on');
       bgFront = back;
+      var bl = $('#bgblur');
+      bl.style.backgroundImage = img.style.backgroundImage;
+      bl.style.backgroundColor = img.style.backgroundColor;
     });
   }
 
@@ -764,7 +778,7 @@
   }
 
   /* ---------- focus ---------- */
-  function rowOf(i) { return Math.floor(i / COLS); }
+  function rowOf(i) { return Math.floor(i / cols()); }
   function applyFocus() {
     var tiles = document.querySelectorAll('.tile');
     for (var i = 0; i < tiles.length; i++) {
@@ -773,14 +787,24 @@
     }
     var cards = document.querySelectorAll('.card');
     for (var j = 0; j < cards.length; j++) cards[j].classList.toggle('focus', S.zone === 'shelf' && j === S.card);
-    // keep the focused card on screen: 5 fit fully, the rest scroll in
-    var CARD_STEP = 302, maxX = Math.max(0, cards.length * CARD_STEP - 30 - 1692);
-    var cx = S.zone === 'shelf' ? Math.min(maxX, Math.max(0, S.card - 4) * CARD_STEP) : 0;
+    // keep the focused card on screen; the rest scroll in
+    var cstep = cards.length > 1 ? cards[1].offsetLeft - cards[0].offsetLeft : 302;
+    var cview = L().cardView || 1692, cvis = Math.max(1, Math.floor((cview + 30) / cstep));
+    var maxX = Math.max(0, cards.length * cstep - 30 - cview);
+    var cx = S.zone === 'shelf' ? Math.min(maxX, Math.max(0, S.card - (cvis - 1)) * cstep) : 0;
     $('#cards').style.transform = 'translateX(' + (-cx) + 'px)';
-
-    var r = rowOf(S.idx);
-    var y = (S.zone === 'shelf' || r === 0) ? 0 : (430 - 640 - r * ROW_H);
-    $('#grid').style.transform = 'translateY(' + y + 'px)';
+    var r = rowOf(S.idx), lay = L();
+    if (lay.dock) {
+      // one row: slide it so the focused tile stays on screen
+      var step = tiles.length > 1 ? tiles[1].offsetLeft - tiles[0].offsetLeft : 348;
+      var vis = Math.max(1, Math.floor((lay.view + 48) / step));
+      var maxX = Math.max(0, tiles.length * step - 48 - lay.view);
+      var gx = Math.min(maxX, Math.max(0, S.idx - (vis - 1)) * step);
+      $('#grid').style.transform = 'translateX(' + (-gx) + 'px)';
+    } else {
+      var y = (S.zone === 'shelf' || r === 0) ? 0 : (430 - 640 - r * ROW_H);
+      $('#grid').style.transform = 'translateY(' + y + 'px)';
+    }
     stage.classList.toggle('scrolled', S.zone !== 'shelf' && r > 0);
     stage.classList.toggle('zone-shelf', S.zone === 'shelf');
     stage.classList.toggle('moving-mode', S.moving);
@@ -874,13 +898,13 @@
       e.preventDefault();
       if (k === KEY.LEFT) moveTile(-1);
       else if (k === KEY.RIGHT) moveTile(1);
-      else if (k === KEY.UP) moveTile(-COLS);
-      else if (k === KEY.DOWN) moveTile(COLS);
+      else if (k === KEY.UP) moveTile(-cols());
+      else if (k === KEY.DOWN) moveTile(cols());
       else if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) endMove();
       return;
     }
     if (S.zone === 'grid') {
-      var col = S.idx % COLS;
+      var COLS = cols(), col = S.idx % COLS;
       if (k === KEY.LEFT && col > 0) setIdx(S.idx - 1, 'left');
       else if (k === KEY.RIGHT && col < COLS - 1 && S.idx + 1 < S.list.length) setIdx(S.idx + 1, 'right');
       else if (k === KEY.DOWN) {
@@ -937,6 +961,16 @@
     else if (S.zone === 'shelf') activateItem(shelfItems(S.list[S.idx])[S.card]);
   });
 
+  function applyLayout() {
+    if (!LAYOUTS[S.layout]) S.layout = 'classic';
+    LAYOUT_ORDER.forEach(function (k) { stage.classList.toggle('layout-' + k, S.layout === k); });
+    stage.classList.toggle('dock', !!L().dock);
+    stage.style.setProperty('--dock-scale', L().scale || 1);
+    if (S.list.length) renderGrid();
+    S.cardsFor = null; shelfKey = '';
+    updateShelf(true);
+  }
+
   /* ================= settings ================= */
   var SET = { rows: [], pos: 0, email: '', password: '', busy: false };
   function settingsRows() {
@@ -955,6 +989,13 @@
       rows.push({ type: 'input', name: 'password', label: 'Lozinka', inputType: 'password' });
       rows.push({ type: 'btn', label: SET.busy ? 'Prijavljujem…' : 'Prijavi se', act: doLogin });
     }
+    rows.push({ h: 'Izgled' });
+    rows.push({ type: 'btn', name: 'layout', label: 'Izgled početnog zaslona', value: L().name + '  ›', act: function () {
+      S.layout = LAYOUT_ORDER[(LAYOUT_ORDER.indexOf(S.layout) + 1) % LAYOUT_ORDER.length];
+      store.set('layout', S.layout);
+      applyLayout();
+      renderSettings();
+    } });
     rows.push({ h: 'Aplikacije' });
     rows.push({ note: 'Dugi pritisak na OK na ikoni pokreće premještanje. Ovdje možeš sakriti aplikacije.' });
     S.apps.forEach(function (a) {
@@ -1216,6 +1257,7 @@
   document.addEventListener('webOSRelaunch', onShow);
   document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { fadeIn(); refreshSoon(); } });
   fit();
+  applyLayout();
   fadeIn();
   tickClock();
   setInterval(tickClock, 10000);

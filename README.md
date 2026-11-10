@@ -34,6 +34,13 @@ trajno: obriši `06-dom-blank-home` i ponovno pokreni TV. Originalni LG Home i d
 
 LG Input Hook nije potreban (na webOS-u 11 ne zaustavlja Home tipku).
 
+## Izgled
+
+Postavke → "Izgled početnog zaslona" mijenja između: **Klasično** (mreža aplikacija),
+**Kino** (cijeli ekran za ono što gledaš, aplikacije u jednom redu), **Staklo** (slika u
+zaobljenoj kartici, aplikacije na staklenoj traci) i **Posteri** (veliki sat, "Nastavi gledati"
+kao posteri). Izbor se pamti.
+
 ## Isključivanje Doma
 
 Postavke → "Dom kao početni zaslon" (ili `/home/root/dom-ctl.sh off` / `on`): Home tipka se vraća
