@@ -391,6 +391,12 @@
       return '<div class="tile-art"><div class="tile-fill" style="background:linear-gradient(150deg,' + con.from + ',' + con.to + ')"></div>' +
         mark + '<div class="tile-gloss"></div><div class="tile-sheen"></div></div><div class="tile-label">' + esc(a.title) + '</div>';
     }
+    // Stremio with a custom (white) sign: brand gradient + sign + name
+    if (a.customIcon && isStremio(a)) {
+      return '<div class="tile-art"><div class="tile-fill" style="background:linear-gradient(160deg,#7b5cf5,#2a4fd6)"></div>' +
+        '<div class="tile-brand"><img src="' + esc(a.customIcon) + '" alt=""><span>Stremio</span></div>' +
+        '<div class="tile-gloss"></div><div class="tile-sheen"></div></div><div class="tile-label">' + esc(a.title) + '</div>';
+    }
     var look = iconLooks[iconKey(a.icon)];
     var fill = look && look.color ? look.color : (a.color || '#3a3a3c');
     var art = '<div class="tile-fill" style="background:' + esc(fill) + '"></div>';

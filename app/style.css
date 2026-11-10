@@ -109,6 +109,9 @@ body {
 .tile.m-trans .tile-icon { width: 120px; height: 120px; margin: -60px 0 0 -60px; filter: drop-shadow(0 6px 14px rgba(0,0,0,.4)); }
 .tile-pad { position: absolute; left: 50%; top: 50%; width: 132px; height: 80px; margin: -40px 0 0 -66px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.3)); }
 .tile-conicon { position: absolute; left: 50%; top: 50%; width: 170px; height: 110px; margin: -55px 0 0 -85px; object-fit: contain; }
+.tile-brand { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.tile-brand img { height: 60px; width: auto; }
+.tile-brand span { font-size: 38px; font-weight: 700; letter-spacing: -0.5px; color: #fff; }
 .tile-gloss {
   position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 45%);
