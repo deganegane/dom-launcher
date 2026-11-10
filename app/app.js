@@ -209,7 +209,8 @@
     var k;
     for (k in app.params) params[k] = app.params[k];
     if (extraParams) for (k in extraParams) params[k] = extraParams[k];
-    luna(AM + '/launch', { id: app.id, params: params }).catch(function (e) { toast('Ne mogu pokrenuti ' + app.title + ': ' + e.message); });
+    leaving();
+    luna(AM + '/launch', { id: app.id, params: params }).catch(function (e) { fadeIn(true); toast('Ne mogu pokrenuti ' + app.title + ': ' + e.message); });
   }
 
   /* ================= stremio ================= */
@@ -396,6 +397,7 @@
     // Stremio on webOS ignores deep links, so start it fresh (focus lands on its
     // Continue Watching row) and let dom-keys.js press the remote buttons to the item.
     toast('Otvaram ' + item.name + '…');
+    setTimeout(leaving, 600);
     exec('luna-send -n 1 luna://com.webos.service.applicationManager/closeByAppId ' + shq(JSON.stringify({ id: app.id })) + ' >/dev/null 2>&1; sleep 0.5; ' +
          'luna-send -n 1 luna://com.webos.applicationManager/launch ' + shq(JSON.stringify({ id: app.id, params: { contentTarget: 'stremio:///' + path } })) + ' >/dev/null 2>&1; ' +
          'N=$(command -v node || echo /usr/bin/node); nohup "$N" /home/root/dom-keys.js play ' + index + ' > /tmp/dom-keys.log 2>&1 &', 15000)
@@ -1127,9 +1129,18 @@
   // returning from an app: start black and fade in, so the hand-over reads as a transition
   var lastFade = 0;
   function fadeOutNow() { stage.classList.add('instant'); stage.classList.add('out'); }
-  function fadeIn() {
-    if (Date.now() - lastFade < 800) return;
+  // Going to an app: fade to black while we are still on screen, so black is the
+  // last frame the TV keeps of us (otherwise the old screen flashes on return).
+  function leaving() {
+    stage.classList.remove('instant');
+    stage.classList.add('leaving'); stage.classList.add('out');
+    // the app never covered us (failed, or it's an overlay): come back
+    setTimeout(function () { if (!document.hidden && stage.classList.contains('leaving')) fadeIn(true); }, 4000);
+  }
+  function fadeIn(force) {
+    if (!force && Date.now() - lastFade < 800) return;
     lastFade = Date.now();
+    stage.classList.remove('leaving');
     fadeOutNow();
     void stage.offsetWidth;
     var go = function () { stage.classList.remove('instant'); void stage.offsetWidth; stage.classList.remove('out'); };

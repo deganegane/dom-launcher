@@ -193,8 +193,9 @@ body {
 #toast.on { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- fade-in when the launcher is shown ---------- */
-#stage { transition: opacity 420ms ease; }
+#stage { transition: opacity 700ms ease; }
+#stage.leaving { transition: opacity 220ms ease; }
 #stage.out { opacity: 0; }
-#grid-wrap { transition: transform 520ms cubic-bezier(.2,.8,.2,1); }
+#grid-wrap { transition: transform 800ms cubic-bezier(.2,.8,.2,1); }
 #stage.out #grid-wrap { transform: translateY(26px); }
 #stage.instant, #stage.instant #grid-wrap { transition: none; }
