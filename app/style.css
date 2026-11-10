@@ -192,10 +192,13 @@ body {
 }
 #toast.on { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---------- fade-in when the launcher is shown ---------- */
-#stage { transition: opacity 700ms ease; }
-#stage.leaving { transition: opacity 220ms ease; }
-#stage.out { opacity: 0; }
-#grid-wrap { transition: transform 800ms cubic-bezier(.2,.8,.2,1); }
-#stage.out #grid-wrap { transform: translateY(26px); }
-#stage.instant, #stage.instant #grid-wrap { transition: none; }
+/* ---------- fade through black when leaving / returning ----------
+   A single black layer fades over everything: only that layer's alpha
+   animates, so the TV doesn't have to redraw the whole screen each frame. */
+#cover {
+  position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 50;
+  will-change: opacity; transition: opacity 600ms cubic-bezier(.33,0,.2,1);
+}
+#stage.out #cover { opacity: 1; }
+#stage.leaving #cover { transition: opacity 180ms ease-out; }
+#stage.instant #cover { transition: none; }

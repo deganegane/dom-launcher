@@ -1160,17 +1160,30 @@
     if (window.requestAnimationFrame) requestAnimationFrame(go); else go();
     setTimeout(go, 150);   // in case no frame is produced
   }
+  // Do the heavy refreshing after the fade, so the animation isn't competing with it.
+  var refreshTimer;
+  function refreshSoon() {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      if (!DEMO) exec('rm -f /tmp/dom-allow-home; [ -f /var/lib/webosbrew/init.d/06-dom-blank-home ] && [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh on').catch(function () {});
+      reloadApps();
+      refreshStremio(false);
+      refreshAppContents(false);
+    }, 750);
+  }
+  var wasAway = false;
   function onShow() {
     bringToFront();
-    fadeIn();
-    if (!DEMO) exec('rm -f /tmp/dom-allow-home; [ -f /var/lib/webosbrew/init.d/06-dom-blank-home ] && [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh on').catch(function () {});
+    var back = wasAway || stage.classList.contains('out');
+    wasAway = false;
     if (S.zone === 'settings') closeSettings();
     if (S.moving) endMove();
     S.zone = 'grid';
-    setIdx(0);
-    reloadApps();
-    refreshStremio(false);
-    refreshAppContents(false);
+    // coming back from an app: stay on its tile (nothing jumps during the fade);
+    // Home pressed while already here: go to the first tile
+    if (back) applyFocus(); else setIdx(0);
+    fadeIn();
+    refreshSoon();
   }
 
   /* ================= demo data (browser preview) ================= */
@@ -1201,7 +1214,7 @@
   /* ================= boot ================= */
   window.addEventListener('resize', fit);
   document.addEventListener('webOSRelaunch', onShow);
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) fadeOutNow(); else { fadeIn(); refreshStremio(false); refreshAppContents(false); reloadApps(); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { fadeIn(); refreshSoon(); } });
   fit();
   fadeIn();
   tickClock();
