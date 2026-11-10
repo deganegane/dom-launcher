@@ -5,7 +5,6 @@
 #    creates /tmp/dom-allow-home first.
 #  - while another app is in front, grab a frame of the screen every ~20s so
 #    Dom can show "what you were just watching" as that app's background.
-# Polls instead of subscribing: luna-send block-buffers its output in a pipe.
 APPID="com.deganegane.dom"
 HOME_ID="com.webos.app.home"
 FLAG="/tmp/dom-allow-home"
@@ -50,41 +49,48 @@ skip_capture() {
 }
 
 log "start"
-last=""
-allowed=0   # LG Home was opened on purpose
-tries=0     # launch attempts while LG Home stays in front
-ticks=0
-cap=0       # polls since last capture
+FG="/tmp/dom-fg"
+: > "$FG"
+
+# --- frames of what is being watched: first one ~8s after an app opens, then every ~20s
+(
+  lastfg=""; n=0
+  while true; do
+    sleep 4
+    fg=$(cat "$FG" 2>/dev/null)
+    if [ "$fg" != "$lastfg" ]; then lastfg="$fg"; n=0; fi
+    n=$((n + 1))
+    if ! skip_capture "$fg" && [ $((n % 5)) -eq 2 ]; then capture "$fg"; fi
+  done
+) &
+
+# --- Home: the system tells us the moment the foreground app changes (subscription),
+#     so Dom is brought up right away instead of at the next poll.
 while true; do
-  out=$(luna-send -n 1 -w 1500 luna://com.webos.applicationManager/getForegroundAppInfo '{}' 2>/dev/null)
-  app=$(echo "$out" | sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p')
-  if [ "$app" != "$last" ]; then
-    last="$app"
+  luna-send -i luna://com.webos.applicationManager/getForegroundAppInfo '{"subscribe":true}' 2>/dev/null |
+  while read -r line; do
+    app=$(echo "$line" | sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p')
+    [ "$app" = "$(cat "$FG" 2>/dev/null)" ] && continue
+    echo "$app" > "$FG"
     log "foreground: ${app:-?}"
-    tries=0; ticks=0; allowed=0; cap=30   # first frame ~8s after an app opens
     if [ "$app" = "$HOME_ID" ]; then
       if [ -f "$FLAG" ]; then
-        rm -f "$FLAG"; allowed=1
+        rm -f "$FLAG"
         log "LG Home allowed"
       else
-        launch_dom; tries=1
+        launch_dom
         log "-> launched Dom"
+        # if LG Home is somehow still in front, try a few more times
+        (
+          for t in 2 3 4; do
+            sleep 1.2 2>/dev/null || sleep 1
+            [ "$(cat "$FG" 2>/dev/null)" = "$HOME_ID" ] || exit 0
+            launch_dom; log "-> retry $t"
+          done
+        ) &
       fi
     fi
-  elif [ "$app" = "$HOME_ID" ] && [ $allowed -eq 0 ] && [ $tries -gt 0 ] && [ $tries -lt 4 ]; then
-    # Dom didn't come up yet: retry every ~1.2s, at most 3 more times
-    ticks=$((ticks + 1))
-    if [ $ticks -ge 3 ]; then
-      ticks=0; tries=$((tries + 1))
-      launch_dom
-      log "-> retry $tries"
-    fi
-  elif ! skip_capture "$app"; then
-    cap=$((cap + 1))
-    if [ $cap -ge 50 ]; then
-      cap=0
-      capture "$app"
-    fi
-  fi
-  sleep 0.4 2>/dev/null || sleep 1
+  done
+  log "subscription ended, restarting"
+  sleep 2
 done
