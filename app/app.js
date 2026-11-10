@@ -10,7 +10,6 @@
   var COLS = 5;
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
-  var BOOT = Date.now();
 
   var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461, BKSP: 8, ESC: 27 };
 
@@ -37,6 +36,7 @@
       b.onservicecallback = function (msg) {
         if (done) return;
         clearTimeout(t); finish();
+        try { b.cancel(); } catch (e2) {}
         var r; try { r = JSON.parse(msg); } catch (e) { return reject(e); }
         if (r.returnValue === false) reject(new Error(r.errorText || ('Greška: ' + uri)));
         else resolve(r);
@@ -53,15 +53,18 @@
     });
   }
   // Try the call directly; if the sandbox denies it, run it as root through Homebrew Channel.
+  var needsRoot = {};   // calls the sandbox denied once go straight to the root shell next time
   function luna(uri, params) {
     if (DEMO) return Promise.reject(new Error('demo'));
-    return lunaDirect(uri, params).catch(function () {
+    var viaRoot = function () {
       return exec('luna-send -n 1 -w 8000 ' + uri + ' ' + shq(JSON.stringify(params || {}))).then(function (out) {
         var r = JSON.parse(out.trim());
         if (r.returnValue === false) throw new Error(r.errorText || 'Greška');
         return r;
       });
-    });
+    };
+    if (needsRoot[uri]) return viaRoot();
+    return lunaDirect(uri, params).catch(function () { needsRoot[uri] = true; return viaRoot(); });
   }
   function postJSON(url, body) {
     return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -168,9 +171,7 @@
         var sh = /^SHOT\|(.*)\|(.*)\|(\d*)$/.exec(line.trim());
         if (sh && byKey[sh[1]]) byKey[sh[1]].shot = 'cache/' + sh[2] + '?t=' + sh[3];
       });
-      var v = '?v=' + BOOT;
       apps.forEach(function (a) { if (a.customIcon) { a.fallbackIcon = a.icon; a.icon = a.customIcon; a.iconDirect = ''; } });
-      apps.forEach(function (a) { if (/^cache\//.test(a.icon)) a.icon += v; if (/^cache\//.test(a.bg)) a.bg += v; });
       return apps;
     }).catch(function () {
       // no root service: fall back to direct paths (works for system apps on some firmwares)
@@ -247,7 +248,8 @@
     if (c && Date.now() - c.t < 6 * 3600 * 1000) return Promise.resolve(c.v);
     return getJSON(CINEMETA + 'series/' + id + '.json').then(function (r) {
       var v = ((r.meta && r.meta.videos) || []).filter(function (x) { return x.released && x.season > 0; })
-        .map(function (x) { return { id: x.id, s: x.season, e: x.episode || x.number, r: Date.parse(x.released) }; });
+        .map(function (x) { return { id: x.id, s: x.season, e: x.episode || x.number, r: Date.parse(x.released) }; })
+        .sort(function (a, b) { return b.r - a.r; }).slice(0, 40);
       metaCache[id] = { t: Date.now(), v: v };
       store.set('metaCache', metaCache);
       return v;
@@ -270,6 +272,9 @@
         return { id: it._id, newest: fresh[0] };
       });
     })).then(function (res) {
+      // drop cached metadata of series that are no longer candidates
+      var keep = {}; notifCands.forEach(function (it) { keep[it._id] = 1; });
+      Object.keys(metaCache).forEach(function (k) { if (!keep[k]) delete metaCache[k]; });
       var notif = {};
       res.forEach(function (n) { if (n) notif[n.id] = n.newest; });
       var list = lib.filter(function (it) { return inCW(it) || notif[it._id]; }).map(function (it) {
@@ -325,11 +330,12 @@
         });
         rows[appId] = items;
       });
-      S.appRows = rows;
+      var sig = function (o) { return JSON.stringify(Object.keys(o).sort().map(function (k) { return [k, o[k].map(function (i) { return i.name + '|' + i.kicker; })]; })); };
+      var changed = sig(rows) !== sig(S.appRows);
+      S.appRows = rows;   // always keep the fresh launch parameters (they expire)
       store.set('appRows', rows);
       preloadCW([].concat.apply([], Object.keys(rows).map(function (k) { return rows[k]; })));
-      S.cardsFor = null;
-      updateShelf(true);
+      if (changed) { S.cardsFor = null; updateShelf(true); }
     }).catch(function (e) { console.log('appContents', e); });
   }
   function shelfItems(a) {
@@ -360,10 +366,11 @@
         return buildContinueWatching(r.result || []);
       })
       .then(function (items) {
+        if (JSON.stringify(items) === JSON.stringify(S.cw)) return;
         S.cw = items;
         store.set('cw', items);
         preloadCW(items);
-        renderCards();
+        S.cardsFor = null;
         updateShelf(true);
       })
       .catch(function (e) { console.log('stremio', e); });
@@ -487,7 +494,7 @@
         var ring = Math.min(i, j, n - 1 - i, n - 1 - j);
         if (ring !== 1) continue;                // outermost ring: background, not the logo
         var ci = Math.min(i, n - 1 - i), cj = Math.min(j, n - 1 - j);
-        if (ci < 9 && cj < 9) continue;          // skip rounded corners               // a ring just inside the edge (skips rounded corners' outer pixels)
+        if (ci < 9 && cj < 9) continue;          // skip rounded corners
         var k = (j * n + i) * 4; tot++;
         if (d[k + 3] < 200) { transp++; continue; }
         px.push([d[k], d[k + 1], d[k + 2]]);
@@ -553,7 +560,12 @@
     img.style.top = Math.round(TILE_H / 2 - (b.y + b.h / 2) * H) + 'px';
   }
   var saveLooksTimer;
+  var gridSig = '';
+  function tileSig(list) {
+    return JSON.stringify(list.map(function (a) { return [a.key, a.title, a.icon, a.color, a.customIcon || '']; }));
+  }
   function renderGrid() {
+    gridSig = tileSig(S.list);
     var g = $('#grid');
     g.innerHTML = '';
     S.list.forEach(function (a, i) {
@@ -568,14 +580,20 @@
       if (img) {
         applyLook(el, iconLooks[iconKey(a.icon)] || (a.color ? { mode: 'solid' } : { mode: 'trans' }));
         img.onload = function () {
+          var src = img.getAttribute('src'), k = iconKey(src), old = iconLooks[k];
+          if (old && old.src === src) return;   // already analysed this exact file
           var done = function (look) {
             // canvas unavailable: custom icons carry their own background, show them edge to edge
             if (!look && a.customIcon) look = { mode: 'photo' };
             if (!look) return;
+            look.src = src;
             applyLook(el, look);
-            iconLooks[iconKey(a.icon)] = look;
+            iconLooks[k] = look;
             clearTimeout(saveLooksTimer);
             saveLooksTimer = setTimeout(function () { store.set('iconLooks3', iconLooks); }, 1500);
+            // the ambient background uses the icon's colour: refresh it if this tile is focused
+            var cur = S.list[S.idx];
+            if (cur && cur.key === a.key && (!old || old.accent !== look.accent || old.color !== look.color)) { shelfKey = ''; bgKey = ''; updateShelf(); }
           };
           var look = analyzeIcon(img);
           if (look) return done(look);
@@ -600,54 +618,52 @@
     var cur = S.list[S.idx];
     var items = shelfItems(cur);
     S.cardsFor = cur ? cur.key : null;
-    items.slice(0, 6).forEach(function (item, i) {
+    items.forEach(function (item, i) {
       var el = document.createElement('div');
       el.className = 'card';
       var pct = item.duration ? Math.min(100, Math.round(item.offset / item.duration * 100)) : 0;
       el.innerHTML = '<div class="card-title">' + esc(item.name) + (item.season ? ' · S' + item.season + 'E' + item.episode : '') + '</div>' +
         '<div class="card-bar"><div style="width:' + pct + '%"></div></div>';
       setImage(el, [item.thumb, item.thumbFallback, item.poster]);
-      el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings') { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
-      el.addEventListener('click', function () { activateItem(item); });
+      el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings' && !S.moving) { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
+      // look the item up at click time: launch parameters are refreshed in the background
+      el.addEventListener('click', function () { if (S.zone !== 'settings' && !S.moving) activateItem(shelfItems(S.list[S.idx])[i]); });
       c.appendChild(el);
     });
-    if (S.card >= items.length) S.card = Math.max(0, Math.min(5, items.length - 1));
+    if (S.card >= items.length) S.card = Math.max(0, items.length - 1);
   }
-  // set background-image using the first URL that actually loads
-  function setImage(el, urls, onDone) {
+  // first URL that actually loads (synchronously when it's already preloaded)
+  function firstImage(urls, cb) {
     urls = urls.filter(Boolean);
+    var p = urls.length && preloaded[urls[0]];
+    if (p && p.complete && p.naturalWidth > 0) return cb(urls[0]);
     (function next(i) {
-      if (i >= urls.length) { if (onDone) onDone(false); return; }
+      if (i >= urls.length) return cb(null);
       var im = new Image();
-      im.onload = function () { el.style.backgroundImage = 'url("' + urls[i] + '")'; if (onDone) onDone(true); };
+      im.onload = function () { cb(urls[i]); };
       im.onerror = function () { next(i + 1); };
       im.src = urls[i];
     })(0);
   }
+  function setImage(el, urls) {
+    firstImage(urls, function (u) { if (u) el.style.backgroundImage = 'url("' + u + '")'; });
+  }
 
   /* ---------- background ---------- */
   var bgFront = 'A', bgKey = '';
-  function setBackground(key, urls, blurredFallback) {
+  function setBackground(key, urls, fb) {
     if (key === bgKey) return;
     bgKey = key;
-    var back = bgFront === 'A' ? 'B' : 'A';
-    var layer = $('#bg' + back), img = layer.querySelector('.bg-img');
-    img.className = 'bg-img';
-    img.style.backgroundImage = '';
-    img.style.backgroundColor = '#111';
-    var show = function () {
-      if (bgKey !== key) return;
+    firstImage(urls, function (u) {
+      if (bgKey !== key) return;   // a newer background was requested meanwhile
+      var back = bgFront === 'A' ? 'B' : 'A';
+      var layer = $('#bg' + back), img = layer.querySelector('.bg-img');
+      img.className = 'bg-img' + (u && fb && fb.soft ? ' soft' : '');
+      img.style.backgroundImage = u ? 'url("' + u + '")' : ((fb && fb.ambient) || '');
+      img.style.backgroundColor = u ? '#111' : ((fb && fb.color) || '#0b0b0d');
       layer.classList.add('on');
       $('#bg' + bgFront).classList.remove('on');
       bgFront = back;
-    };
-    setImage(img, urls, function (ok) {
-      if (ok && blurredFallback && blurredFallback.soft) img.className = 'bg-img soft';
-      if (!ok) {
-        if (blurredFallback && blurredFallback.ambient) img.style.backgroundImage = blurredFallback.ambient;
-        img.style.backgroundColor = (blurredFallback && blurredFallback.color) || '#0b0b0d';
-      }
-      show();
     });
   }
 
@@ -659,7 +675,6 @@
     return m ? [+m[1], +m[2], +m[3]] : null;
   }
   function brandColor(a) {
-    var t = (a.title || '') + ' ' + (a.id || '');
     var con = consoleOf(a);
     if (con) return con.rgb.slice();
     var look = iconLooks[iconKey(a.icon)] || {};
@@ -691,7 +706,8 @@
     var shelf = $('#shelf');
     var items = shelfItems(a);
     var showCards = items.length > 0;
-    if (a && S.cardsFor !== a.key) renderCards();
+    if (a && S.cardsFor !== a.key) { renderCards(); applyFocus(); }
+    if (S.zone === 'shelf' && !showCards) { S.zone = 'grid'; applyFocus(); }
     shelf.classList.toggle('has-cards', showCards);
 
     var key, info;
@@ -753,6 +769,10 @@
     }
     var cards = document.querySelectorAll('.card');
     for (var j = 0; j < cards.length; j++) cards[j].classList.toggle('focus', S.zone === 'shelf' && j === S.card);
+    // keep the focused card on screen: 5 fit fully, the rest scroll in
+    var CARD_STEP = 302, maxX = Math.max(0, cards.length * CARD_STEP - 30 - 1692);
+    var cx = S.zone === 'shelf' ? Math.min(maxX, Math.max(0, S.card - 4) * CARD_STEP) : 0;
+    $('#cards').style.transform = 'translateX(' + (-cx) + 'px)';
 
     var r = rowOf(S.idx);
     var y = (S.zone === 'shelf' || r === 0) ? 0 : (430 - 640 - r * ROW_H);
@@ -872,7 +892,7 @@
       return;
     }
     if (S.zone === 'shelf') {
-      var n = Math.min(6, shelfItems(S.list[S.idx]).length);
+      var n = shelfItems(S.list[S.idx]).length;
       if (k === KEY.LEFT && S.card > 0) { S.card--; applyFocus(); updateShelf(); }
       else if (k === KEY.RIGHT && S.card < n - 1) { S.card++; applyFocus(); updateShelf(); }
       else if (k === KEY.DOWN || k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) { S.zone = 'grid'; applyFocus(); updateShelf(); }
@@ -901,8 +921,10 @@
     onKeyDown({ keyCode: k, preventDefault: function () {} });
   }, { passive: false });
   document.addEventListener('keyup', function (e) {
-    if (e.keyCode !== KEY.OK || S.zone === 'settings') return;
+    if (e.keyCode !== KEY.OK) return;
+    if (!okHeld) return;               // press began elsewhere (e.g. in Settings, or before we were shown)
     okHeld = false;
+    if (S.zone === 'settings') return;
     clearTimeout(okTimer);
     if (okLong) return;
     if (S.moving) { endMove(); return; }
@@ -911,7 +933,7 @@
   });
 
   /* ================= settings ================= */
-  var SET = { rows: [], idx: 0, email: '', password: '', busy: false };
+  var SET = { rows: [], pos: 0, email: '', password: '', busy: false };
   function settingsRows() {
     var rows = [];
     rows.push({ h: 'Stremio' });
@@ -956,8 +978,9 @@
     return rows;
   }
   function renderSettings() {
-    var prevName = SET.rows[SET.idx] && (SET.rows[SET.idx].label + (SET.rows[SET.idx].name || ''));
-    SET.rows = settingsRows().filter(function (r) { return true; });
+    var rowId = function (r) { return r ? (r.app ? 'app:' + r.app.key : (r.name ? 'in:' + r.name : '')) : ''; };
+    var prevName = rowId(SET.rows[(SET.focusables || [])[SET.pos]]);
+    SET.rows = settingsRows();
     var html = '<div id="settings-scroll">';
     var focusables = [];
     SET.rows.forEach(function (r, i) {
@@ -977,9 +1000,8 @@
     $('#settings-body').innerHTML = html;
     SET.focusables = focusables;
     // keep focus on the same row if possible
-    var pos = 0;
-    focusables.forEach(function (ri, p) { var r = SET.rows[ri]; if ((r.label + (r.name || '')) === prevName) pos = p; });
-    SET.pos = Math.min(SET.pos != null && !prevName ? SET.pos : pos, focusables.length - 1);
+    if (prevName) focusables.forEach(function (ri, p) { if (rowId(SET.rows[ri]) === prevName) SET.pos = p; });
+    SET.pos = Math.max(0, Math.min(SET.pos || 0, focusables.length - 1));
     var inputs = document.querySelectorAll('#settings-body input');
     for (var j = 0; j < inputs.length; j++) {
       inputs[j].addEventListener('input', function (ev) { SET[ev.target.dataset.name] = ev.target.value; });
@@ -1075,15 +1097,24 @@
     var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
     stage.style.transform = 'translate(' + ((window.innerWidth - 1920 * s) / 2) + 'px,' + ((window.innerHeight - 1080 * s) / 2) + 'px) scale(' + s + ')';
   }
+  var reloading = null;
   function reloadApps() {
-    return loadApps().then(function (apps) {
+    if (reloading) return reloading;   // relaunch + visibility events arrive together
+    reloading = loadApps().then(function (apps) {
+      reloading = null;
       S.apps = apps;
+      if (!DEMO) store.set('appsCache', apps);
+      if (S.moving) return;            // don't reshuffle under the user's hands
+      var cur = S.list[S.idx] && S.list[S.idx].key;
       buildList();
-      renderGrid();
-      updateShelf(true);
+      for (var i = 0; i < S.list.length; i++) if (S.list[i].key === cur) S.idx = i;
+      if (tileSig(S.list) !== gridSig) renderGrid(); else applyFocus();
+      updateShelf();
     }).catch(function (e) {
-      toast('Ne mogu učitati aplikacije: ' + e.message);
+      reloading = null;
+      if (!S.apps.length) toast('Ne mogu učitati aplikacije: ' + e.message);
     });
+    return reloading;
   }
   // handlesRelaunch=true: the TV only brings us to the front after activate()
   function bringToFront() {
@@ -1131,12 +1162,15 @@
   /* ================= boot ================= */
   window.addEventListener('resize', fit);
   document.addEventListener('webOSRelaunch', onShow);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) { refreshStremio(false); refreshAppContents(false); reloadApps(); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (!document.hidden) { refreshStremio(false); refreshAppContents(false); reloadApps(); } });
   fit();
   tickClock();
   setInterval(tickClock, 10000);
   preloadCW(S.cw);
-  renderCards();
+  preloadCW([].concat.apply([], Object.keys(S.appRows).map(function (k) { return S.appRows[k]; })));
+  // show the last known apps immediately; the fresh list replaces them if anything changed
+  var cachedApps = DEMO ? null : store.get('appsCache', null);
+  if (cachedApps && cachedApps.length) { S.apps = cachedApps; buildList(); renderGrid(); drawShelf(); }
   reloadApps().then(function () { refreshStremio(true); refreshAppContents(true); });
   setInterval(function () { if (!document.hidden) { refreshStremio(false); refreshAppContents(false); } }, 5 * 60 * 1000);
 })();

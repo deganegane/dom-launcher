@@ -83,6 +83,7 @@ body {
 /* ---------- grid ---------- */
 #grid-wrap { position: absolute; left: 114px; top: 640px; width: 1692px; }
 #grid {
+  will-change: transform;
   display: grid; grid-template-columns: repeat(5, 300px); column-gap: 48px; row-gap: 92px;
   transition: transform 450ms cubic-bezier(.2,.8,.2,1);
 }
