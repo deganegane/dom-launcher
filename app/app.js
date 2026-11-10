@@ -230,6 +230,65 @@
       logo: imdb ? 'https://images.metahub.space/logo/medium/' + imdb + '/img' : ''
     };
   }
+  // Same rules as Stremio's own Continue Watching row (stremio-core
+  // continue_watching_preview): items with progress OR a new-episode
+  // notification, newest first by notification release date, else by _mtime.
+  var CINEMETA = 'https://v3-cinemeta.strem.io/meta/';
+  var metaCache = store.get('metaCache', {});
+  function getJSON(u) {
+    return fetch(u).then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .catch(function (err) {
+        if (DEMO) throw err;
+        return exec('curl -s -m 15 ' + shq(u)).then(function (out) { return JSON.parse(out); });
+      });
+  }
+  function seriesVideos(id) {
+    var c = metaCache[id];
+    if (c && Date.now() - c.t < 6 * 3600 * 1000) return Promise.resolve(c.v);
+    return getJSON(CINEMETA + 'series/' + id + '.json').then(function (r) {
+      var v = ((r.meta && r.meta.videos) || []).filter(function (x) { return x.released && x.season > 0; })
+        .map(function (x) { return { id: x.id, s: x.season, e: x.episode || x.number, r: Date.parse(x.released) }; });
+      metaCache[id] = { t: Date.now(), v: v };
+      store.set('metaCache', metaCache);
+      return v;
+    }).catch(function () { return []; });
+  }
+  function buildContinueWatching(all) {
+    var now = Date.now();
+    var lib = all.filter(function (it) { return it.type !== 'other' && it.state && !/^yt_id|^live/.test(it._id); });
+    var inCW = function (it) { return (!it.removed || it.temp) && it.state.timeOffset > 0; };
+    // series that may have a new episode since last watched
+    var notifCands = lib.filter(function (it) {
+      return it.type === 'series' && !it.removed && !it.temp && !it.state.noNotif && /^tt\d+$/.test(it._id) && it.state.lastWatched;
+    }).sort(function (a, b) { return Date.parse(b._mtime || 0) - Date.parse(a._mtime || 0); }).slice(0, 20);
+    return Promise.all(notifCands.map(function (it) {
+      var since = Date.parse(it.state.lastWatched);
+      return seriesVideos(it._id).then(function (videos) {
+        var fresh = videos.filter(function (v) { return v.r > since && v.r <= now; });
+        if (!fresh.length) return null;
+        fresh.sort(function (a, b) { return b.r - a.r; });
+        return { id: it._id, newest: fresh[0] };
+      });
+    })).then(function (res) {
+      var notif = {};
+      res.forEach(function (n) { if (n) notif[n.id] = n.newest; });
+      var list = lib.filter(function (it) { return inCW(it) || notif[it._id]; }).map(function (it) {
+        var n = notif[it._id];
+        var item = mapItem(it);
+        item.sortTime = n ? n.r : Date.parse(it._mtime || 0);
+        if (n && !(it.state.timeOffset > 0)) {
+          // no progress: show the new episode
+          item.isNew = true; item.season = n.s; item.episode = n.e; item.videoId = n.id;
+          var imdb = imdbOf(it._id);
+          item.thumb = 'https://episodes.metahub.space/' + imdb + '/' + n.s + '/' + n.e + '/w780.jpg';
+        }
+        return item;
+      });
+      list.sort(function (a, b) { return b.sortTime - a.sortTime; });
+      return list.slice(0, 10);
+    });
+  }
+
   function refreshStremio(force) {
     if (!S.authKey) return Promise.resolve();
     var now = Date.now();
@@ -238,11 +297,9 @@
     return postJSON(STREMIO_API + 'datastoreGet', { authKey: S.authKey, collection: 'libraryItem', ids: [], all: true })
       .then(function (r) {
         if (r.error) throw new Error(r.error.message || 'Stremio greška');
-        var items = (r.result || []).filter(function (it) {
-          return it.type !== 'other' && (!it.removed || it.temp) && it.state && it.state.timeOffset > 0;
-        }).sort(function (a, b) {
-          return new Date(b.state.lastWatched || 0) - new Date(a.state.lastWatched || 0);
-        }).slice(0, 10).map(mapItem);
+        return buildContinueWatching(r.result || []);
+      })
+      .then(function (items) {
         S.cw = items;
         store.set('cw', items);
         renderCards();
@@ -284,6 +341,7 @@
   }
   function itemSub(item) {
     var parts = [];
+    if (item.isNew) parts.push('Nova epizoda');
     if (item.season) parts.push('S' + item.season + ' · E' + item.episode);
     var r = remaining(item);
     if (r) parts.push(r);
@@ -330,7 +388,7 @@
   }
 
   /* ---------- icon look: make small webOS icons fill the tile like Apple TV art ---------- */
-  var iconLooks = store.get('iconLooks2', {});
+  var iconLooks = store.get('iconLooks3', {});
   // most saturated colour in the icon (the brand colour), or null for grey icons
   function accentOf(d) {
     var list = [];
@@ -352,7 +410,7 @@
   function iconKey(src) { return (src || '').replace(/\?.*$/, ''); }
   function analyzeIcon(img) {
     try {
-      var n = 40, c = document.createElement('canvas');
+      var n = 64, c = document.createElement('canvas');
       c.width = c.height = n;
       var x = c.getContext('2d');
       x.drawImage(img, 0, 0, n, n);
@@ -360,12 +418,15 @@
       var px = [], transp = 0, tot = 0;
       for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) {
         var ring = Math.min(i, j, n - 1 - i, n - 1 - j);
-        if (ring !== 3) continue;               // a ring just inside the edge (skips rounded corners' outer pixels)
+        if (ring !== 1) continue;                // outermost ring: background, not the logo
+        var ci = Math.min(i, n - 1 - i), cj = Math.min(j, n - 1 - j);
+        if (ci < 9 && cj < 9) continue;          // skip rounded corners               // a ring just inside the edge (skips rounded corners' outer pixels)
         var k = (j * n + i) * 4; tot++;
         if (d[k + 3] < 200) { transp++; continue; }
         px.push([d[k], d[k + 1], d[k + 2]]);
       }
-      if (!px.length || transp / tot > 0.25) return { mode: 'trans', accent: accentOf(d) };
+      var ar = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+      if (!px.length || transp / tot > 0.25) return { mode: 'trans', accent: accentOf(d), box: contentBox(d, n, null), ar: ar };
       var m = [0, 0, 0];
       px.forEach(function (p) { m[0] += p[0]; m[1] += p[1]; m[2] += p[2]; });
       m = m.map(function (v) { return Math.round(v / px.length); });
@@ -374,14 +435,39 @@
       spread /= px.length;
       var accent = accentOf(d);
       if (spread > 60) return { mode: 'photo', accent: accent };  // picture icon: fill the tile with it
-      return { mode: 'solid', color: 'rgb(' + m.join(',') + ')', accent: accent };
+      return { mode: 'solid', color: 'rgb(' + m.join(',') + ')', accent: accent, box: contentBox(d, n, m), ar: ar };
     } catch (e) { return null; }                  // canvas blocked: keep defaults
   }
+  // bounding box of the actual logo (pixels that differ from the background), as fractions
+  function contentBox(d, n, bg) {
+    var x0 = n, y0 = n, x1 = -1, y1 = -1;
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+      var k = (y * n + x) * 4, on;
+      if (bg) on = d[k + 3] > 60 && Math.abs(d[k] - bg[0]) + Math.abs(d[k + 1] - bg[1]) + Math.abs(d[k + 2] - bg[2]) > 60;
+      else on = d[k + 3] > 60;
+      if (on) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return null;
+    return { x: x0 / n, y: y0 / n, w: (x1 - x0 + 1) / n, h: (y1 - y0 + 1) / n };
+  }
+  // every logo gets about the same visual size: fit its content into LOGO_W x LOGO_H, centred
+  var TILE_W = 300, TILE_H = 180, LOGO_W = 196, LOGO_H = 100;
   function applyLook(el, look) {
     if (!look) return;
     el.classList.remove('m-solid', 'm-photo', 'm-trans');
     el.classList.add('m-' + look.mode);
     if (look.color) el.querySelector('.tile-fill').style.background = look.color;
+    var img = el.querySelector('.tile-icon');
+    if (!img || !look.box || !look.ar || look.mode === 'photo') return;
+    var b = look.box, ar = look.ar;
+    // image drawn W x H (H = W / ar); content is b.w*W wide and b.h*H tall
+    var W = Math.min(LOGO_W / b.w, (LOGO_H / b.h) * ar, 900);
+    var H = W / ar;
+    img.style.width = Math.round(W) + 'px';
+    img.style.height = Math.round(H) + 'px';
+    img.style.margin = '0';
+    img.style.left = Math.round(TILE_W / 2 - (b.x + b.w / 2) * W) + 'px';
+    img.style.top = Math.round(TILE_H / 2 - (b.y + b.h / 2) * H) + 'px';
   }
   var saveLooksTimer;
   function renderGrid() {
@@ -404,7 +490,7 @@
           applyLook(el, look);
           iconLooks[iconKey(a.icon)] = look;
           clearTimeout(saveLooksTimer);
-          saveLooksTimer = setTimeout(function () { store.set('iconLooks2', iconLooks); }, 1500);
+          saveLooksTimer = setTimeout(function () { store.set('iconLooks3', iconLooks); }, 1500);
         };
         img.onerror = function () {
           if (a.iconDirect && img.src.indexOf('file:') !== 0) { img.src = a.iconDirect; return; }

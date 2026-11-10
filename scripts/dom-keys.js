@@ -17,7 +17,8 @@ var url = require('url');
 var KEYFILE = '/home/root/dom-ssap-key';
 var TEMPLATE_FILE = '/home/root/dom-stremio-keys.txt';
 // <delay ms> then buttons; {RIGHT} expands to RIGHT pressed <index> times
-var DEFAULT_TEMPLATE = '9000 {RIGHT} ENTER';
+// OK on a Stremio card opens a menu with 'Play Now' focused, hence the second ENTER
+var DEFAULT_TEMPLATE = '10000 {RIGHT} ENTER 1500 ENTER';
 var STEP_MS = 350;
 
 var PERMISSIONS = ['APP_TO_APP', 'CLOSE', 'CONTROL_AUDIO', 'CONTROL_DISPLAY', 'CONTROL_INPUT_JOYSTICK',
@@ -52,6 +53,7 @@ if (mode === 'keys') {
   parts.forEach(function (p) {
     var m = /^\{(\w+)\}$/.exec(p);
     if (m) for (var i = 0; i < index; i++) buttons.push(m[1].toUpperCase());
+    else if (/^\d+$/.test(p)) buttons.push('WAIT:' + p);   // pause in ms
     else if (p) buttons.push(p.toUpperCase());
   });
   log('template "' + tpl + '" index ' + index + ' ->', buttons.join(' ') || '(none)');
@@ -212,7 +214,9 @@ function openPointer(path, main, origin) {
           setTimeout(function () { ptr.close(); main.close(); process.exit(0); }, 300);
           return;
         }
-        ptr.send('type:button\nname:' + buttons[i++] + '\n\n');
+        var b = buttons[i++];
+        if (/^WAIT:/.test(b)) { setTimeout(next, parseInt(b.slice(5), 10)); return; }
+        ptr.send('type:button\nname:' + b + '\n\n');
         setTimeout(next, STEP_MS);
       })();
     }, wait);

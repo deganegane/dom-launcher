@@ -58,7 +58,7 @@ Stremio na webOS-u ne prima deep linkove, pa ih Dom zaobilazi: zatvori Stremio, 
 otvori i preko TV-ovog SSAP sučelja "pritisne" tipke do odabrane kartice (`/home/root/dom-keys.js`).
 Pri instalaciji TV jednom traži dozvolu — prihvati je.
 
-Redoslijed tipki je u `/home/root/dom-stremio-keys.txt` (ako ne postoji: `9000 {RIGHT} ENTER`):
+Redoslijed tipki je u `/home/root/dom-stremio-keys.txt` (ako ne postoji: `10000 {RIGHT} ENTER 1500 ENTER`; brojevi iza prvog su pauze u ms):
 prvi broj je čekanje u ms, `{RIGHT}` se ponavlja onoliko puta koliko je kartica udaljena od prve.
 Log: `cat /tmp/dom-keys.log`.
 
