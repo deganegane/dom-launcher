@@ -300,6 +300,51 @@
     });
   }
 
+  /* ---------- "continue watching" rows that apps publish to LG Home ---------- */
+  S.appRows = store.get('appRows', {});
+  var lastAppRows = 0;
+  function refreshAppContents(force) {
+    if (DEMO) return Promise.resolve();
+    if (!force && Date.now() - lastAppRows < 20000) return Promise.resolve();
+    lastAppRows = Date.now();
+    return luna('luna://com.webos.service.applicationmanager/getAllContents', {}).then(function (r) {
+      var rows = {};
+      (r.allContents || []).forEach(function (x) {
+        var appId = String(x.launchPointId || '').replace(/_default$/, '');
+        var items = (x.contents || []).filter(function (c) {
+          return c.titleText && /continue|nastavi|resume/i.test(c.category || '');
+        }).slice(0, 10).map(function (c) {
+          var img = (c.image && c.image.url) || '';
+          var oc = c.onClick || {};
+          return { kind: 'app', id: c.contentId, name: c.titleText, category: c.category, thumb: img, backdrop: img,
+                   appId: oc.targetAppId || appId, contentTarget: oc.contentId || '', launchParam: oc.launchParam || '' };
+        });
+        if (items.length) rows[appId] = items;
+      });
+      S.appRows = rows;
+      store.set('appRows', rows);
+      preloadCW([].concat.apply([], Object.keys(rows).map(function (k) { return rows[k]; })));
+      S.cardsFor = null;
+      updateShelf(true);
+    }).catch(function (e) { console.log('appContents', e); });
+  }
+  function shelfItems(a) {
+    if (!a || a.key === SETTINGS_KEY) return [];
+    if (isStremio(a)) return S.cw;
+    return S.appRows[a.id] || [];
+  }
+  function activateItem(item) {
+    if (!item) return;
+    if (item.kind !== 'app') return playCW(item);
+    var app = null;
+    S.apps.forEach(function (x) { if (!app && x.id === item.appId) app = x; });
+    var params = {};
+    if (item.launchParam && typeof item.launchParam === 'object') for (var k in item.launchParam) params[k] = item.launchParam[k];
+    else if (item.launchParam) params.contentTarget = item.launchParam;
+    if (item.contentTarget) params.contentTarget = item.contentTarget;
+    launch(app || { id: item.appId, title: item.name, params: {} }, params);
+  }
+
   function refreshStremio(force) {
     if (!S.authKey) return Promise.resolve();
     var now = Date.now();
@@ -548,7 +593,10 @@
   function renderCards() {
     var c = $('#cards');
     c.innerHTML = '';
-    S.cw.slice(0, 6).forEach(function (item, i) {
+    var cur = S.list[S.idx];
+    var items = shelfItems(cur);
+    S.cardsFor = cur ? cur.key : null;
+    items.slice(0, 6).forEach(function (item, i) {
       var el = document.createElement('div');
       el.className = 'card';
       var pct = item.duration ? Math.min(100, Math.round(item.offset / item.duration * 100)) : 0;
@@ -556,10 +604,10 @@
         '<div class="card-bar"><div style="width:' + pct + '%"></div></div>';
       setImage(el, [item.thumb, item.thumbFallback, item.poster]);
       el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings') { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
-      el.addEventListener('click', function () { playCW(item); });
+      el.addEventListener('click', function () { activateItem(item); });
       c.appendChild(el);
     });
-    if (S.card >= S.cw.length) S.card = Math.max(0, Math.min(5, S.cw.length - 1));
+    if (S.card >= items.length) S.card = Math.max(0, Math.min(5, items.length - 1));
   }
   // set background-image using the first URL that actually loads
   function setImage(el, urls, onDone) {
@@ -590,6 +638,7 @@
       bgFront = back;
     };
     setImage(img, urls, function (ok) {
+      if (ok && blurredFallback && blurredFallback.soft) img.className = 'bg-img soft';
       if (!ok) {
         if (blurredFallback && blurredFallback.ambient) img.style.backgroundImage = blurredFallback.ambient;
         img.style.backgroundColor = (blurredFallback && blurredFallback.color) || '#0b0b0d';
@@ -636,18 +685,26 @@
   function drawShelf(force) {
     var a = S.list[S.idx];
     var shelf = $('#shelf');
-    var showCards = isStremio(a) && S.cw.length > 0;
+    var items = shelfItems(a);
+    var showCards = items.length > 0;
+    if (a && S.cardsFor !== a.key) renderCards();
     shelf.classList.toggle('has-cards', showCards);
 
     var key, info;
     if (showCards) {
-      var item = S.cw[S.zone === 'shelf' ? S.card : 0];
+      var item = items[S.zone === 'shelf' ? Math.min(S.card, items.length - 1) : 0];
+      if (item.kind === 'app') {
+        key = 'appcw:' + item.appId + ':' + item.id;
+        info = { kicker: 'Nastavi gledati', title: item.name, sub: '', progress: -1,
+                 bg: [item.backdrop], fb: { color: '#202024', soft: true } };
+      } else {
       key = 'cw:' + item.id + ':' + item.videoId;
       info = {
         kicker: 'Nastavi gledati', title: item.name, logo: item.logo, sub: itemSub(item),
         progress: item.duration ? item.offset / item.duration : -1,
         bg: [item.backdrop, item.poster], fb: { color: '#202024' }
       };
+      }
     } else if (a && a.key === SETTINGS_KEY) {
       key = 'settings';
       info = { kicker: '', title: 'Postavke', sub: 'Stremio račun, skrivanje aplikacija i ostalo', progress: -1, bg: [], fb: { color: '#26262a' } };
@@ -803,7 +860,7 @@
         else nudge('down');
       } else if (k === KEY.UP) {
         if (rowOf(S.idx) > 0) setIdx(S.idx - COLS, 'up');
-        else if (isStremio(S.list[S.idx]) && S.cw.length) { S.zone = 'shelf'; S.card = 0; applyFocus(); updateShelf(); }
+        else if (shelfItems(S.list[S.idx]).length) { S.zone = 'shelf'; S.card = 0; applyFocus(); updateShelf(); }
         else nudge('up');
       } else if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) { S.zone = 'grid'; setIdx(0); }
       else return;
@@ -811,7 +868,7 @@
       return;
     }
     if (S.zone === 'shelf') {
-      var n = Math.min(6, S.cw.length);
+      var n = Math.min(6, shelfItems(S.list[S.idx]).length);
       if (k === KEY.LEFT && S.card > 0) { S.card--; applyFocus(); updateShelf(); }
       else if (k === KEY.RIGHT && S.card < n - 1) { S.card++; applyFocus(); updateShelf(); }
       else if (k === KEY.DOWN || k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) { S.zone = 'grid'; applyFocus(); updateShelf(); }
@@ -846,7 +903,7 @@
     if (okLong) return;
     if (S.moving) { endMove(); return; }
     if (S.zone === 'grid') activate();
-    else if (S.zone === 'shelf' && S.cw[S.card]) playCW(S.cw[S.card]);
+    else if (S.zone === 'shelf') activateItem(shelfItems(S.list[S.idx])[S.card]);
   });
 
   /* ================= settings ================= */
@@ -1039,6 +1096,7 @@
     setIdx(0);
     reloadApps();
     refreshStremio(false);
+    refreshAppContents(false);
   }
 
   /* ================= demo data (browser preview) ================= */
@@ -1069,12 +1127,12 @@
   /* ================= boot ================= */
   window.addEventListener('resize', fit);
   document.addEventListener('webOSRelaunch', onShow);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) { refreshStremio(false); reloadApps(); } });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { refreshStremio(false); refreshAppContents(false); reloadApps(); } });
   fit();
   tickClock();
   setInterval(tickClock, 10000);
   preloadCW(S.cw);
   renderCards();
-  reloadApps().then(function () { refreshStremio(true); });
-  setInterval(function () { if (!document.hidden) refreshStremio(false); }, 5 * 60 * 1000);
+  reloadApps().then(function () { refreshStremio(true); refreshAppContents(true); });
+  setInterval(function () { if (!document.hidden) { refreshStremio(false); refreshAppContents(false); } }, 5 * 60 * 1000);
 })();
