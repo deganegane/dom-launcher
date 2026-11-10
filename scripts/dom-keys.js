@@ -70,7 +70,7 @@ function frame(data, op) {
   for (var i = 0; i < p.length; i++) m[i] = p[i] ^ mask[i % 4];
   return Buffer.concat([h, mask, m]);
 }
-function wsConnect(u, cb) {
+function wsConnect(u, cb, origin) {
   var done = false;
   function once(err, ws) { if (!done) { done = true; cb(err, ws); } }
   var p = url.parse(u);
@@ -89,7 +89,8 @@ function wsConnect(u, cb) {
   var timer = setTimeout(function () { sock.destroy(); once(new Error('timeout ' + u)); }, 6000);
   sock.on(secure ? 'secureConnect' : 'connect', function () {
     sock.write('GET ' + (p.path || '/') + ' HTTP/1.1\r\nHost: ' + p.host + '\r\nUpgrade: websocket\r\n' +
-      'Connection: Upgrade\r\nSec-WebSocket-Key: ' + key + '\r\nSec-WebSocket-Version: 13\r\n\r\n');
+      'Connection: Upgrade\r\nSec-WebSocket-Key: ' + key + '\r\nSec-WebSocket-Version: 13\r\n' +
+      (origin ? 'Origin: ' + origin + '\r\n' : '') + '\r\n');
   });
   sock.on('data', function (d) {
     buf = Buffer.concat([buf, d]);
@@ -116,7 +117,7 @@ function wsConnect(u, cb) {
       if (masked) for (var j = 0; j < payload.length; j++) payload[j] ^= mk[j % 4];
       buf = buf.slice(off + len);
       if (op === 9) { sock.write(frame(payload, 10)); continue; } // ping -> pong
-      if (op === 8) { log('[' + u + '] closed by TV: ' + payload.slice(2).toString()); continue; }
+      if (op === 8) { ws.closeReason = payload.slice(2).toString(); log('[' + u + '] closed by TV: ' + ws.closeReason); continue; }
       if (op === 1 || op === 0) {
         frag = frag ? Buffer.concat([frag, payload]) : payload;
         if (fin) { var t = frag.toString(); frag = null; if (ws.onmessage) ws.onmessage(t); }
@@ -124,28 +125,49 @@ function wsConnect(u, cb) {
     }
   });
   sock.on('error', function (e) { clearTimeout(timer); log('[' + u + '] error ' + e.message); once(e); });
-  sock.on('close', function () { if (open) log('[' + u + '] socket closed'); });
+  sock.on('close', function () { if (open) { log('[' + u + '] socket closed'); if (ws.onclose) ws.onclose(ws.closeReason || ''); } });
 }
 
 /* ---------- SSAP ---------- */
-function connectMain(cb) {
-  wsConnect('wss://127.0.0.1:3001/', function (err, ws) {
-    if (!err) return cb(null, ws);
-    log('wss failed (' + err.message + '), trying ws');
-    wsConnect('ws://127.0.0.1:3000/', cb);
+// Which endpoint/origin the TV accepts differs by firmware: connections from
+// 127.0.0.1 are origin-checked on newer webOS, the LAN address is treated like
+// a phone app. Try them in order; remember the one that worked.
+var ENDPOINT_FILE = '/home/root/dom-ssap-endpoint';
+function candidates() {
+  var list = [], ips = [];
+  var ifs = require('os').networkInterfaces();
+  Object.keys(ifs).forEach(function (n) {
+    (ifs[n] || []).forEach(function (a) { if ((a.family === 'IPv4' || a.family === 4) && !a.internal) ips.push(a.address); });
   });
+  ips.forEach(function (ip) {
+    list.push({ url: 'wss://' + ip + ':3001/' }, { url: 'ws://' + ip + ':3000/' });
+  });
+  ['', 'http://127.0.0.1', 'http://localhost', 'file://', 'null'].forEach(function (o) {
+    list.push({ url: 'wss://127.0.0.1:3001/', origin: o }, { url: 'ws://127.0.0.1:3000/', origin: o });
+  });
+  try {
+    var saved = JSON.parse(fs.readFileSync(ENDPOINT_FILE, 'utf8'));
+    if (saved && saved.url) list.unshift(saved);
+  } catch (e) {}
+  return list;
 }
 
 var clientKey = '';
 try { clientKey = fs.readFileSync(KEYFILE, 'utf8').trim(); } catch (e) {}
 
-connectMain(function (err, ws) {
-  if (err) die('cannot connect to TV API: ' + err.message);
+var CANDS = candidates();
+function attempt(i) {
+  if (i >= CANDS.length) die('TV API refused every endpoint (see log above)');
+  var c = CANDS[i];
+  log('trying ' + c.url + (c.origin ? ' origin=' + c.origin : ''));
+  wsConnect(c.url, function (err, ws) {
+  if (err) { log('  failed: ' + err.message); return attempt(i + 1); }
+  ws.onclose = function (reason) { if (!replied) { log('  closed before reply' + (reason ? ' (' + reason + ')' : '')); attempt(i + 1); } };
   log('client-key: ' + (clientKey ? 'yes' : 'none (pairing needed)'));
   var replied = false;
-  setTimeout(function () { if (!replied) log('no reply to register after 15s - TV API is not answering on this port'); }, 15000);
+  setTimeout(function () { if (!replied) { log('  no reply after 12s'); ws.onclose = null; ws.close(); attempt(i + 1); } }, 12000);
   ws.onmessage = function (txt) {
-    replied = true;
+    if (!replied) { replied = true; try { fs.writeFileSync(ENDPOINT_FILE, JSON.stringify(c)); } catch (e) {} }
     log('<< ' + txt.slice(0, 300));
     var msg;
     try { msg = JSON.parse(txt); } catch (e) { return; }
@@ -161,7 +183,7 @@ connectMain(function (err, ws) {
       ws.send(JSON.stringify({ type: 'request', id: 'ptr', uri: 'ssap://com.webos.service.networkinput/getPointerInputSocket' }));
     } else if (msg.id === 'ptr') {
       if (!pl.socketPath) die('no pointer socket: ' + txt);
-      openPointer(pl.socketPath, ws);
+      openPointer(pl.socketPath, ws, c.origin);
     } else if (msg.type === 'error') {
       die(msg.error || txt);
     }
@@ -173,9 +195,11 @@ connectMain(function (err, ws) {
       manifest: { appVersion: '1.1', manifestVersion: 1, permissions: PERMISSIONS }
     }
   }));
-});
+  }, c.origin);
+}
+attempt(0);
 
-function openPointer(path, main) {
+function openPointer(path, main, origin) {
   wsConnect(path, function (err, ptr) {
     if (err) die('pointer socket: ' + err.message);
     var wait = Math.max(0, delay - (Date.now() - started));
@@ -192,5 +216,5 @@ function openPointer(path, main) {
         setTimeout(next, STEP_MS);
       })();
     }, wait);
-  });
+  }, origin);
 }
