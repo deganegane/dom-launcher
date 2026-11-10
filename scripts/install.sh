@@ -51,7 +51,13 @@ if [ -f /tmp/dom-homeguard.pid ]; then
 fi
 pkill -f "dom-homeguard.sh" 2>/dev/null || true
 pkill -f "getForegroundAppInfo" 2>/dev/null || true
-nohup "$GUARD" >/dev/null 2>&1 &
+get_tool dom-ctl.sh /home/root/dom-ctl.sh
+chmod +x /home/root/dom-ctl.sh
+if [ -f /home/root/dom-disabled ]; then
+  echo "   (Dom je isključen u Postavkama — Home tipka ostaje na LG Homeu)"
+else
+  nohup "$GUARD" >/dev/null 2>&1 &
+fi
 
 echo "==> Stremio: pomoćnik za tipke"
 get_tool dom-keys.js /home/root/dom-keys.js
@@ -113,6 +119,7 @@ mkdir -p "$INITD"
 cat > "$INITD/90-dom-launcher" <<EOF
 #!/bin/sh
 # Dom: home guard + pokretanje nakon paljenja TV-a
+[ -f /home/root/dom-disabled ] && exit 0
 nohup $GUARD >/dev/null 2>&1 &
 (
   sleep 15

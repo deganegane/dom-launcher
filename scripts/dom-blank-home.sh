@@ -9,6 +9,7 @@ X=/home/root/dom-home/home.xml
 mounted() { grep -q " $T " /proc/mounts; }
 case "$1" in
   on)
+    [ -f /home/root/dom-disabled ] && exit 0
     [ -f "$T" ] || exit 0
     mounted && exit 0
     mkdir -p /home/root/dom-home

@@ -159,8 +159,10 @@
       cmds.push('if [ -f "$H/' + a.id + '.jpg" ]; then [ "$D/' + name + '" -nt "$H/' + a.id + '.jpg" ] || cp -f "$H/' + a.id + '.jpg" "$D/' + name +
         '"; echo "SHOT|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + name + '|$(date -r "$H/' + a.id + '.jpg" +%s)"; fi');
     });
+    cmds.push('[ -f /home/root/dom-disabled ] && echo DISABLED');
     cmds.push('echo ok');
     return exec(cmds.join('; '), 30000).then(function (out) {
+      S.disabled = /^DISABLED$/m.test(out || '');
       var byKey = {};
       apps.forEach(function (a) { byKey[a.key.replace(/[|'"\\$`]/g, '')] = a; });
       (out || '').split('\n').forEach(function (line) {
@@ -857,6 +859,7 @@
   var okTimer = null, okHeld = false, okLong = false;
   function onKeyDown(e) {
     var k = e.keyCode;
+    if (stage.classList.contains('out')) { fadeIn(true); if (e.preventDefault) e.preventDefault(); return; }
     if (S.zone === 'settings') { settingsKey(e); return; }
     if (k === KEY.OK) {
       e.preventDefault();
@@ -964,11 +967,21 @@
       } });
     });
     rows.push({ h: 'Sustav' });
+    rows.push({ type: 'btn', name: 'domOnOff', label: 'Dom kao početni zaslon', value: S.disabled ? 'Isključeno' : 'Uključeno', act: function () {
+      var off = !S.disabled;
+      var done = function () {
+        S.disabled = off;
+        toast(off ? 'Dom je isključen: Home tipka otvara LG Home. Dom ostaje u popisu aplikacija.' : 'Dom je ponovno početni zaslon');
+        renderSettings();
+      };
+      if (DEMO) done(); else exec('/home/root/dom-ctl.sh ' + (off ? 'off' : 'on'), 20000).then(done, function () { toast('Nije uspjelo — ponovi instalaciju'); });
+    } });
     rows.push({ type: 'btn', label: 'Otvori originalni LG Home', act: function () {
       closeSettings();
-      var go = function () { launch({ id: 'com.webos.app.home', title: 'LG Home', params: {} }); };
-      // LG Home is blanked while Dom is in charge: restore it for this visit
-      if (DEMO) go(); else exec('touch /tmp/dom-allow-home; [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh off; sleep 0.5').then(go, go);
+      if (DEMO) { toast('Pokrećem: LG Home'); return; }
+      // stay dark underneath: LG Home is a see-through overlay
+      stage.classList.remove('instant'); stage.classList.add('leaving'); stage.classList.add('out');
+      exec('/home/root/dom-ctl.sh lghome', 20000).catch(function () { fadeIn(true); toast('Ne mogu otvoriti LG Home'); });
     } });
     rows.push({ type: 'btn', label: 'Poništi redoslijed aplikacija', act: function () {
       S.order = []; store.set('order', []); buildList(); renderGrid(); toast('Redoslijed poništen'); renderSettings();
@@ -1150,7 +1163,7 @@
   function onShow() {
     bringToFront();
     fadeIn();
-    if (!DEMO) exec('[ -f /var/lib/webosbrew/init.d/06-dom-blank-home ] && [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh on').catch(function () {});
+    if (!DEMO) exec('rm -f /tmp/dom-allow-home; [ -f /var/lib/webosbrew/init.d/06-dom-blank-home ] && [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh on').catch(function () {});
     if (S.zone === 'settings') closeSettings();
     if (S.moving) endMove();
     S.zone = 'grid';
