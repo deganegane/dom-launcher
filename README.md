@@ -69,6 +69,15 @@ Otvori `app/index.html` u pregledniku — bez webOS-a radi u demo modu s lažnim
 
 Svaki push na `main` gradi `.ipk` (GitHub Actions) i objavljuje ga kao novi release.
 
+## Blokada firmware ažuriranja
+
+Instalacija dodaje `/var/lib/webosbrew/init.d/05-dom-block-update`, koji pri svakom paljenju:
+prekrije `/usr/sbin/update` praznom datotekom, preusmjeri LG update servere (snu/su/su-ssl/
+snu-dev/su-dev/nsu.lge.com) na localhost i blokira IP 156.147.69.32 (ako postoji iptables).
+Sve su to bind mountovi / pravila u radu — sustav se ne mijenja trajno. Ostaje i nakon uklanjanja
+Doma; za poništavanje obriši tu datoteku i ponovno pokreni TV.
+Uz to: uključi "Block system updates" u Homebrew Channelu i isključi automatska ažuriranja u postavkama.
+
 ## Uklanjanje
 
 ```sh

@@ -55,6 +55,41 @@ elif [ ! -s /home/root/dom-ssap-key ]; then
   "$NODE" /home/root/dom-keys.js pair || echo "!! Uparivanje nije uspjelo (možeš ponoviti: $NODE /home/root/dom-keys.js pair)"
 fi
 
+echo "==> Blokada firmware ažuriranja"
+mkdir -p "$INITD"
+cat > "$INITD/05-dom-block-update" <<'EOF'
+#!/bin/sh
+# Dom: block LG firmware updates so root isn't lost.
+# Only bind mounts / runtime rules - nothing on the system is changed permanently.
+# Undo: delete this file and reboot.
+EMPTY=/home/root/.dom-empty
+[ -f "$EMPTY" ] || : > "$EMPTY"
+# 1) the updater binary becomes an empty file
+if [ -e /usr/sbin/update ] && ! grep -q ' /usr/sbin/update ' /proc/mounts; then
+  mount --bind "$EMPTY" /usr/sbin/update
+fi
+# 2) LG update servers resolve to localhost
+if ! grep -q 'dom-block' /etc/hosts 2>/dev/null; then
+  HOSTS=/home/root/.dom-hosts
+  cp /etc/hosts "$HOSTS" 2>/dev/null || : > "$HOSTS"
+  echo "# dom-block" >> "$HOSTS"
+  for d in snu.lge.com su.lge.com su-ssl.lge.com snu-dev.lge.com su-dev.lge.com nsu.lge.com; do
+    echo "127.0.0.1 $d" >> "$HOSTS"
+    echo "::1 $d" >> "$HOSTS"
+  done
+  mount --bind "$HOSTS" /etc/hosts
+fi
+# 3) hardcoded update server IP
+if command -v iptables >/dev/null 2>&1; then
+  iptables -C OUTPUT -d 156.147.69.32 -j REJECT 2>/dev/null || iptables -I OUTPUT -d 156.147.69.32 -j REJECT 2>/dev/null
+fi
+exit 0
+EOF
+chmod +x "$INITD/05-dom-block-update"
+sh "$INITD/05-dom-block-update" || true
+if grep -q ' /usr/sbin/update ' /proc/mounts; then echo "   updater blokiran"; else echo "!! updater nije blokiran"; fi
+if grep -q 'dom-block' /etc/hosts 2>/dev/null; then echo "   LG update serveri blokirani"; else echo "!! hosts blokada nije uspjela"; fi
+
 echo "==> Autostart pri paljenju TV-a"
 mkdir -p "$INITD"
 cat > "$INITD/90-dom-launcher" <<EOF
