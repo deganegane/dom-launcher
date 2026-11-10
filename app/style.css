@@ -197,7 +197,7 @@ body {
    animates, so the TV doesn't have to redraw the whole screen each frame. */
 #cover {
   position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 50;
-  will-change: opacity; transition: opacity 600ms cubic-bezier(.33,0,.2,1);
+  will-change: opacity; transition: opacity 950ms cubic-bezier(.33,0,.2,1);
 }
 #stage.out #cover { opacity: 1; }
 #stage.leaving #cover { transition: opacity 180ms ease-out; }

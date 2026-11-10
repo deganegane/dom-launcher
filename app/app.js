@@ -1169,7 +1169,7 @@
       reloadApps();
       refreshStremio(false);
       refreshAppContents(false);
-    }, 750);
+    }, 1050);
   }
   var wasAway = false;
   function onShow() {
