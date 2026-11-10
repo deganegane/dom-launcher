@@ -314,10 +314,12 @@
     if (a.key === SETTINGS_KEY) {
       return '<div class="tile-art">' + gearSvg + '<div class="tile-sheen"></div></div><div class="tile-label">Postavke</div>';
     }
-    var con = !a.customIcon && consoleOf(a);
+    var con = consoleOf(a);
     if (con) {
+      // own icon (e.g. a white logo) sits on the brand gradient; otherwise a generic controller
+      var mark = a.customIcon ? '<img class="tile-conicon" src="' + esc(a.customIcon) + '" alt="">' : padSvg;
       return '<div class="tile-art"><div class="tile-fill" style="background:linear-gradient(150deg,' + con.from + ',' + con.to + ')"></div>' +
-        padSvg + '<div class="tile-gloss"></div><div class="tile-sheen"></div></div><div class="tile-label">' + esc(a.title) + '</div>';
+        mark + '<div class="tile-gloss"></div><div class="tile-sheen"></div></div><div class="tile-label">' + esc(a.title) + '</div>';
     }
     var look = iconLooks[iconKey(a.icon)];
     var fill = look && look.color ? look.color : (a.color || '#3a3a3c');
