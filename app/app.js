@@ -169,7 +169,7 @@
         if (sh && byKey[sh[1]]) byKey[sh[1]].shot = 'cache/' + sh[2] + '?t=' + sh[3];
       });
       var v = '?v=' + BOOT;
-      apps.forEach(function (a) { if (a.customIcon) { a.icon = a.customIcon; a.iconDirect = ''; } });
+      apps.forEach(function (a) { if (a.customIcon) { a.fallbackIcon = a.icon; a.icon = a.customIcon; a.iconDirect = ''; } });
       apps.forEach(function (a) { if (/^cache\//.test(a.icon)) a.icon += v; if (/^cache\//.test(a.bg)) a.bg += v; });
       return apps;
     }).catch(function () {
@@ -289,6 +289,17 @@
     });
   }
 
+  // fetch all artwork up front so moving between cards is instant
+  var preloaded = {};
+  function preloadCW(items) {
+    items.forEach(function (it) {
+      [it.backdrop, it.logo, it.thumb].forEach(function (u) {
+        if (!u || preloaded[u]) return;
+        var im = new Image(); im.src = u; preloaded[u] = im;
+      });
+    });
+  }
+
   function refreshStremio(force) {
     if (!S.authKey) return Promise.resolve();
     var now = Date.now();
@@ -302,6 +313,7 @@
       .then(function (items) {
         S.cw = items;
         store.set('cw', items);
+        preloadCW(items);
         renderCards();
         updateShelf(true);
       })
@@ -493,6 +505,8 @@
           saveLooksTimer = setTimeout(function () { store.set('iconLooks3', iconLooks); }, 1500);
         };
         img.onerror = function () {
+          // broken custom icon -> the app's own icon
+          if (a.fallbackIcon && img.getAttribute('src') !== a.fallbackIcon) { img.src = a.fallbackIcon; return; }
           if (a.iconDirect && img.src.indexOf('file:') !== 0) { img.src = a.iconDirect; return; }
           var l = document.createElement('div'); l.className = 'tile-letter'; l.textContent = (a.title || '?').charAt(0);
           img.parentNode.replaceChild(l, img);
@@ -588,7 +602,7 @@
   var shelfTimer = null, shelfKey = '';
   function updateShelf(force) {
     clearTimeout(shelfTimer);
-    shelfTimer = setTimeout(function () { drawShelf(force); }, S.zone === 'shelf' ? 60 : 160);
+    shelfTimer = setTimeout(function () { drawShelf(force); }, S.zone === 'shelf' ? 30 : 120);
   }
   function drawShelf(force) {
     var a = S.list[S.idx];
@@ -636,7 +650,7 @@
       p.classList.toggle('on', info.progress >= 0);
       p.firstElementChild.style.width = Math.round(Math.max(0, info.progress) * 100) + '%';
       box.classList.remove('swap');
-    }, 180);
+    }, 110);
   }
 
   /* ---------- focus ---------- */
@@ -1026,6 +1040,7 @@
   fit();
   tickClock();
   setInterval(tickClock, 10000);
+  preloadCW(S.cw);
   renderCards();
   reloadApps().then(function () { refreshStremio(true); });
   setInterval(function () { if (!document.hidden) refreshStremio(false); }, 5 * 60 * 1000);

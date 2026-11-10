@@ -12,7 +12,7 @@ body {
 
 /* ---------- background ---------- */
 #bg, .bg-layer, .bg-img, #bg-shade { position: absolute; inset: 0; }
-.bg-layer { opacity: 0; transition: opacity 900ms ease; }
+.bg-layer { opacity: 0; transition: opacity 450ms ease; }
 .bg-layer.on { opacity: 1; }
 .bg-img { background-size: cover; background-position: center top; background-color: #111; }
 .bg-img.blurred { filter: blur(70px) saturate(1.6) brightness(.75); transform: scale(1.5); }
@@ -43,7 +43,7 @@ body {
   transition: opacity 350ms ease, transform 350ms ease;
 }
 #shelf.has-cards #shelf-info { top: 96px; }
-#shelf-info.swap { opacity: 0; transform: translateY(10px); }
+#shelf-info.swap { opacity: 0; transform: translateY(6px); }
 #shelf-kicker {
   font-size: 22px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
   opacity: .75; margin-bottom: 14px; min-height: 26px;
