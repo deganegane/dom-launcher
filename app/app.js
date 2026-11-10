@@ -858,6 +858,10 @@
     rows.push({ type: 'btn', label: 'Poništi redoslijed aplikacija', act: function () {
       S.order = []; store.set('order', []); buildList(); renderGrid(); toast('Redoslijed poništen'); renderSettings();
     } });
+    rows.push({ type: 'btn', label: 'Obriši snimke pozadina', act: function () {
+      var done = function () { S.apps.forEach(function (a) { a.shot = ''; }); reloadApps().then(function () { updateShelf(true); toast('Snimke obrisane'); }); };
+      if (DEMO) done(); else exec('rm -f /home/root/dom-shots/*').then(done, done);
+    } });
     rows.push({ type: 'btn', label: 'Ponovno učitaj aplikacije', act: function () { reloadApps().then(function () { toast('Učitano'); renderSettings(); }); } });
     return rows;
   }

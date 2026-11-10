@@ -11,6 +11,9 @@ HOME_ID="com.webos.app.home"
 FLAG="/tmp/dom-allow-home"
 LOG="/tmp/dom-homeguard.log"
 SHOTS="/home/root/dom-shots"
+# VIDEO = only the video plane (no app menus/UI). Menus without playing video
+# capture as black and are discarded. Override: echo DISPLAY > /home/root/dom-capture-method
+CAPTURE_METHOD=$(cat /home/root/dom-capture-method 2>/dev/null || echo VIDEO)
 mkdir -p "$SHOTS"
 echo $$ > /tmp/dom-homeguard.pid
 
@@ -21,14 +24,14 @@ log() {
 launch_dom() {
   luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\"}" >/dev/null 2>&1
 }
-# Save a screen frame for app $1. DRM video (Netflix etc.) captures as black,
+# Save a frame of the playing video for app $1. DRM video (Netflix etc.) captures as black,
 # which compresses to a tiny file, so small captures are thrown away.
 capture() {
   tmp="/tmp/dom-cap.jpg"
   rm -f "$tmp"
   for svc in com.webos.service.capture com.webos.service.tv.capture; do
     luna-send -n 1 -w 6000 "luna://$svc/executeOneShot" \
-      "{\"path\":\"$tmp\",\"method\":\"DISPLAY\",\"format\":\"JPG\",\"width\":1280,\"height\":720}" >/dev/null 2>&1
+      "{\"path\":\"$tmp\",\"method\":\"$CAPTURE_METHOD\",\"format\":\"JPG\",\"width\":1280,\"height\":720}" >/dev/null 2>&1
     [ -s "$tmp" ] && break
   done
   [ -s "$tmp" ] || return 0
