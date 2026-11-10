@@ -18,8 +18,8 @@ var KEYFILE = '/home/root/dom-ssap-key';
 var TEMPLATE_FILE = '/home/root/dom-stremio-keys.txt';
 // <delay ms> then buttons; {RIGHT} expands to RIGHT pressed <index> times
 // OK on a Stremio card opens a menu with 'Play Now' focused, hence the second ENTER
-var DEFAULT_TEMPLATE = '10000 {RIGHT} ENTER 1500 ENTER';
-var STEP_MS = 350;
+var DEFAULT_TEMPLATE = '10000 {RIGHT} ENTER 1200 ENTER';
+var STEP_MS = 250;
 
 var PERMISSIONS = ['APP_TO_APP', 'CLOSE', 'CONTROL_AUDIO', 'CONTROL_DISPLAY', 'CONTROL_INPUT_JOYSTICK',
   'CONTROL_INPUT_MEDIA_PLAYBACK', 'CONTROL_INPUT_MEDIA_RECORDING', 'CONTROL_INPUT_TEXT', 'CONTROL_INPUT_TV',
@@ -205,8 +205,8 @@ function openPointer(path, main, origin) {
   wsConnect(path, function (err, ptr) {
     if (err) die('pointer socket: ' + err.message);
     var wait = Math.max(0, delay - (Date.now() - started));
-    log('connected, pressing in ' + wait + ' ms:', buttons.join(' ') || '(none)');
-    setTimeout(function () {
+    log('connected, pressing ' + (mode === 'play' ? 'when the app is ready (max ' + wait + ' ms):' : 'in ' + wait + ' ms:'), buttons.join(' ') || '(none)');
+    (mode === 'play' ? whenReady : function (ms, cb) { setTimeout(cb, ms); })(wait, function () {
       var i = 0;
       (function next() {
         if (i >= buttons.length) {
@@ -219,6 +219,34 @@ function openPointer(path, main, origin) {
         ptr.send('type:button\nname:' + b + '\n\n');
         setTimeout(next, STEP_MS);
       })();
-    }, wait);
+    });
   }, origin);
+}
+
+// Instead of always waiting the full delay, watch the screen: while the app
+// loads it is a nearly empty dark picture (tiny JPEG); once its rows of
+// posters are drawn the capture gets several times bigger. Press then.
+// Falls back to the fixed delay if captures don't work.
+function whenReady(maxWait, cb) {
+  var cp = require('child_process');
+  var t0 = Date.now(), min = 0, hits = 0, fired = false, file = '/tmp/dom-ready.jpg';
+  function fire(why) { if (fired) return; fired = true; log('ready: ' + why + ' after ' + (Date.now() - t0) + ' ms'); cb(); }
+  setTimeout(function () { fire('max wait'); }, maxWait);
+  (function poll() {
+    if (fired) return;
+    try { fs.unlinkSync(file); } catch (e) {}
+    cp.execFile('luna-send', ['-n', '1', '-w', '2500', 'luna://com.webos.service.capture/executeOneShot',
+      JSON.stringify({ path: file, method: 'DISPLAY', format: 'JPG', width: 480, height: 270 })], { timeout: 3500 }, function () {
+      var size = 0;
+      try { size = fs.statSync(file).size; } catch (e) {}
+      if (size > 0) {
+        if (!min || size < min) min = size;
+        // loaded = clearly more detailed than the emptiest screen seen, twice in a row
+        hits = (Date.now() - t0 > 2000 && size > min * 3 && size > min + 6000) ? hits + 1 : 0;
+        log('screen ' + size + ' B (min ' + min + ')' + (hits ? ' *' : ''));
+        if (hits >= 2) return setTimeout(function () { fire('screen filled'); }, 500);
+      }
+      setTimeout(poll, 300);
+    });
+  })();
 }

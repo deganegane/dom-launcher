@@ -396,7 +396,7 @@
     // Stremio on webOS ignores deep links, so start it fresh (focus lands on its
     // Continue Watching row) and let dom-keys.js press the remote buttons to the item.
     toast('Otvaram ' + item.name + '…');
-    exec('luna-send -n 1 luna://com.webos.service.applicationManager/closeByAppId ' + shq(JSON.stringify({ id: app.id })) + ' >/dev/null 2>&1; sleep 1; ' +
+    exec('luna-send -n 1 luna://com.webos.service.applicationManager/closeByAppId ' + shq(JSON.stringify({ id: app.id })) + ' >/dev/null 2>&1; sleep 0.5; ' +
          'luna-send -n 1 luna://com.webos.applicationManager/launch ' + shq(JSON.stringify({ id: app.id, params: { contentTarget: 'stremio:///' + path } })) + ' >/dev/null 2>&1; ' +
          'N=$(command -v node || echo /usr/bin/node); nohup "$N" /home/root/dom-keys.js play ' + index + ' > /tmp/dom-keys.log 2>&1 &', 15000)
       .catch(function () { launch(app, { contentTarget: 'stremio:///' + path }); });
