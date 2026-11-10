@@ -80,10 +80,10 @@ function wsConnect(u, cb) {
   var sock = secure
     ? tls.connect({ host: p.hostname, port: port, rejectUnauthorized: false })
     : net.connect({ host: p.hostname, port: port });
-  var buf = Buffer.alloc(0), open = false;
+  var buf = Buffer.alloc(0), open = false, frag = null;
   var ws = {
     onmessage: null,
-    send: function (t) { sock.write(frame(t)); },
+    send: function (t) { log('[' + u + '] >> ' + String(t).slice(0, 120).replace(/\n/g, '\\n')); sock.write(frame(t)); },
     close: function () { try { sock.write(frame(Buffer.alloc(0), 8)); } catch (e) {} sock.end(); }
   };
   var timer = setTimeout(function () { sock.destroy(); once(new Error('timeout ' + u)); }, 6000);
@@ -101,6 +101,7 @@ function wsConnect(u, cb) {
       clearTimeout(timer);
       if (!/^HTTP\/1\.1 101/.test(head)) { sock.destroy(); return once(new Error('handshake: ' + head.split('\r\n')[0])); }
       open = true;
+      log('[' + u + '] connected');
       once(null, ws);
     }
     for (;;) {
@@ -109,13 +110,21 @@ function wsConnect(u, cb) {
       if (len === 126) { if (buf.length < 4) return; len = buf.readUInt16BE(2); off = 4; }
       else if (len === 127) { if (buf.length < 10) return; len = buf.readUInt32BE(6); off = 10; }
       if (buf.length < off + len) return;
-      var op = buf[0] & 15, payload = buf.slice(off, off + len);
+      var fin = (buf[0] & 0x80) !== 0, op = buf[0] & 15, masked = (buf[1] & 0x80) !== 0;
+      if (masked) { if (buf.length < off + 4 + len) return; var mk = buf.slice(off, off + 4); off += 4; }
+      var payload = Buffer.from(buf.slice(off, off + len));
+      if (masked) for (var j = 0; j < payload.length; j++) payload[j] ^= mk[j % 4];
       buf = buf.slice(off + len);
-      if (op === 1 && ws.onmessage) ws.onmessage(payload.toString());
-      else if (op === 9) sock.write(frame(payload, 10)); // ping -> pong
+      if (op === 9) { sock.write(frame(payload, 10)); continue; } // ping -> pong
+      if (op === 8) { log('[' + u + '] closed by TV: ' + payload.slice(2).toString()); continue; }
+      if (op === 1 || op === 0) {
+        frag = frag ? Buffer.concat([frag, payload]) : payload;
+        if (fin) { var t = frag.toString(); frag = null; if (ws.onmessage) ws.onmessage(t); }
+      }
     }
   });
-  sock.on('error', function (e) { clearTimeout(timer); once(e); });
+  sock.on('error', function (e) { clearTimeout(timer); log('[' + u + '] error ' + e.message); once(e); });
+  sock.on('close', function () { if (open) log('[' + u + '] socket closed'); });
 }
 
 /* ---------- SSAP ---------- */
@@ -132,7 +141,12 @@ try { clientKey = fs.readFileSync(KEYFILE, 'utf8').trim(); } catch (e) {}
 
 connectMain(function (err, ws) {
   if (err) die('cannot connect to TV API: ' + err.message);
+  log('client-key: ' + (clientKey ? 'yes' : 'none (pairing needed)'));
+  var replied = false;
+  setTimeout(function () { if (!replied) log('no reply to register after 15s - TV API is not answering on this port'); }, 15000);
   ws.onmessage = function (txt) {
+    replied = true;
+    log('<< ' + txt.slice(0, 300));
     var msg;
     try { msg = JSON.parse(txt); } catch (e) { return; }
     var pl = msg.payload || {};
