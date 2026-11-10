@@ -451,6 +451,22 @@
     } catch (e) { return null; }                  // canvas blocked: keep defaults
   }
   // bounding box of the actual logo (pixels that differ from the background), as fractions
+  function analyzeViaBlob(src, cb) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', src, true);
+      xhr.responseType = 'blob';
+      xhr.onload = function () {
+        if (!xhr.response || !(xhr.status === 0 || xhr.status === 200)) return cb(null);
+        var u = URL.createObjectURL(xhr.response), im = new Image();
+        im.onload = function () { var l = analyzeIcon(im); URL.revokeObjectURL(u); cb(l); };
+        im.onerror = function () { URL.revokeObjectURL(u); cb(null); };
+        im.src = u;
+      };
+      xhr.onerror = function () { cb(null); };
+      xhr.send();
+    } catch (e) { cb(null); }
+  }
   function contentBox(d, n, bg) {
     var x0 = n, y0 = n, x1 = -1, y1 = -1;
     for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
@@ -497,12 +513,19 @@
       if (img) {
         applyLook(el, iconLooks[iconKey(a.icon)] || (a.color ? { mode: 'solid' } : { mode: 'trans' }));
         img.onload = function () {
+          var done = function (look) {
+            // canvas unavailable: custom icons carry their own background, show them edge to edge
+            if (!look && a.customIcon) look = { mode: 'photo' };
+            if (!look) return;
+            applyLook(el, look);
+            iconLooks[iconKey(a.icon)] = look;
+            clearTimeout(saveLooksTimer);
+            saveLooksTimer = setTimeout(function () { store.set('iconLooks3', iconLooks); }, 1500);
+          };
           var look = analyzeIcon(img);
-          if (!look) return;
-          applyLook(el, look);
-          iconLooks[iconKey(a.icon)] = look;
-          clearTimeout(saveLooksTimer);
-          saveLooksTimer = setTimeout(function () { store.set('iconLooks3', iconLooks); }, 1500);
+          if (look) return done(look);
+          // file:// images taint the canvas on the TV; a blob: copy of the same file doesn't
+          analyzeViaBlob(img.getAttribute('src'), done);
         };
         img.onerror = function () {
           // broken custom icon -> the app's own icon
