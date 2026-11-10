@@ -98,6 +98,16 @@ sh "$INITD/05-dom-block-update" || true
 if grep -q ' /usr/sbin/update ' /proc/mounts; then echo "   updater blokiran"; else echo "!! updater nije blokiran"; fi
 if grep -q 'dom-block' /etc/hosts 2>/dev/null; then echo "   LG update serveri blokirani"; else echo "!! hosts blokada nije uspjela"; fi
 
+echo "==> Bez bljeska LG Homea"
+get_tool dom-blank-home.sh /home/root/dom-blank-home.sh
+chmod +x /home/root/dom-blank-home.sh
+cat > "$INITD/06-dom-blank-home" <<'EOF'
+#!/bin/sh
+/home/root/dom-blank-home.sh on
+EOF
+chmod +x "$INITD/06-dom-blank-home"
+/home/root/dom-blank-home.sh on || true
+
 echo "==> Autostart pri paljenju TV-a"
 mkdir -p "$INITD"
 cat > "$INITD/90-dom-launcher" <<EOF

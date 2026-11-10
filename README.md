@@ -25,7 +25,12 @@ Skripta skida zadnji `.ipk` iz GitHub Releases, instalira ga i dodaje autostart
 
 Instalacija pokreće mali servis (`/home/root/dom-homeguard.sh`) koji prati aplikaciju u prvom planu:
 kad god se pojavi LG Home (Home tipka, paljenje TV-a, izlaz iz aplikacije), odmah otvara Dom.
-LG Home može nakratko bljesnuti. Log: `cat /tmp/dom-homeguard.log`. Originalni LG Home i dalje se otvara iz Postavki u launcheru.
+Log: `cat /tmp/dom-homeguard.log`.
+
+Da se pri povratku iz aplikacije ne vidi LG-ovo sučelje, `/home/root/dom-blank-home.sh on` prekrije
+raspored LG Homea praznim (bind mount, pokreće ga `init.d/06-dom-blank-home`), a Dom se pojavi uz
+kratko pretapanje iz crnog. "Otvori originalni LG Home" u Postavkama privremeno vraća LG Home;
+trajno: obriši `06-dom-blank-home` i ponovno pokreni TV. Originalni LG Home i dalje se otvara iz Postavki u launcheru.
 
 LG Input Hook nije potreban (na webOS-u 11 ne zaustavlja Home tipku).
 

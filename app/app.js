@@ -965,7 +965,8 @@
     rows.push({ type: 'btn', label: 'Otvori originalni LG Home', act: function () {
       closeSettings();
       var go = function () { launch({ id: 'com.webos.app.home', title: 'LG Home', params: {} }); };
-      if (DEMO) go(); else exec('touch /tmp/dom-allow-home').then(go, go);
+      // LG Home is blanked while Dom is in charge: restore it for this visit
+      if (DEMO) go(); else exec('touch /tmp/dom-allow-home; [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh off; sleep 0.5').then(go, go);
     } });
     rows.push({ type: 'btn', label: 'Poništi redoslijed aplikacija', act: function () {
       S.order = []; store.set('order', []); buildList(); renderGrid(); toast('Redoslijed poništen'); renderSettings();
@@ -1123,8 +1124,22 @@
       else if (window.PalmSystem && window.PalmSystem.activate) window.PalmSystem.activate();
     } catch (e) {}
   }
+  // returning from an app: start black and fade in, so the hand-over reads as a transition
+  var lastFade = 0;
+  function fadeOutNow() { stage.classList.add('instant'); stage.classList.add('out'); }
+  function fadeIn() {
+    if (Date.now() - lastFade < 800) return;
+    lastFade = Date.now();
+    fadeOutNow();
+    void stage.offsetWidth;
+    var go = function () { stage.classList.remove('instant'); void stage.offsetWidth; stage.classList.remove('out'); };
+    if (window.requestAnimationFrame) requestAnimationFrame(go); else go();
+    setTimeout(go, 150);   // in case no frame is produced
+  }
   function onShow() {
     bringToFront();
+    fadeIn();
+    if (!DEMO) exec('[ -f /var/lib/webosbrew/init.d/06-dom-blank-home ] && [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh on').catch(function () {});
     if (S.zone === 'settings') closeSettings();
     if (S.moving) endMove();
     S.zone = 'grid';
@@ -1162,8 +1177,9 @@
   /* ================= boot ================= */
   window.addEventListener('resize', fit);
   document.addEventListener('webOSRelaunch', onShow);
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (!document.hidden) { refreshStremio(false); refreshAppContents(false); reloadApps(); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) fadeOutNow(); else { fadeIn(); refreshStremio(false); refreshAppContents(false); reloadApps(); } });
   fit();
+  fadeIn();
   tickClock();
   setInterval(tickClock, 10000);
   preloadCW(S.cw);
