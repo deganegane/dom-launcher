@@ -34,9 +34,17 @@ if [ $OK -ne 1 ]; then
 fi
 rm -f "$IPK"
 
+# helper scripts ship inside the .ipk (raw.githubusercontent caches old copies)
+get_tool() {
+  for d in /media/developer/apps/usr/palm/applications/$APPID /media/cryptofs/apps/usr/palm/applications/$APPID; do
+    if [ -f "$d/tools/$1" ]; then cp -f "$d/tools/$1" "$2"; return 0; fi
+  done
+  curl -fsSL -o "$2" "https://raw.githubusercontent.com/$REPO/main/scripts/$1$NOCACHE"
+}
+
 echo "==> Home guard (Home tipka otvara Dom)"
 GUARD="/home/root/dom-homeguard.sh"
-curl -fsSL -o "$GUARD" "https://raw.githubusercontent.com/$REPO/main/scripts/dom-homeguard.sh$NOCACHE"
+get_tool dom-homeguard.sh "$GUARD"
 chmod +x "$GUARD"
 if [ -f /tmp/dom-homeguard.pid ]; then
   kill "$(cat /tmp/dom-homeguard.pid)" 2>/dev/null || true
@@ -46,7 +54,7 @@ pkill -f "getForegroundAppInfo" 2>/dev/null || true
 nohup "$GUARD" >/dev/null 2>&1 &
 
 echo "==> Stremio: pomoćnik za tipke"
-curl -fsSL -o /home/root/dom-keys.js "https://raw.githubusercontent.com/$REPO/main/scripts/dom-keys.js$NOCACHE"
+get_tool dom-keys.js /home/root/dom-keys.js
 NODE=$(command -v node || ls /usr/bin/node /usr/local/bin/node 2>/dev/null | head -1)
 if [ -z "$NODE" ]; then
   echo "!! Node nije pronađen; otvaranje Stremio epizoda neće raditi."
