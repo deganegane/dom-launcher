@@ -311,15 +311,19 @@
       var rows = {};
       (r.allContents || []).forEach(function (x) {
         var appId = String(x.launchPointId || '').replace(/_default$/, '');
-        var items = (x.contents || []).filter(function (c) {
-          return c.titleText && /continue|nastavi|resume/i.test(c.category || '');
-        }).slice(0, 10).map(function (c) {
-          var img = (c.image && c.image.url) || '';
+        var isCW = function (c) { return /continue|nastavi|resume/i.test(c.category || ''); };
+        var all = (x.contents || []).filter(function (c) { return c.titleText && c.image && c.image.url; });
+        var cw = all.filter(isCW);
+        if (!cw.length) return;   // only apps with a real Continue Watching row
+        // what you're watching first, then the app's own picks to fill the row
+        var items = cw.concat(all.filter(function (c) { return !isCW(c); })).slice(0, 10).map(function (c) {
+          var img = c.image.url;
           var oc = c.onClick || {};
           return { kind: 'app', id: c.contentId, name: c.titleText, category: c.category, thumb: img, backdrop: img,
+                   kicker: isCW(c) ? 'Nastavi gledati' : 'Preporučeno za tebe',
                    appId: oc.targetAppId || appId, contentTarget: oc.contentId || '', launchParam: oc.launchParam || '' };
         });
-        if (items.length) rows[appId] = items;
+        rows[appId] = items;
       });
       S.appRows = rows;
       store.set('appRows', rows);
@@ -695,7 +699,7 @@
       var item = items[S.zone === 'shelf' ? Math.min(S.card, items.length - 1) : 0];
       if (item.kind === 'app') {
         key = 'appcw:' + item.appId + ':' + item.id;
-        info = { kicker: 'Nastavi gledati', title: item.name, sub: '', progress: -1,
+        info = { kicker: item.kicker || 'Nastavi gledati', title: item.name, sub: '', progress: -1,
                  bg: [item.backdrop], fb: { color: '#202024', soft: true } };
       } else {
       key = 'cw:' + item.id + ':' + item.videoId;
