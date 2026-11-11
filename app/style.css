@@ -204,8 +204,9 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 #settings.hidden #settings-panel { transform: translateX(100%); }
 #settings-panel h1 { font-size: 48px; font-weight: 700; margin-bottom: 20px; }
 #settings-crumb { position: absolute; left: 66px; top: 32px; font-size: 22px; opacity: .6; }
-#settings-body { flex: 1; overflow: hidden; position: relative; }
-#settings-scroll { transition: transform 250ms ease; }
+/* the list clips what scrolls out; the side margins leave room for the focused row, which is drawn slightly larger */
+#settings-body { flex: 1; overflow: hidden; position: relative; margin: 0 -16px; }
+#settings-scroll { transition: transform 250ms ease; padding: 8px 16px; }
 .settings-foot { font-size: 20px; opacity: .5; padding-top: 16px; }
 .s-h { font-size: 21px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; opacity: .55; margin: 34px 0 12px 6px; }
 .s-note { font-size: 22px; opacity: .65; margin: 0 6px 12px; line-height: 1.35; }
