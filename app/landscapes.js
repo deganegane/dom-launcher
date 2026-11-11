@@ -1,6 +1,6 @@
 // Dom: illustrated landscapes drawn on the TV itself (no network). window.DOM_LANDSCAPE(seed) -> { url, title }
-// Four kinds of scene, each with a few palettes: a lake under the moon, a valley at sunset,
-// a coast with a lighthouse, and peaks above the clouds.
+// Three kinds of scene, each with a few palettes: a lake under the moon, a valley at sunset
+// and a coast with a lighthouse. EL holds the small things that populate them (lighthouses, ships, boats, birds, trees, clouds).
 (function () {
   var W = 1920, H = 1080;
   function rng(seed) {
@@ -62,24 +62,6 @@
     }
     return s;
   }
-  // flat poster cloud: scalloped top, straight bottom, a thin bar underneath
-  function flatCloud(r, x, y, w, c, o) {
-    var d = 'M' + f(x) + ' ' + f(y), left = w, cx = x;
-    while (left > 20) {
-      var rr = Math.min(left / 2, 26 + r() * 62);
-      d += 'a' + f(rr) + ' ' + f(rr) + ' 0 0 1 ' + f(rr * 2) + ' 0';
-      cx += rr * 2; left -= rr * 2;
-    }
-    return '<g fill="' + c + '" opacity="' + o + '"><path d="' + d + 'Z"/><rect x="' + f(x - w * 0.22) + '" y="' + f(y - 2) + '" width="' + f((cx - x) + w * 0.44) + '" height="14" rx="7"/></g>';
-  }
-  function puffCloud(r, x, y, w, c, o) {
-    var s = '<g fill="' + c + '" opacity="' + o + '">', n = 6 + Math.floor(r() * 5);
-    for (var i = 0; i < n; i++) {
-      var t = i / (n - 1), rr = w * (0.12 + 0.12 * Math.sin(t * Math.PI) + r() * 0.05);
-      s += '<circle cx="' + f(x + (t - 0.5) * w) + '" cy="' + f(y - rr * 0.6 - Math.sin(t * Math.PI) * w * 0.08) + '" r="' + f(rr) + '"/>';
-    }
-    return s + '<rect x="' + f(x - w * 0.6) + '" y="' + f(y - w * 0.1) + '" width="' + f(w * 1.2) + '" height="' + f(w * 0.16) + '" rx="' + f(w * 0.08) + '"/></g>';
-  }
   function pine(x, y, h, c) {   // tiers of triangles on a short trunk
     var s = '', tiers = 4 + Math.round(h / 90), w = h * 0.36;
     for (var i = 0; i < tiers; i++) {
@@ -108,6 +90,237 @@
     }
     return '<path d="' + body + '" fill="' + dark + '"/><path d="' + lit + 'Z" fill="' + light + '"/>';
   }
+
+  /* ---------------- elements: every variant is fn(x, y, size, colours) -> svg ----------------
+     colours: d dark silhouette, b body, a accent, l light (lamp, windows), s sail
+     size: height for lighthouses and trees, length for ships and boats, wing unit for birds, width for clouds */
+  function fm(t) { var a = arguments, i = 1; return t.replace(/%/g, function () { return f(a[i++]); }); }
+  function rc(x, y, w, h, fill, rx, o) { return '<rect x="' + f(x) + '" y="' + f(y) + '" width="' + f(w) + '" height="' + f(h) + '"' + (rx ? ' rx="' + f(rx) + '"' : '') + ' fill="' + fill + '"' + (o != null ? ' opacity="' + o + '"' : '') + '/>'; }
+  function ci(x, y, rad, fill, o) { return '<circle cx="' + f(x) + '" cy="' + f(y) + '" r="' + f(rad) + '" fill="' + fill + '"' + (o != null ? ' opacity="' + o + '"' : '') + '/>'; }
+  function el(x, y, rx, ry, fill) { return '<ellipse cx="' + f(x) + '" cy="' + f(y) + '" rx="' + f(rx) + '" ry="' + f(ry) + '" fill="' + fill + '"/>'; }
+  function pa(d, fill, o) { return '<path d="' + d + '" fill="' + fill + '"' + (o != null ? ' opacity="' + o + '"' : '') + '/>'; }
+  function ln(d, stroke, w, o) { return '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-width="' + f(w) + '" stroke-linecap="round" stroke-linejoin="round"' + (o != null ? ' opacity="' + o + '"' : '') + '/>'; }
+  function halo(x, y, rad, c) { return ci(x, y, rad, c, 0.07) + ci(x, y, rad * 0.6, c, 0.1) + ci(x, y, rad * 0.3, c, 0.16); }
+
+  // gallery, lamp room and roof on top of a tower whose top edge is at `top`
+  function lampHead(x, top, tw, h, c, roof) {
+    var s = rc(x - tw - h * 0.03, top - h * 0.028, tw * 2 + h * 0.06, h * 0.03, c.d) +
+            rc(x - tw * 0.82, top - h * 0.15, tw * 1.64, h * 0.125, c.l) + rc(x - h * 0.006, top - h * 0.15, h * 0.012, h * 0.125, c.d);
+    if (roof === 'dome') s += pa(fm('M% %a% % 0 0 1 % 0Z', x - tw * 0.95, top - h * 0.15, tw * 0.95, tw * 0.95, tw * 1.9), c.d) + rc(x - h * 0.006, top - h * 0.15 - tw * 0.95 - h * 0.03, h * 0.012, h * 0.04, c.d);
+    else if (roof === 'flat') s += rc(x - tw * 1.1, top - h * 0.172, tw * 2.2, h * 0.024, c.d) + ci(x, top - h * 0.19, h * 0.016, c.d);
+    else s += pa(fm('M% %h%L% %Z', x - tw * 1.04, top - h * 0.15, tw * 2.08, x, top - h * 0.235), c.d);
+    return s;
+  }
+  function tower(x, y, bw, tw, th, fill) { return pa(fm('M% %L% %h%L% %Z', x - bw, y, x - tw, y - th, tw * 2, x + bw, y), fill); }
+  function win(x, y, h, c) { return rc(x - h * 0.016, y, h * 0.032, h * 0.065, c.l, h * 0.008); }
+
+  var LIGHTHOUSE = [
+    function (x, y, h, c) {   // L1 classic tapered tower, cone roof
+      var bw = h * 0.105, tw = h * 0.072, th = h * 0.76;
+      return halo(x, y - th - h * 0.09, h * 0.5, c.l) + tower(x, y, bw, tw, th, c.b) + lampHead(x, y - th, tw, h, c) + win(x, y - th * 0.74, h, c) + win(x, y - th * 0.4, h, c);
+    },
+    function (x, y, h, c) {   // L2 striped, dome roof
+      var bw = h * 0.11, tw = h * 0.07, th = h * 0.76, s = halo(x, y - th - h * 0.09, h * 0.5, c.l), n = 5;
+      for (var i = 0; i < n; i++) {
+        var w0 = bw + (tw - bw) * i / n, w1 = bw + (tw - bw) * (i + 1) / n, y0 = y - th * i / n, y1 = y - th * (i + 1) / n;
+        s += pa(fm('M% %L% %L% %L% %Z', x - w0, y0, x - w1, y1 - 0.5, x + w1, y1 - 0.5, x + w0, y0), i % 2 ? c.a : c.b);
+      }
+      return s + lampHead(x, y - th, tw, h, c, 'dome') + pa(fm('M% %v%a% % 0 0 1 % 0v%Z', x - h * 0.022, y, -h * 0.06, h * 0.022, h * 0.022, h * 0.044, h * 0.06), c.d);
+    },
+    function (x, y, h, c) {   // L3 tower with the keeper's house
+      var bw = h * 0.1, tw = h * 0.07, th = h * 0.76, hx = x + bw * 0.5, hw = h * 0.44, hh = h * 0.17;
+      return halo(x, y - th - h * 0.09, h * 0.5, c.l) +
+        rc(hx, y - hh, hw, hh, c.b) + pa(fm('M% %L% %L% %L% %Z', hx, y - hh, hx + h * 0.05, y - hh - h * 0.09, hx + hw - h * 0.05, y - hh - h * 0.09, hx + hw + h * 0.025, y - hh), c.a) +
+        rc(hx + hw * 0.66, y - hh - h * 0.14, h * 0.035, h * 0.08, c.d) +
+        rc(hx + hw * 0.42, y - hh * 0.72, h * 0.045, h * 0.06, c.l) + rc(hx + hw * 0.7, y - hh * 0.72, h * 0.045, h * 0.06, c.l) +
+        tower(x, y, bw, tw, th, c.b) + lampHead(x, y - th, tw, h, c) + win(x, y - th * 0.72, h, c) + win(x, y - th * 0.38, h, c);
+    },
+    function (x, y, h, c) {   // L4 slim straight column with beams of light
+      var tw = h * 0.045, th = h * 0.76, ly = y - th - h * 0.09;
+      return pa(fm('M% %L% %L% %Z', x, ly, x - h * 1.25, ly - h * 0.16, x - h * 1.25, ly + h * 0.08), c.l, 0.16) + pa(fm('M% %L% %L% %Z', x, ly, x + h * 1.25, ly - h * 0.08, x + h * 1.25, ly + h * 0.16), c.l, 0.16) +
+        halo(x, ly, h * 0.4, c.l) + tower(x, y, h * 0.1, h * 0.07, h * 0.07, c.d) + rc(x - tw, y - th, tw * 2, th - h * 0.06, c.b) +
+        rc(x - tw, y - th * 0.62, tw * 2, h * 0.07, c.a) + lampHead(x, y - th, tw * 1.25, h, c, 'flat');
+    },
+    function (x, y, h, c) {   // L5 stone house with a square tower (an Adriatic "lanterna")
+      var hw = h * 0.62, hh = h * 0.22, tw = h * 0.085, th = h * 0.74, s = halo(x, y - th - h * 0.09, h * 0.5, c.l);
+      s += rc(x - hw / 2, y - hh, hw, hh, c.b) + pa(fm('M% %L% %L% %L% %Z', x - hw / 2 - h * 0.02, y - hh, x - hw / 2 + h * 0.05, y - hh - h * 0.07, x + hw / 2 - h * 0.05, y - hh - h * 0.07, x + hw / 2 + h * 0.02, y - hh), c.a);
+      [-0.23, -0.14, 0.14, 0.23].forEach(function (k) { s += rc(x + h * k - h * 0.018, y - hh * 0.7, h * 0.036, h * 0.07, c.l); });
+      return s + rc(x - tw, y - th, tw * 2, th, c.b) + rc(x - tw - h * 0.012, y - th, tw * 2 + h * 0.024, h * 0.02, c.d) +
+        lampHead(x, y - th, h * 0.058, h, c, 'dome') + win(x, y - th * 0.82, h, c) + win(x, y - th * 0.58, h, c);
+    },
+    function (x, y, h, c) {   // L6 small harbour light at the end of a pier
+      var py = y - h * 0.07, bw = h * 0.085, tw = h * 0.06, th = h * 0.68, s = halo(x, py - th - h * 0.09, h * 0.42, c.l);
+      s += rc(x - h * 1.3, py, h * 1.45, h * 0.05, c.d);
+      for (var i = 0; i < 6; i++) s += rc(x - h * 1.25 + i * h * 0.26, py, h * 0.035, h * 0.2, c.d);
+      return s + tower(x, py, bw, tw, th, c.a) + rc(x - bw * 0.86, py - th * 0.58, bw * 1.72, th * 0.2, c.b) + lampHead(x, py - th, tw, h, c);
+    }
+  ];
+
+  function hull(x, y, w, fill) { return pa(fm('M% %L% %Q% % % %L% %Q% % % %Z', x - 0.5 * w, y - 0.075 * w, x + 0.5 * w, y - 0.1 * w, x + 0.43 * w, y, x + 0.28 * w, y, x - 0.4 * w, y, x - 0.49 * w, y, x - 0.5 * w, y - 0.075 * w), fill); }
+  var SHIP = [
+    function (x, y, w, c) {   // S1 sailing boat: mainsail and jib
+      var m = x - 0.03 * w;
+      return hull(x, y, w, c.d) + rc(m - 0.007 * w, y - 1.02 * w, 0.014 * w, 0.95 * w, c.d) +
+        pa(fm('M% %L% %L% %Q% % % %Z', m - 0.018 * w, y - 0.98 * w, m - 0.018 * w, y - 0.15 * w, m - 0.44 * w, y - 0.15 * w, m - 0.36 * w, y - 0.62 * w, m - 0.018 * w, y - 0.98 * w), c.s) +
+        pa(fm('M% %L% %L% %Q% % % %Z', m + 0.02 * w, y - 0.9 * w, m + 0.02 * w, y - 0.14 * w, x + 0.47 * w, y - 0.13 * w, m + 0.22 * w, y - 0.56 * w, m + 0.02 * w, y - 0.9 * w), c.s);
+    },
+    function (x, y, w, c) {   // S2 tall ship with square sails
+      var s = pa(fm('M% %L% %L% %L% %Q% % % %L% %Q% % % %Z', x - 0.5 * w, y - 0.13 * w, x - 0.34 * w, y - 0.085 * w, x + 0.34 * w, y - 0.085 * w, x + 0.5 * w, y - 0.14 * w, x + 0.42 * w, y, x + 0.3 * w, y, x - 0.4 * w, y, x - 0.5 * w, y - 0.02 * w, x - 0.5 * w, y - 0.13 * w), c.d);
+      s += ln(fm('M% %L% %', x + 0.48 * w, y - 0.13 * w, x + 0.72 * w, y - 0.22 * w), c.d, 0.012 * w);
+      [[-0.27, 0.62], [0, 0.74], [0.25, 0.6]].forEach(function (m) {
+        var mx = x + m[0] * w, k = m[1] / 0.74;
+        s += rc(mx - 0.006 * w, y - m[1] * w, 0.012 * w, m[1] * w - 0.08 * w, c.d);
+        for (var j = 0; j < 3; j++) {
+          var sw = (0.21 - 0.04 * j) * w * k, yb = y - 0.14 * w - j * 0.185 * w * k, yt = yb - 0.155 * w * k;
+          s += pa(fm('M% %L% %L% %Q% % % %Z', mx - sw / 2, yt, mx + sw / 2, yt, mx + sw * 0.54, yb, mx, yb - 0.035 * w, mx - sw * 0.54, yb), c.s);
+        }
+      });
+      return s + pa(fm('M% %L% %L% %Z', x + 0.27 * w, y - 0.56 * w, x + 0.7 * w, y - 0.215 * w, x + 0.31 * w, y - 0.19 * w), c.s, 0.9) +
+        pa(fm('M% %L% %L% %L% %Z', x - 0.29 * w, y - 0.5 * w, x - 0.29 * w, y - 0.16 * w, x - 0.53 * w, y - 0.18 * w, x - 0.47 * w, y - 0.42 * w), c.s, 0.9);
+    },
+    function (x, y, w, c) {   // S3 cargo ship with a funnel
+      var s = pa(fm('M% %L% %L% %L% %L% %L% %Z', x - 0.5 * w, y - 0.085 * w, x + 0.33 * w, y - 0.085 * w, x + 0.36 * w, y - 0.115 * w, x + 0.5 * w, y - 0.115 * w, x + 0.43 * w, y, x - 0.47 * w, y), c.d);
+      s += rc(x - 0.44 * w, y - 0.17 * w, 0.2 * w, 0.09 * w, c.d) + rc(x - 0.41 * w, y - 0.225 * w, 0.13 * w, 0.06 * w, c.d) +
+        pa(fm('M% %L% %L% %L% %Z', x - 0.365 * w, y - 0.225 * w, x - 0.35 * w, y - 0.315 * w, x - 0.3 * w, y - 0.315 * w, x - 0.295 * w, y - 0.225 * w), c.d) +
+        rc(x - 0.352 * w, y - 0.3 * w, 0.054 * w, 0.024 * w, c.a) + rc(x - 0.42 * w, y - 0.15 * w, 0.16 * w, 0.02 * w, c.l, 0, 0.9) + rc(x - 0.39 * w, y - 0.208 * w, 0.09 * w, 0.018 * w, c.l, 0, 0.9);
+      [0.05, 0.075, 0.055, 0.07].forEach(function (hh, i) { s += rc(x - 0.19 * w + i * 0.125 * w, y - 0.085 * w - hh * w, 0.11 * w, hh * w, i % 2 ? c.a : c.s, 0, 0.85); });
+      return s + rc(x + 0.4 * w, y - 0.26 * w, 0.008 * w, 0.15 * w, c.d) + ci(x - 0.34 * w, y - 0.36 * w, 0.03 * w, c.s, 0.3) + ci(x - 0.39 * w, y - 0.43 * w, 0.045 * w, c.s, 0.2) + ci(x - 0.47 * w, y - 0.5 * w, 0.06 * w, c.s, 0.12);
+    },
+    function (x, y, w, c) {   // S4 fishing trawler
+      return pa(fm('M% %Q% % % %Q% % % %L% %Q% % % %Z', x - 0.5 * w, y - 0.12 * w, x, y - 0.06 * w, x + 0.5 * w, y - 0.2 * w, x + 0.44 * w, y - 0.02 * w, x + 0.3 * w, y, x - 0.42 * w, y, x - 0.5 * w, y, x - 0.5 * w, y - 0.12 * w), c.d) +
+        rc(x + 0.02 * w, y - 0.3 * w, 0.2 * w, 0.22 * w, c.d) + rc(x, y - 0.325 * w, 0.24 * w, 0.03 * w, c.d) + rc(x + 0.055 * w, y - 0.27 * w, 0.13 * w, 0.06 * w, c.l) +
+        rc(x - 0.126 * w, y - 0.64 * w, 0.012 * w, 0.56 * w, c.d) + ln(fm('M% %L% %', x - 0.12 * w, y - 0.5 * w, x - 0.46 * w, y - 0.3 * w), c.d, 0.012 * w) +
+        ln(fm('M% %L% %L% %', x + 0.48 * w, y - 0.19 * w, x - 0.12 * w, y - 0.63 * w, x - 0.48 * w, y - 0.12 * w), c.d, 0.005 * w) + ci(x - 0.12 * w, y - 0.655 * w, 0.014 * w, c.l);
+    },
+    function (x, y, w, c) {   // S5 motor yacht / small ferry
+      return pa(fm('M% %L% %L% %Q% % % %L% %Z', x - 0.5 * w, y - 0.09 * w, x + 0.36 * w, y - 0.09 * w, x + 0.5 * w, y - 0.13 * w, x + 0.44 * w, y - 0.01 * w, x + 0.36 * w, y, x - 0.47 * w, y), c.d) +
+        pa(fm('M% %L% %L% %L% %Z', x - 0.42 * w, y - 0.085 * w, x - 0.4 * w, y - 0.17 * w, x + 0.18 * w, y - 0.17 * w, x + 0.28 * w, y - 0.085 * w), c.s) +
+        pa(fm('M% %L% %L% %L% %Z', x - 0.33 * w, y - 0.165 * w, x - 0.31 * w, y - 0.235 * w, x + 0.06 * w, y - 0.235 * w, x + 0.13 * w, y - 0.165 * w), c.s) +
+        rc(x - 0.37 * w, y - 0.148 * w, 0.52 * w, 0.026 * w, c.l, 0.01 * w) + rc(x - 0.28 * w, y - 0.215 * w, 0.3 * w, 0.022 * w, c.l, 0.01 * w) +
+        rc(x - 0.2 * w, y - 0.3 * w, 0.06 * w, 0.065 * w, c.d) + rc(x - 0.06 * w, y - 0.33 * w, 0.008 * w, 0.1 * w, c.d);
+    }
+  ];
+
+  function skiff(x, y, w, fill) { return pa(fm('M% %Q% % % %Q% % % %L% %Q% % % %Z', x - 0.5 * w, y - 0.17 * w, x, y - 0.1 * w, x + 0.5 * w, y - 0.17 * w, x + 0.4 * w, y + 0.01 * w, x + 0.22 * w, y + 0.01 * w, x - 0.22 * w, y + 0.01 * w, x - 0.4 * w, y + 0.01 * w, x - 0.5 * w, y - 0.17 * w), fill); }
+  function ripple(x, y, w, c) { return rc(x - 0.42 * w, y + 0.035 * w, 0.84 * w, 0.014 * w, c.d, 0.007 * w, 0.3) + rc(x - 0.24 * w, y + 0.075 * w, 0.48 * w, 0.012 * w, c.d, 0.006 * w, 0.18); }
+  function person(px, y, w, c) { return rc(px - 0.035 * w, y - 0.27 * w, 0.07 * w, 0.2 * w, c.d, 0.03 * w) + ci(px, y - 0.315 * w, 0.036 * w, c.d); }
+  var BOAT = [
+    function (x, y, w, c) {   // B1 empty rowing boat with oars
+      return skiff(x, y, w, c.d) + ln(fm('M% %L% %', x - 0.04 * w, y - 0.15 * w, x - 0.36 * w, y + 0.09 * w), c.d, 0.018 * w) + ln(fm('M% %L% %', x + 0.08 * w, y - 0.15 * w, x + 0.4 * w, y + 0.07 * w), c.d, 0.018 * w) + ripple(x, y, w, c);
+    },
+    function (x, y, w, c) {   // B2 canoe with a paddler
+      var px = x - 0.08 * w;
+      return pa(fm('M% %Q% % % %L% %Q% % % %Q% % % %L% %Q% % % %Z', x - 0.5 * w, y - 0.13 * w, x - 0.44 * w, y - 0.07 * w, x - 0.3 * w, y - 0.07 * w, x + 0.3 * w, y - 0.07 * w, x + 0.44 * w, y - 0.07 * w, x + 0.5 * w, y - 0.13 * w, x + 0.4 * w, y + 0.01 * w, x + 0.2 * w, y + 0.01 * w, x - 0.2 * w, y + 0.01 * w, x - 0.4 * w, y + 0.01 * w, x - 0.5 * w, y - 0.13 * w), c.d) +
+        person(px, y, w, c) + ln(fm('M% %L% %', px - 0.05 * w, y - 0.38 * w, px + 0.2 * w, y + 0.03 * w), c.d, 0.014 * w) + el(px + 0.215 * w, y + 0.055 * w, 0.022 * w, 0.045 * w, c.d) +
+        ln(fm('M% %L% %', px, y - 0.22 * w, px + 0.09 * w, y - 0.17 * w), c.d, 0.022 * w) + ripple(x, y, w, c);
+    },
+    function (x, y, w, c) {   // B3 small boat with a lateen sail (gajeta)
+      return skiff(x, y, w, c.d) + rc(x - 0.008 * w, y - 0.66 * w, 0.016 * w, 0.54 * w, c.d) +
+        pa(fm('M% %L% %Q% % % %Q% % % %Z', x + 0.42 * w, y - 0.24 * w, x - 0.22 * w, y - 0.92 * w, x - 0.27 * w, y - 0.5 * w, x - 0.4 * w, y - 0.2 * w, x, y - 0.3 * w, x + 0.42 * w, y - 0.24 * w), c.s) +
+        ln(fm('M% %L% %', x + 0.44 * w, y - 0.22 * w, x - 0.24 * w, y - 0.94 * w), c.d, 0.014 * w) + ripple(x, y, w, c);
+    },
+    function (x, y, w, c) {   // B4 boat moored at a jetty
+      var s = rc(x - 0.95 * w, y - 0.2 * w, 0.8 * w, 0.035 * w, c.d);
+      [-0.9, -0.64, -0.38, -0.18].forEach(function (k, i) { s += rc(x + k * w, y - (i === 3 ? 0.3 : 0.2) * w, 0.03 * w, (i === 3 ? 0.42 : 0.32) * w, c.d); });
+      return s + skiff(x + 0.24 * w, y, 0.7 * w, c.d) + ln(fm('M% %Q% % % %', x - 0.165 * w, y - 0.24 * w, x - 0.14 * w, y - 0.08 * w, x - 0.1 * w, y - 0.12 * w), c.d, 0.008 * w) + ripple(x + 0.24 * w, y, 0.7 * w, c);
+    },
+    function (x, y, w, c) {   // B5 angler in a boat
+      var px = x - 0.16 * w;
+      return skiff(x, y, w, c.d) + person(px, y, w, c) + pa(fm('M% %L% %L% %Z', px - 0.07 * w, y - 0.335 * w, px, y - 0.39 * w, px + 0.07 * w, y - 0.335 * w), c.d) +
+        ln(fm('M% %L% %', px, y - 0.22 * w, px + 0.08 * w, y - 0.2 * w), c.d, 0.022 * w) +
+        ln(fm('M% %Q% % % %', px + 0.07 * w, y - 0.2 * w, px + 0.34 * w, y - 0.7 * w, px + 0.66 * w, y - 0.52 * w), c.d, 0.01 * w) +
+        ln(fm('M% %L% %', px + 0.66 * w, y - 0.52 * w, px + 0.66 * w, y + 0.03 * w), c.d, 0.004 * w, 0.7) + ripple(x, y, w, c);
+    }
+  ];
+
+  // one bird of each kind; flocks are made by the caller
+  var BIRD = [
+    function (x, y, k, c) {   // P1 two arcs, drawn with a line
+      return ln(fm('M% %q% % % %q% % % %', x - k * 2, y - k * 0.3, k, -k * 0.6, k * 2, k * 0.5, k, -k * 1.1, k * 2, -k * 0.5), c.d, k * 0.28);
+    },
+    function (x, y, k, c) {   // P2 gull, filled
+      return pa(fm('M% %Q% % % %Q% % % %Q% % % %Q% % % %Z', x - 2 * k, y - 0.25 * k, x - k, y - 1.15 * k, x, y - 0.05 * k, x + k, y - 1.15 * k, x + 2 * k, y - 0.25 * k, x + k, y - 0.6 * k, x, y + 0.4 * k, x - k, y - 0.6 * k, x - 2 * k, y - 0.25 * k), c.d);
+    },
+    function (x, y, k, c) {   // P3 a V of distant geese (the whole formation)
+      var s = '';
+      for (var i = -4; i <= 4; i++) {
+        var a = Math.abs(i), bx = x + i * k * 1.5, by = y + a * k * 0.85 + (a % 2) * k * 0.12, u = k * 0.42;
+        s += ln(fm('M% %Q% % % %Q% % % %', bx - u * 1.6, by - u * 0.5, bx - u * 0.7, by - u * 0.9, bx, by, bx + u * 0.7, by - u * 0.9, bx + u * 1.6, by - u * 0.5), c.d, u * 0.42);
+      }
+      return s;
+    },
+    function (x, y, k, c) {   // P4 a soaring bird of prey, close
+      var h = function (m) {
+        return fm('C% % % % % %L% %L% %L% %L% %L% %L% %C% % % % % %L% %', x + m * 0.3 * k, y - 0.32 * k, x + m * 1.2 * k, y - 0.78 * k, x + m * 3 * k, y - 0.95 * k,
+          x + m * 3.12 * k, y - 0.62 * k, x + m * 2.72 * k, y - 0.55 * k, x + m * 3 * k, y - 0.3 * k, x + m * 2.52 * k, y - 0.28 * k, x + m * 2.7 * k, y - 0.02 * k, x + m * 2.2 * k, y - 0.08 * k,
+          x + m * 1.4 * k, y + 0.1 * k, x + m * 0.7 * k, y + 0.15 * k, x + m * 0.32 * k, y + 0.35 * k, x + m * 0.46 * k, y + 0.98 * k);
+      };
+      return pa(fm('M% %', x, y - 0.3 * k) + h(1) + fm('L% %Z', x, y + 0.8 * k), c.d) + pa(fm('M% %', x, y - 0.3 * k) + h(-1) + fm('L% %Z', x, y + 0.8 * k), c.d) + ci(x, y - 0.3 * k, 0.17 * k, c.d);
+    },
+    function (x, y, k, c) {   // P5 swallow with a forked tail
+      return pa(fm('M% %Q% % % %Q% % % %L% %L% %L% %L% %Q% % % %Q% % % %Z', x, y - 0.35 * k, x + 0.9 * k, y - 0.95 * k, x + 2.1 * k, y - 0.1 * k, x + 1.05 * k, y - 0.42 * k, x + 0.28 * k, y + 0.1 * k,
+        x + 0.5 * k, y + 1.15 * k, x, y + 0.5 * k, x - 0.5 * k, y + 1.15 * k, x - 0.28 * k, y + 0.1 * k, x - 1.05 * k, y - 0.42 * k, x - 2.1 * k, y - 0.1 * k, x - 0.9 * k, y - 0.95 * k, x, y - 0.35 * k), c.d);
+    }
+  ];
+
+  var TREE = [
+    function (x, y, h, c) { return pine(x, y, h, c.d); },   // T1 pine in tiers
+    function (x, y, h, c) {   // T2 slim fir with a saw-tooth outline
+      var n = 8, L = '', R = [], i;
+      for (i = 1; i <= n; i++) {
+        var w = h * 0.17 * i / n, yy = y - h * 0.94 + h * 0.86 * i / n;
+        L += 'L' + f(x - w) + ' ' + f(yy) + 'L' + f(x - w * 0.5) + ' ' + f(yy - h * 0.015);
+        R.push('L' + f(x + w * 0.5) + ' ' + f(yy - h * 0.015) + 'L' + f(x + w) + ' ' + f(yy));
+      }
+      return rc(x - h * 0.014, y - h * 0.1, h * 0.028, h * 0.1 + 6, c.d) + pa('M' + f(x) + ' ' + f(y - h) + L + R.reverse().join('') + 'Z', c.d);
+    },
+    function (x, y, h, c) {   // T3 round-crowned deciduous tree
+      return pa(fm('M% %L% %L% %L% %Z', x - h * 0.045, y + 4, x - h * 0.025, y - h * 0.5, x + h * 0.025, y - h * 0.5, x + h * 0.045, y + 4), c.d) +
+        ln(fm('M% %L% %M% %L% %', x, y - h * 0.36, x - h * 0.16, y - h * 0.52, x, y - h * 0.3, x + h * 0.17, y - h * 0.5), c.d, h * 0.022) +
+        ci(x, y - h * 0.68, h * 0.26, c.d) + ci(x - h * 0.2, y - h * 0.56, h * 0.19, c.d) + ci(x + h * 0.2, y - h * 0.57, h * 0.2, c.d) + ci(x - h * 0.09, y - h * 0.82, h * 0.17, c.d) + ci(x + h * 0.11, y - h * 0.81, h * 0.16, c.d);
+    },
+    function (x, y, h, c) {   // T4 cypress
+      return rc(x - h * 0.012, y - h * 0.1, h * 0.024, h * 0.1 + 6, c.d) + pa(fm('M% %C% % % % % %C% % % % % %Z', x, y - h, x + h * 0.13, y - h * 0.7, x + h * 0.12, y - h * 0.2, x, y - h * 0.07, x - h * 0.12, y - h * 0.2, x - h * 0.13, y - h * 0.7, x, y - h), c.d);
+    },
+    function (x, y, h, c) {   // T5 umbrella pine of the coast
+      return ln(fm('M% %Q% % % %', x, y + 4, x - h * 0.05, y - h * 0.4, x + h * 0.06, y - h * 0.76), c.d, h * 0.04) +
+        ln(fm('M% %Q% % % %M% %Q% % % %', x + h * 0.01, y - h * 0.55, x - h * 0.08, y - h * 0.7, x - h * 0.16, y - h * 0.8, x + h * 0.04, y - h * 0.62, x + h * 0.16, y - h * 0.72, x + h * 0.22, y - h * 0.82), c.d, h * 0.022) +
+        el(x + h * 0.04, y - h * 0.83, h * 0.36, h * 0.1, c.d) + el(x - h * 0.15, y - h * 0.87, h * 0.21, h * 0.085, c.d) + el(x + h * 0.21, y - h * 0.89, h * 0.2, h * 0.08, c.d) + el(x + h * 0.03, y - h * 0.93, h * 0.22, h * 0.07, c.d);
+    },
+    function (x, y, h, c) {   // T6 bare branching tree
+      var d = [], grow = function (px, py, ang, len, wd, depth, sway) {
+        var ex = px + Math.sin(ang) * len, ey = py - Math.cos(ang) * len;
+        d.push(ln(fm('M% %L% %', px, py, ex, ey), c.d, wd));
+        if (depth < 1) return;
+        grow(ex, ey, ang - 0.42 - sway * 0.1, len * 0.72, wd * 0.66, depth - 1, -sway);
+        grow(ex, ey, ang + 0.36 + sway * 0.12, len * 0.74, wd * 0.66, depth - 1, sway);
+        if (depth > 2) grow(ex, ey, ang + sway * 0.06, len * 0.5, wd * 0.5, depth - 2, -sway);
+      };
+      grow(x, y + 4, 0.03, h * 0.3, h * 0.045, 5, 1);
+      return d.join('');
+    },
+    function (x, y, h, c) {   // T7 poplar
+      return rc(x - h * 0.014, y - h * 0.14, h * 0.028, h * 0.14 + 6, c.d) + el(x, y - h * 0.53, h * 0.1, h * 0.47, c.d) + el(x - h * 0.035, y - h * 0.4, h * 0.085, h * 0.3, c.d) + el(x + h * 0.04, y - h * 0.45, h * 0.075, h * 0.3, c.d);
+    }
+  ];
+
+  var CLOUD = [
+    function (x, y, w, c, o, r) {   // O1 long soft band
+      var h = w * (0.045 + (r ? r() : 0.5) * 0.05), x0 = x - w / 2;
+      return pa(fm('M% %Q% % % %T% %Z', x0, y, x0 + w * 0.3, y - h, x0 + w * 0.6, y - h * 0.4, x0 + w, y), c, o);
+    },
+    function (x, y, w, c, o, r) {   // O2 thin streaks
+      var s = '', rows = [[-0.5, 0.62, 0], [-0.3, 0.8, 1], [-0.42, 0.5, 2], [-0.12, 0.6, 3], [-0.34, 0.36, 4]];
+      rows.forEach(function (q) { var j = r ? (r() - 0.5) * 0.12 : 0; s += rc(x + (q[0] + j) * w, y + q[2] * w * 0.034, q[1] * w, w * 0.016, c, w * 0.008, o); });
+      return s;
+    },
+    function (x, y, w, c, o) {   // O3 lens-shaped wisps
+      var one = function (cx, cy, ww, hh) { return pa(fm('M% %Q% % % %Q% % % %Z', cx - ww / 2, cy, cx, cy - hh, cx + ww / 2, cy, cx, cy + hh * 0.4, cx - ww / 2, cy), c, o); };
+      return one(x, y, w, w * 0.11) + one(x + w * 0.22, y + w * 0.05, w * 0.7, w * 0.07) + one(x - w * 0.26, y + w * 0.075, w * 0.5, w * 0.05);
+    }
+  ];
+  var EL = { lighthouse: LIGHTHOUSE, ship: SHIP, boat: BOAT, bird: BIRD, tree: TREE, cloud: CLOUD };
+
   function svg(defs, body) {
     return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><defs>' + defs + '</defs>' + body + '</svg>');
   }
@@ -169,7 +382,7 @@
   ];
   function valleyScene(r) {
     var p = pick(r, VALLEY), i, defs = grad('sky', p.sky) + grad('glw', p.glow) + grad('riv', p.river), b = '<rect width="' + W + '" height="' + H + '" fill="url(#sky)"/>';
-    for (i = 0; i < 6; i++) b += flatCloud(r, r() * W - 120, 110 + r() * 430, 150 + r() * 330, p.cloud, 1);
+    for (i = 0; i < 6; i++) b += EL.cloud[0](r() * W, 110 + i * 62 + r() * 40, 700 + r() * 900, p.cloud, f(0.3 + r() * 0.3), r);
     var sx = 760 + r() * 400, sy = 600 + r() * 50, lit = sx < W / 2;
     b += '<circle cx="' + f(sx) + '" cy="' + f(sy) + '" r="' + f(150 + r() * 50) + '" fill="' + p.sun + '"/>';
     // back range, then the big front peaks to the sides of the sun
@@ -247,34 +460,11 @@
     return { d: defs, b: b, name: p.name };
   }
 
-  /* ---------------- 4: peaks above the clouds ---------------- */
-  var PEAKS = [
-    { name: 'Vrhovi · noć', sky: ['#0b0a3a', '#2a1f6e', '#7a3f9a', '#f06fb5'], star: '#fff6c9', moon: '#5fd6c0', glow: '#4fc7c0', cloudHi: '#3a2f7a', cloudLo: '#f472c0', dark: ['#2a2380', '#1c1a5e', '#12103f'], light: ['#f2d6b0', '#c9a0d8', '#7f6ac0'], fg: '#0b0a2a', stars: 130 },
-    { name: 'Vrhovi · led', sky: ['#04142e', '#0e3a6e', '#2f7fb5', '#a8e0ea'], star: '#ffffff', moon: '#eaf6ff', glow: '#9fd6ff', cloudHi: '#123a66', cloudLo: '#bfe6f0', dark: ['#1a4f86', '#123a66', '#0a2647'], light: ['#f4fbff', '#bfe0f2', '#7fb5d8'], fg: '#051628', stars: 110 },
-    { name: 'Vrhovi · zora', sky: ['#1a1440', '#5a2f7a', '#e0607a', '#ffb07a'], star: '#fff0d6', moon: '#ffe6b8', glow: '#ffb38a', cloudHi: '#4a2a6e', cloudLo: '#ff9a8a', dark: ['#5a2f6e', '#3f2258', '#2a173f'], light: ['#ffe0b0', '#f2a08a', '#b0607f'], fg: '#160c26', stars: 70 }
-  ];
-  function peaks(r) {
-    var p = pick(r, PEAKS), i, defs = grad('sky', p.sky) + glowDef('glow', p.glow, 0.7), b = '<rect width="' + W + '" height="' + H + '" fill="url(#sky)"/>' + stars(r, p.stars, 760, p.star);
-    var mx = 380 + r() * 1160, my = 190 + r() * 110, mr = 95 + r() * 45;
-    defs += '<radialGradient id="mn" cx=".35" cy=".35" r=".8"><stop offset="0" stop-color="' + mix(p.moon, '#ffffff', 0.45) + '"/><stop offset="1" stop-color="' + mix(p.moon, p.sky[1], 0.35) + '"/></radialGradient>';
-    b += '<circle cx="' + f(mx) + '" cy="' + f(my) + '" r="' + f(mr * 3.4) + '" fill="url(#glow)"/><circle cx="' + f(mx) + '" cy="' + f(my) + '" r="' + f(mr) + '" fill="url(#mn)"/>';
-    for (i = 0; i < 4; i++) b += puffCloud(r, r() * W, 230 + r() * 240, 260 + r() * 300, p.cloudHi, f(0.75 + r() * 0.2));
-    for (i = 0; i < 5; i++) b += puffCloud(r, r() * W, 610 + r() * 130, 300 + r() * 340, p.cloudLo, f(0.8 + r() * 0.2));
-    // far small peaks, the main summit, then nearer ranges
-    for (i = 0; i < 4; i++) b += peak(r, 150 + i * 520 + (r() - 0.5) * 240, 560 + r() * 90, 200 + r() * 110, 900, mix(p.dark[0], p.cloudLo, 0.25), mix(p.light[1], p.cloudLo, 0.3), mx > W / 2);
-    var cx = 700 + r() * 520;
-    b += peak(r, cx, 400 + r() * 70, 430 + r() * 90, 1000, p.dark[0], p.light[0], mx > cx);
-    b += peak(r, cx - 560 - r() * 160, 620 + r() * 60, 330, 1050, p.dark[1], p.light[1], mx > cx) + peak(r, cx + 560 + r() * 160, 600 + r() * 70, 350, 1050, p.dark[1], p.light[1], mx > cx);
-    b += peak(r, cx - 150 + (r() - 0.5) * 240, 760 + r() * 40, 300, 1120, p.dark[2], p.light[2], mx > cx);
-    var l = land(ridge(r, 0.55, 128), H + 40, 210, valley(0.7, cx / W));
-    b += '<path d="' + l.d + '" fill="' + p.fg + '"/>';
-    return { d: defs, b: b, name: p.name };
-  }
-
-  var KINDS = [lake, valleyScene, coast, peaks];
+  var KINDS = [lake, valleyScene, coast];
   window.DOM_LANDSCAPE = function (seed, kind) {
     var r = rng(seed), k = kind == null ? Math.floor(r() * KINDS.length) : kind, s = KINDS[k](r);
     return { url: svg(s.d, s.b), title: s.name, credit: '', seed: seed, gen: 'vector' };
   };
   window.DOM_LANDSCAPE.kinds = KINDS.length;
+  window.DOM_LANDSCAPE.elements = EL;
 })();
