@@ -14,9 +14,13 @@
     sidebar:  { name: 'Bočni izbornik', mode: 'list', enter: 'right', cardAxis: 'grid3', listView: 780 },
     bento:    { name: 'Bento', mode: 'dock', scale: 0.873, view: 1938, enter: 'up', cardAxis: 'v', fallback: true },
     carousel: { name: 'Karusel', mode: 'carousel', enter: 'down', cardAxis: 'h', cardView: 1692, maxCards: 6 },
-    ambient:  { name: 'Ambijent', mode: 'dock', scale: 0.8, view: 1965, enter: 'up', cardAxis: 'h', cardView: 1692 }
+    ambient:  { name: 'Ambijent', mode: 'dock', scale: 0.8, view: 1965, enter: 'up', cardAxis: 'h', cardView: 1692 },
+    traka:    { name: 'Traka', mode: 'dock', scale: 0.72, view: 2440, enter: 'down', cardAxis: 'h', cardView: 1728, tabs: true },
+    konzola:  { name: 'Konzola', mode: 'dock', scale: 0.49, view: 2120, step: 226, enter: 'down', cardAxis: 'h', cardView: 1728 },
+    harmonika: { name: 'Harmonika', mode: 'accordion', enter: 'down', cardAxis: 'h', cardView: 1728, boxed: true }
   };
-  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient'];
+  LAYOUTS.bento.boxed = true;
+  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika'];
   function L() { return LAYOUTS[S.layout] || LAYOUTS.classic; }
   function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : 5); }
   var ROW_H = 180 + 92;
@@ -97,8 +101,9 @@
     layout: store.get('layout', 'classic'),
     authKey: store.get('authKey', ''),
     stremioUser: store.get('stremioUser', ''),
-    zone: 'grid',             // grid | shelf | settings
-    idx: 0, card: 0, moving: false,
+    zone: 'grid',             // grid | shelf | tabs | settings
+    idx: 0, card: 0, tab: 0, moving: false,
+    wall: store.get('wall', null) || { on: false, src: 'bing', mins: 5, paused: false },
     lastStremio: 0
   };
   if (DEMO && !S.authKey) S.cw = demoCW();
@@ -759,9 +764,9 @@
       key = 'settings';
       info = { kicker: '', title: 'Postavke', sub: 'Stremio račun, skrivanje aplikacija i ostalo', progress: -1, bg: [], fb: { color: '#26262a' } };
     } else if (a) {
-      key = 'app:' + a.key + (consoleOf(a) ? '' : (a.shot || ''));
+      key = 'app:' + a.key + (consoleOf(a) || S.wall.on ? '' : (a.shot || ''));
       var sub = isStremio(a) ? (S.authKey ? 'Nema ničega za nastaviti' : 'Prijavi se u Postavkama za "Nastavi gledati"') : '';
-      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: consoleOf(a) ? [a.custom ? a.bg : ''] : [a.shot, a.bg], fb: { ambient: ambientFor(a) } };
+      info = { kicker: '', title: a.title, sub: sub, progress: -1, bg: consoleOf(a) ? [a.custom ? a.bg : ''] : [S.wall.on ? '' : a.shot, a.bg], fb: { ambient: ambientFor(a) } };
     } else return;
 
     if (key === shelfKey && !force) return;
@@ -800,6 +805,8 @@
     var cards = document.querySelectorAll('.card');
     for (var j = 0; j < cards.length; j++) cards[j].classList.toggle('focus', S.zone === 'shelf' && j === S.card);
     var lay = L(), r = rowOf(S.idx);
+    var tabEls = document.querySelectorAll('#tabs .tab');
+    for (var tb = 0; tb < tabEls.length; tb++) tabEls[tb].classList.toggle('focus', S.zone === 'tabs' && tb === S.tab);
     // card row/column/grid: keep the focused card on screen
     var cardsEl = $('#cards'), ax = lay.cardAxis || 'h';
     if (ax === 'h') {
@@ -832,8 +839,15 @@
         art.style.setProperty('--ry', d === 0 ? '0deg' : (d > 0 ? '-30deg' : '30deg'));
       }
       grid.style.transform = 'none';
+    } else if (lay.mode === 'accordion') {
+      // the focused app is a wide panel, the others are narrow strips; the art sits under the panel
+      var ASTEP = 168, AWIDE = 888, AVIEW = 1728;
+      var atotal = AWIDE + Math.max(0, tiles.length - 1) * ASTEP;
+      var atx = Math.max(0, Math.min(atotal - AVIEW, S.idx * ASTEP - 2 * ASTEP));
+      grid.style.transform = 'translateX(' + (-atx) + 'px)';
+      stage.style.setProperty('--acc-x', (96 + S.idx * ASTEP - atx) + 'px');
     } else if (lay.mode === 'dock') {
-      var step = tiles.length > 1 ? tiles[1].offsetLeft - tiles[0].offsetLeft : 348;
+      var step = lay.step || (tiles.length > 1 ? tiles[1].offsetLeft - tiles[0].offsetLeft : 348);
       var gap = step - (tiles[0] ? tiles[0].offsetWidth : 300);
       var vis = Math.max(1, Math.floor((lay.view + gap) / step));
       var gmax = Math.max(0, tiles.length * step - gap - lay.view);
@@ -844,6 +858,7 @@
     }
     stage.classList.toggle('scrolled', !lay.mode && S.zone !== 'shelf' && r > 0);
     stage.classList.toggle('zone-shelf', S.zone === 'shelf');
+    stage.classList.toggle('zone-tabs', S.zone === 'tabs');
     stage.classList.toggle('moving-mode', S.moving);
   }
   function setIdx(i, dir) {
@@ -858,7 +873,7 @@
   /* ---------- parallax tilt ---------- */
   function focusedTileEl() { return document.querySelectorAll('.tile')[S.idx]; }
   function nudge(dir) {
-    if (S.layout === 'carousel' || S.layout === 'sidebar') return;
+    if (S.layout === 'carousel' || S.layout === 'sidebar' || S.layout === 'harmonika') return;
     var el = focusedTileEl();
     if (!el) return;
     var art = el.querySelector('.tile-art');
@@ -873,7 +888,7 @@
     el._t = setTimeout(function () { art.style.setProperty('--rx', '0deg'); art.style.setProperty('--ry', '0deg'); }, 260);
   }
   function tiltFromPointer(el, ev) {
-    if (S.layout === 'carousel' || S.layout === 'sidebar') return;
+    if (S.layout === 'carousel' || S.layout === 'sidebar' || S.layout === 'harmonika') return;
     if (!el.classList.contains('focus')) return;
     var r = el.getBoundingClientRect();
     var px = (ev.clientX - r.left) / r.width - 0.5, py = (ev.clientY - r.top) / r.height - 0.5;
@@ -886,7 +901,7 @@
     sh.style.setProperty('--gy', ((py + 0.5) * 100 - 30).toFixed(0) + '%');
   }
   function resetTilt(el) {
-    if (S.layout === 'carousel' || S.layout === 'sidebar') return;
+    if (S.layout === 'carousel' || S.layout === 'sidebar' || S.layout === 'harmonika') return;
     var art = el.querySelector('.tile-art');
     art.style.setProperty('--rx', '0deg'); art.style.setProperty('--ry', '0deg');
   }
@@ -925,6 +940,17 @@
     var k = e.keyCode;
     if (stage.classList.contains('out')) { fadeIn(true); if (e.preventDefault) e.preventDefault(); return; }
     if (S.zone === 'settings') { settingsKey(e); return; }
+    // remotes with media or colour keys: play/pause or yellow keeps the wallpaper, fast-forward or blue shows the next one
+    if (S.wall.on && (k === 415 || k === 19 || k === 10252 || k === 405)) { wallTogglePause(); e.preventDefault(); return; }
+    if (S.wall.on && (k === 417 || k === 406)) { wallNext(true); e.preventDefault(); return; }
+    if (S.zone === 'tabs' && k !== KEY.OK) {
+      var tn = document.querySelectorAll('#tabs .tab').length;
+      if (k === KEY.LEFT) S.tab = Math.max(0, S.tab - 1);
+      else if (k === KEY.RIGHT) S.tab = Math.min(tn - 1, S.tab + 1);
+      else if (k === KEY.DOWN || k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) S.zone = 'grid';
+      else return;
+      e.preventDefault(); applyFocus(); return;
+    }
     if (k === KEY.OK) {
       e.preventDefault();
       if (okHeld) return; // auto-repeat
@@ -946,6 +972,7 @@
     if (S.zone === 'grid') {
       var COLS = cols(), col = S.idx % COLS;
       var ek = { up: KEY.UP, down: KEY.DOWN, right: KEY.RIGHT }[L().enter || 'up'];
+      if (L().tabs && k === KEY.UP) { S.zone = 'tabs'; S.tab = 0; applyFocus(); e.preventDefault(); return; }
       if (k === ek && (ek !== KEY.UP || rowOf(S.idx) === 0) && shelfItems(S.list[S.idx]).length) {
         S.zone = 'shelf'; S.card = 0; applyFocus(); updateShelf(); e.preventDefault(); return;
       }
@@ -1015,18 +1042,165 @@
     if (S.moving) { endMove(); return; }
     if (S.zone === 'grid') activate();
     else if (S.zone === 'shelf') activateItem(shelfItems(S.list[S.idx])[S.card]);
+    else if (S.zone === 'tabs') tabAct(S.tab);
   });
 
   function applyLayout() {
     if (!LAYOUTS[S.layout]) S.layout = 'classic';
     LAYOUT_ORDER.forEach(function (k) { stage.classList.toggle('layout-' + k, S.layout === k); });
     stage.classList.toggle('dock', L().mode === 'dock');
+    stage.classList.toggle('boxed', !!L().boxed);
     stage.style.setProperty('--dock-scale', L().scale || 1);
+    $('#grid').style.transform = 'none';
     if (S.list.length) renderGrid();
     S.cardsFor = null; shelfKey = ''; bgKey = '';
-    if (S.zone === 'shelf') S.zone = 'grid';
+    if (S.zone === 'shelf' || S.zone === 'tabs') S.zone = 'grid';
     updateShelf(true);
   }
+
+  /* ================= tabs (layout Traka) ================= */
+  function tabAct(i) {
+    var el = document.querySelectorAll('#tabs .tab')[i];
+    if (!el) return;
+    if (el.getAttribute('data-tab') === 'settings') openSettings();
+    else { S.zone = 'grid'; applyFocus(); }
+  }
+  (function () {
+    var els = document.querySelectorAll('#tabs .tab');
+    for (var i = 0; i < els.length; i++) (function (i) {
+      els[i].addEventListener('mouseenter', function () { if (!pointerMoved() || S.zone === 'settings' || S.moving) return; S.zone = 'tabs'; S.tab = i; applyFocus(); });
+      els[i].addEventListener('click', function () { if (S.zone !== 'settings' && !S.moving) tabAct(i); });
+    })(i);
+  })();
+
+  /* ================= wallpapers from the internet ================= */
+  var WALL_SRC = { bing: 'Fotografija dana (Bing)', wiki: 'Krajolici (Wikimedia)' };
+  var WALL_SRC_ORDER = ['bing', 'wiki'];
+  var WALL_MINS = [1, 5, 15, 30, 60];
+  var WALL = { list: store.get('wallList', []), listSrc: store.get('wallListSrc', ''), listAt: store.get('wallListAt', 0),
+               pos: store.get('wallPos', -1), cur: store.get('wallCur', null), front: 'A', shownAt: 0, loading: null };
+  function wallSave() { store.set('wall', S.wall); }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function plain(s) { return String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim(); }
+  function wallFetchBing() {
+    // the last two weeks of daily photos, from a few regions (they differ on some days)
+    var calls = [];
+    ['en-US', 'de-DE', 'ja-JP'].forEach(function (m) {
+      [0, 7].forEach(function (i) {
+        calls.push(getJSON('https://www.bing.com/HPImageArchive.aspx?format=js&idx=' + i + '&n=8&mkt=' + m).catch(function () { return null; }));
+      });
+    });
+    return Promise.all(calls).then(function (rs) {
+      var seen = {}, out = [];
+      rs.forEach(function (r) {
+        ((r && r.images) || []).forEach(function (im) {
+          if (!im.urlbase) return;
+          var id = (/OHR\.([^_]+)/.exec(im.urlbase) || [0, im.urlbase])[1];
+          if (seen[id]) return;
+          seen[id] = 1;
+          var m = /^(.*?)\s*\((.*)\)\s*$/.exec(String(im.copyright || ''));
+          out.push({ url: 'https://www.bing.com' + im.urlbase + '_1920x1080.jpg', title: m ? m[1] : (im.title || ''), credit: m ? m[2] : '' });
+        });
+      });
+      return out;
+    });
+  }
+  function wallFetchWiki() {
+    // featured landscape photos from Wikimedia Commons, wide ones only
+    var base = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=categorymembers&gcmtitle=' +
+      encodeURIComponent('Category:Featured pictures of landscapes') + '&gcmtype=file&gcmlimit=50&gcmsort=timestamp&gcmdir=desc' +
+      '&prop=imageinfo&iiprop=url%7Csize%7Cextmetadata&iiurlwidth=1920&iiextmetadatafilter=Artist%7CObjectName';
+    var out = [];
+    function page(cont, left) {
+      return getJSON(base + (cont ? '&gcmcontinue=' + encodeURIComponent(cont) : '')).then(function (r) {
+        var pages = (r && r.query && r.query.pages) || {};
+        Object.keys(pages).forEach(function (k) {
+          var p = pages[k], ii = p.imageinfo && p.imageinfo[0];
+          if (!ii || !ii.thumburl || !/\.jpe?g$/i.test(ii.url || '')) return;
+          var ar = ii.width / ii.height;
+          if (ii.width < 1920 || ar < 1.45 || ar > 2.1) return;
+          var md = ii.extmetadata || {};
+          out.push({ url: ii.thumburl, title: plain(md.ObjectName && md.ObjectName.value) || String(p.title || '').replace(/^File:|\.\w+$/g, ''),
+                     credit: plain(md.Artist && md.Artist.value).slice(0, 60) });
+        });
+        var next = r && r['continue'] && r['continue'].gcmcontinue;
+        return next && left > 1 ? page(next, left - 1) : out;
+      }, function (e) { if (out.length) return out; throw e; });
+    }
+    return page('', 4);
+  }
+  function demoWall() {
+    return [['#1d3b6e', '#0b1326'], ['#6e2a1d', '#1b0d0a'], ['#1d6e4b', '#08140f']].map(function (c, i) {
+      return { title: 'Demo pozadina ' + (i + 1), credit: 'demo',
+               url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c[0] + '"/><stop offset="1" stop-color="' + c[1] + '"/></linearGradient></defs><rect width="1920" height="1080" fill="url(#g)"/><circle cx="' + (500 + i * 400) + '" cy="380" r="260" fill="rgba(255,255,255,.12)"/></svg>') };
+    });
+  }
+  function wallList(force) {
+    var fresh = WALL.list.length && WALL.listSrc === S.wall.src && Date.now() - WALL.listAt < 12 * 3600 * 1000;
+    if (fresh && !force) return Promise.resolve(WALL.list);
+    if (WALL.loading) return WALL.loading;
+    var src = S.wall.src;
+    var f = DEMO ? Promise.resolve(demoWall()) : (src === 'wiki' ? wallFetchWiki() : wallFetchBing());
+    WALL.loading = f.then(function (list) {
+      WALL.loading = null;
+      if (!list || !list.length) throw new Error('no wallpapers');
+      WALL.list = shuffle(list); WALL.listSrc = src; WALL.listAt = Date.now(); WALL.pos = -1;
+      store.set('wallList', WALL.list); store.set('wallListSrc', src); store.set('wallListAt', WALL.listAt);
+      return WALL.list;
+    }, function (e) {
+      WALL.loading = null;
+      if (WALL.list.length && WALL.listSrc === src) return WALL.list;   // keep going with yesterday's list
+      throw e;
+    });
+    return WALL.loading;
+  }
+  function wallShow(item) {
+    if (!item || !item.url) return;
+    var im = new Image();
+    im.onload = function () {
+      if (!S.wall.on) return;
+      var back = WALL.front === 'A' ? 'B' : 'A';
+      $('#wall' + back).style.backgroundImage = 'url("' + item.url + '")';
+      $('#wall' + back).classList.add('on');
+      $('#wall' + WALL.front).classList.remove('on');
+      WALL.front = back; WALL.cur = item; WALL.shownAt = Date.now(); WALL.failed = 0;
+      store.set('wallCur', item);
+      if (S.zone === 'settings') renderSettings();
+    };
+    im.onerror = function () {
+      // skip a picture that does not load, but do not spin through the whole list when offline
+      WALL.failed = (WALL.failed || 0) + 1;
+      if (WALL.failed <= 3 && !S.wall.paused) wallNext(false);
+    };
+    im.src = item.url;
+  }
+  function wallNext(manual) {
+    wallList(false).then(function (list) {
+      WALL.pos = (WALL.pos + 1) % list.length;
+      store.set('wallPos', WALL.pos);
+      wallShow(list[WALL.pos]);
+    }, function () { if (manual) toast('Ne mogu dohvatiti pozadine. Provjeri internet.'); });
+  }
+  function wallTick() {
+    if (!S.wall.on || S.wall.paused || document.hidden) return;
+    if (Date.now() - WALL.shownAt >= S.wall.mins * 60000) wallNext(false);
+  }
+  function wallTogglePause() {
+    S.wall.paused = !S.wall.paused;
+    wallSave();
+    if (!S.wall.paused) WALL.shownAt = Date.now();
+    toast(S.wall.paused ? 'Pozadina zadržana' : 'Izmjena pozadina nastavljena');
+    if (S.zone === 'settings') renderSettings();
+  }
+  function wallApply() {
+    stage.classList.toggle('wall-on', !!S.wall.on);
+    shelfKey = ''; bgKey = '';
+    updateShelf(true);
+    if (!S.wall.on) { $('#wallA').classList.remove('on'); $('#wallB').classList.remove('on'); WALL.shownAt = 0; return; }
+    if (WALL.cur && WALL.listSrc === S.wall.src && !WALL.shownAt) wallShow(WALL.cur);   // the last (or kept) one comes back first
+    else if (!WALL.shownAt) wallNext(true);
+  }
+  setInterval(wallTick, 20000);
 
   /* ================= tune (debloat + speed) ================= */
   var TUNE_GROUPS = [
@@ -1062,8 +1236,32 @@
 
   /* ================= settings ================= */
   var SET = { rows: [], pos: 0, email: '', password: '', busy: false };
+  function wallRows(rows) {
+    rows.push({ h: 'Pozadina' });
+    if (S.wall.on) {
+      rows.push({ type: 'btn', name: 'wall-pause', label: 'Zadrži trenutnu pozadinu', value: S.wall.paused ? 'Da' : 'Ne', act: wallTogglePause });
+      rows.push({ type: 'btn', name: 'wall-next', label: 'Sljedeća pozadina', act: function () { wallNext(true); } });
+    }
+    rows.push({ type: 'toggle', name: 'wall-on', label: 'Pozadine s interneta', value: S.wall.on ? 'Uključeno' : 'Isključeno', off: !S.wall.on, act: function () {
+      S.wall.on = !S.wall.on; wallSave(); wallApply(); renderSettings();
+    } });
+    if (S.wall.on) {
+      rows.push({ type: 'btn', name: 'wall-mins', label: 'Izmjena svakih', value: (S.wall.mins >= 60 ? '1 h' : S.wall.mins + ' min') + '  ›', act: function () {
+        S.wall.mins = WALL_MINS[(WALL_MINS.indexOf(S.wall.mins) + 1) % WALL_MINS.length]; wallSave(); renderSettings();
+      } });
+      rows.push({ type: 'btn', name: 'wall-src', label: 'Izvor slika', value: WALL_SRC[S.wall.src] + '  ›', act: function () {
+        S.wall.src = WALL_SRC_ORDER[(WALL_SRC_ORDER.indexOf(S.wall.src) + 1) % WALL_SRC_ORDER.length];
+        wallSave(); WALL.shownAt = 0; renderSettings(); wallNext(true);
+      } });
+      if (WALL.cur && WALL.cur.title) rows.push({ note: 'Sada: ' + WALL.cur.title + (WALL.cur.credit ? ' · ' + WALL.cur.credit : '') });
+      else rows.push({ note: 'Slike su Full HD, koliko Dom može prikazati. Dok su pozadine uključene, snimke iz aplikacija se ne prikazuju.' });
+    } else {
+      rows.push({ note: 'Fotografije se izmjenjuju u pozadini umjesto snimki iz aplikacija.' });
+    }
+  }
   function settingsRows() {
     var rows = [];
+    if (S.wall.on) wallRows(rows);   // on top while in use, so keeping a picture is two presses away
     rows.push({ h: 'Stremio' });
     if (S.authKey) {
       rows.push({ type: 'info', label: 'Prijavljen', value: S.stremioUser || 'da' });
@@ -1085,6 +1283,7 @@
       applyLayout();
       renderSettings();
     } });
+    if (!S.wall.on) wallRows(rows);
     rows.push({ h: 'Aplikacije' });
     rows.push({ note: 'Dugi pritisak na OK na ikoni pokreće premještanje. Ovdje možeš sakriti aplikacije.' });
     S.apps.forEach(function (a) {
@@ -1363,9 +1562,10 @@
   /* ================= boot ================= */
   window.addEventListener('resize', fit);
   document.addEventListener('webOSRelaunch', onShow);
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { fadeIn(); refreshSoon(); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { fadeIn(); refreshSoon(); wallTick(); } });
   fit();
   applyLayout();
+  wallApply();
   fadeIn();
   tickClock();
   setInterval(tickClock, 10000);

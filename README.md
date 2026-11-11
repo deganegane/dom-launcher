@@ -116,3 +116,11 @@ curl -fsSL https://raw.githubusercontent.com/deganegane/dom-launcher/main/script
 ```
 
 Ako se TV dvaput zaredom restarta unutar 10 minuta od primjene, čišćenje se samo pauzira (sigurnosni način).
+
+## Pozadine s interneta
+
+Postavke → Pozadina → "Pozadine s interneta". Kad je uključeno, u pozadini se izmjenjuju fotografije (Bing fotografija dana ili istaknuti krajolici s Wikimedije) umjesto snimki iz aplikacija. Interval se bira (1 min – 1 h), "Zadrži trenutnu pozadinu" pauzira izmjenu, a "Sljedeća pozadina" preskače. Na daljinskima s medijskim ili obojenim tipkama: Play/Pause ili žuta zadržava, Fast-forward ili plava preskače.
+
+## Izgledi
+
+Klasično, Bočni izbornik, Bento, Karusel, Ambijent, Traka, Konzola, Harmonika. Mijenjaju se u Postavke → Izgled početnog zaslona.

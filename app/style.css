@@ -28,6 +28,15 @@ body {
 }
 #stage.scrolled #bg-shade::after { opacity: 1; }
 
+/* ---------- wallpapers from the internet ---------- */
+#wall { position: absolute; inset: 0; display: none; }
+#stage.wall-on #wall { display: block; }
+.wall-layer { position: absolute; inset: 0; background: #000 center / cover no-repeat; opacity: 0; transition: opacity 1400ms ease; }
+.wall-layer.on { opacity: 1; }
+/* the wallpaper replaces app art, except while browsing the cards and in layouts where the art is a tile */
+#stage.wall-on:not(.boxed):not(.zone-shelf) .bg-layer { opacity: 0 !important; }
+#stage.wall-on.boxed #wall::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+
 /* ---------- top bar ---------- */
 #topbar { position: absolute; top: 52px; right: 114px; text-align: right; z-index: 5; }
 #clock { font-size: 40px; font-weight: 500; letter-spacing: .01em; }
@@ -307,3 +316,128 @@ body {
 #stage.layout-ambient .tile-icon, #stage.layout-ambient .tile-brand, #stage.layout-ambient .tile-conicon,
 #stage.layout-ambient .tile-pad, #stage.layout-ambient .tile-art > svg { transform: scale(.7); }
 #stage.layout-ambient .tile-label, #stage.layout-ambient .tile.focus .tile-label { top: -52px; transform: none; font-size: 26px; font-weight: 600; }
+
+/* ---- tabs (only in Traka) ---- */
+#tabs { display: none; }
+
+/* ---- Traka: tabs on top, a big picture, round apps, then what to continue ---- */
+#stage.layout-traka #bg-shade {
+  background:
+    linear-gradient(90deg, #0d0f12 0%, rgba(13,15,18,.72) 34%, rgba(13,15,18,0) 68%),
+    linear-gradient(180deg, rgba(13,15,18,.55) 0%, rgba(13,15,18,0) 20%, rgba(13,15,18,0) 36%, rgba(13,15,18,.9) 56%, #0d0f12 66%);
+}
+#stage.layout-traka #tabs {
+  display: flex; position: absolute; left: 96px; top: 44px; gap: 8px; padding: 6px; border-radius: 34px;
+  background: rgba(13,15,18,.55); z-index: 6;
+}
+#stage.layout-traka .tab {
+  height: 56px; line-height: 56px; padding: 0 30px; border-radius: 28px; font-size: 24px; font-weight: 500; color: #d7d7de;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+#stage.layout-traka .tab.active { background: #fff; color: #0b0b0e; font-weight: 600; }
+#stage.layout-traka .tab.focus { box-shadow: 0 0 0 4px #fff, 0 0 0 9px rgba(255,255,255,.35); color: #fff; background: rgba(255,255,255,.22); }
+#stage.layout-traka .tab.active.focus { background: #fff; color: #0b0b0e; }
+#stage.layout-traka #topbar { right: 96px; top: 50px; display: flex; gap: 18px; align-items: baseline; }
+#stage.layout-traka #date { font-size: 22px; opacity: .8; margin: 0; }
+#stage.layout-traka #clock { font-size: 36px; font-weight: 600; }
+#stage.layout-traka #shelf { left: 96px; top: 0; width: 1728px; height: 1080px; }
+#stage.layout-traka #shelf-info, #stage.layout-traka #shelf.has-cards #shelf-info { top: 236px; width: 900px; }
+#stage.layout-traka #shelf-title { font-size: 84px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+#stage.layout-traka #shelf-progress { width: 420px; }
+#stage.layout-traka #shelf.has-cards::after {
+  content: "Nastavi gledati"; position: absolute; left: 0; top: 846px; font-size: 22px; font-weight: 600; color: #e4e4ea;
+}
+#stage.layout-traka #cards { top: 888px; gap: 24px; }
+#stage.layout-traka .card { width: 300px; height: 169px; border-radius: 16px; }
+#stage.layout-traka.zone-shelf .card.focus { transform: scale(1.07); box-shadow: 0 0 0 4px #fff, 0 18px 40px rgba(0,0,0,.6); }
+#stage.layout-traka #grid-wrap { left: 96px; top: 652px; }
+#stage.layout-traka #grid-wrap::before {
+  content: "Tvoje aplikacije"; position: absolute; left: 0; top: -58px; font-size: 30px; font-weight: 600; color: #e4e4ea; white-space: nowrap;
+}
+#stage.layout-traka #grid { grid-auto-columns: 180px; column-gap: 44px; }
+#stage.layout-traka .tile { width: 180px; }
+#stage.layout-traka .tile-art { inset: auto; left: -60px; top: 0; width: 300px; height: 180px; clip-path: circle(90px at 50% 50%); box-shadow: none; }
+#stage.layout-traka .tile .tile-art { --s: .9; }
+#stage.layout-traka .tile.focus .tile-art { --s: 1.04; }
+#stage.layout-traka .tile.focus::before {
+  content: ""; position: absolute; left: -9px; top: -9px; width: 198px; height: 198px; border-radius: 50%; box-shadow: 0 0 0 6px #fff;
+}
+#stage.layout-traka .tile-icon, #stage.layout-traka .tile-brand, #stage.layout-traka .tile-conicon,
+#stage.layout-traka .tile-pad, #stage.layout-traka .tile-art > svg { transform: scale(.7); }
+#stage.layout-traka .tile-label, #stage.layout-traka .tile.focus .tile-label {
+  top: 196px; transform: none; font-size: 26px; font-weight: 500; opacity: .75; left: -22px; right: -22px;
+}
+#stage.layout-traka .tile.focus .tile-label { opacity: 1; font-weight: 600; }
+#stage.layout-traka.zone-shelf #grid-wrap, #stage.layout-traka.zone-tabs #grid-wrap { opacity: .75; }
+
+/* ---- Konzola: a small strip of icons on top, the picture everywhere, cards at the bottom ---- */
+#stage.layout-konzola #bg-shade {
+  background:
+    linear-gradient(90deg, rgba(6,8,14,.88) 0%, rgba(6,8,14,.45) 40%, rgba(6,8,14,0) 70%),
+    linear-gradient(180deg, rgba(6,8,14,.62) 0%, rgba(6,8,14,0) 28%, rgba(6,8,14,0) 52%, rgba(6,8,14,.92) 100%);
+}
+#stage.layout-konzola .bg-img { background-position: center center; }
+#stage.layout-konzola #topbar { right: 96px; top: 56px; display: flex; gap: 18px; align-items: baseline; }
+#stage.layout-konzola #date { font-size: 22px; opacity: .8; margin: 0; }
+#stage.layout-konzola #clock { font-size: 36px; font-weight: 600; }
+#stage.layout-konzola #grid-wrap { left: 96px; top: 78px; z-index: 4; width: 2300px; clip-path: inset(-120px 0 -420px -120px); }
+#stage.layout-konzola #grid { grid-auto-columns: auto; column-gap: 46px; align-items: start; }
+#stage.layout-konzola .tile { width: 180px; transition: margin 240ms cubic-bezier(.2,.8,.2,1); }
+#stage.layout-konzola .tile.focus { margin: 0 45px; }
+#stage.layout-konzola .tile-art { inset: auto; left: -60px; top: 0; width: 300px; height: 180px; clip-path: inset(0 60px round 40px); box-shadow: none; }
+#stage.layout-konzola .tile .tile-art { --s: 1; }
+#stage.layout-konzola .tile.focus .tile-art { --s: 1.5; }
+#stage.layout-konzola .tile.focus::before {
+  content: ""; position: absolute; left: -57px; top: -57px; width: 294px; height: 294px; border-radius: 68px; box-shadow: 0 0 0 8px #fff;
+}
+#stage.layout-konzola .tile-icon, #stage.layout-konzola .tile-brand, #stage.layout-konzola .tile-conicon,
+#stage.layout-konzola .tile-pad, #stage.layout-konzola .tile-art > svg { transform: scale(.72); }
+#stage.layout-konzola .tile-label { display: none; }
+#stage.layout-konzola .tile.focus .tile-label {
+  display: block; left: -57px; right: auto; width: 1400px; top: 262px; transform: none; text-align: left; font-size: 60px; font-weight: 600; opacity: 1;
+}
+#stage.layout-konzola #shelf { left: 96px; top: 0; width: 1728px; height: 1080px; }
+#stage.layout-konzola #shelf-info, #stage.layout-konzola #shelf.has-cards #shelf-info { top: 372px; width: 900px; }
+#stage.layout-konzola #shelf-title { font-size: 88px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+#stage.layout-konzola #shelf.has-cards::after {
+  content: "Nastavi gledati"; position: absolute; left: 0; top: 782px; font-size: 22px; font-weight: 600; color: #e4e4ea;
+}
+#stage.layout-konzola #cards { top: 826px; gap: 24px; }
+#stage.layout-konzola .card { width: 372px; height: 200px; border-radius: 20px; }
+#stage.layout-konzola .card .card-title { font-size: 22px; left: 20px; right: 20px; bottom: 20px; }
+#stage.layout-konzola.zone-shelf .card.focus { transform: scale(1.06); box-shadow: 0 0 0 4px #fff, 0 20px 44px rgba(0,0,0,.65); }
+
+/* ---- Harmonika: the focused app opens into a wide panel, the others are strips ---- */
+#stage.layout-harmonika #topbar { left: 96px; right: 96px; top: 50px; display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: baseline; text-align: left; }
+#stage.layout-harmonika #clock { font-size: 56px; font-weight: 700; letter-spacing: -1px; }
+#stage.layout-harmonika #date { font-size: 24px; opacity: .72; margin: 0; }
+#stage.layout-harmonika #bg {
+  inset: auto; left: var(--acc-x, 96px); top: 170px; width: 888px; height: 640px; border-radius: 30px; overflow: hidden;
+  transition: left 380ms cubic-bezier(.2,.8,.2,1);
+}
+#stage.layout-harmonika .bg-img { background-position: center center; }
+#stage.layout-harmonika #bg-shade { background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.88) 100%); }
+#stage.layout-harmonika #shelf { left: 0; top: 0; width: 1920px; height: 1080px; }
+#stage.layout-harmonika #shelf-info, #stage.layout-harmonika #shelf.has-cards #shelf-info {
+  left: calc(var(--acc-x, 96px) + 44px); top: auto; bottom: 314px; width: 800px;
+}
+#stage.layout-harmonika #shelf-title { font-size: 64px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+#stage.layout-harmonika #shelf-progress { width: 400px; }
+#stage.layout-harmonika #cards { left: 96px; top: 866px; gap: 24px; }
+#stage.layout-harmonika .card { width: 248px; height: 140px; }
+#stage.layout-harmonika.zone-shelf .card.focus { transform: scale(1.08); box-shadow: 0 0 0 4px #fff, 0 16px 36px rgba(0,0,0,.6); }
+#stage.layout-harmonika #grid-wrap { left: 96px; top: 170px; width: 1728px; height: 640px; }
+#stage.layout-harmonika #grid { display: flex; gap: 16px; }
+#stage.layout-harmonika .tile {
+  flex: 0 0 auto; width: 152px; height: 640px; border-radius: 26px; background: linear-gradient(180deg, #202027 0%, #121216 100%);
+  transition: width 380ms cubic-bezier(.2,.8,.2,1), background 200ms ease, box-shadow 200ms ease;
+}
+#stage.layout-harmonika .tile.focus { width: 888px; border-radius: 30px; background: transparent; box-shadow: 0 0 0 5px #fff; }
+#stage.layout-harmonika.zone-shelf .tile.focus { box-shadow: 0 0 0 3px rgba(255,255,255,.5); }
+#stage.layout-harmonika .tile-art {
+  inset: auto; left: 50%; top: auto; bottom: 34px; width: 300px; height: 180px; margin-left: -150px; transform-origin: 50% 100%;
+  box-shadow: 0 6px 16px rgba(0,0,0,.45);
+}
+#stage.layout-harmonika .tile .tile-art { --s: .4; }
+#stage.layout-harmonika .tile.focus .tile-art { left: 36px; top: 36px; bottom: auto; margin-left: 0; transform-origin: 0 0; --s: .5; }
+#stage.layout-harmonika .tile-sheen, #stage.layout-harmonika .tile-label { display: none; }
