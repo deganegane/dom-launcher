@@ -16,7 +16,7 @@
     carousel: { name: 'Karusel', mode: 'carousel', enter: 'down', cardAxis: 'h', cardView: 1692, maxCards: 6 },
     ambient:  { name: 'Ambijent', mode: 'dock', scale: 0.8, view: 1965, enter: 'up', cardAxis: 'h', cardView: 1692 },
     traka:    { name: 'Traka', mode: 'dock', scale: 0.72, view: 2440, enter: 'down', cardAxis: 'h', cardView: 1728, tabs: true },
-    konzola:  { name: 'Konzola', mode: 'dock', scale: 0.49, view: 2120, step: 226, enter: 'down', cardAxis: 'h', cardView: 1728 },
+    konzola:  { name: 'Konzola', mode: 'dock', scale: 0.49, view: 1920, step: 226, enter: 'down', cardAxis: 'h', cardView: 1728 },
     harmonika: { name: 'Harmonika', mode: 'accordion', enter: 'down', cardAxis: 'h', cardView: 1728, boxed: true }
   };
   LAYOUTS.bento.boxed = true;
@@ -1291,7 +1291,8 @@
     stage.classList.add('has-wx');
     var k = wxKind(d.code, d.day);
     el.className = 'on';
-    el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + WX_ICON[k[0]] + '</svg>' +
+    el.innerHTML = '<span class="wx-c">' + esc(String(WX.place.name || '').split(',')[0]) + '</span>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + WX_ICON[k[0]] + '</svg>' +
       '<span class="wx-t">' + Math.round(d.temp) + '°</span>' + (k[1] ? '<span class="wx-d">' + esc(k[1]) + '</span>' : '') +
       (d.max != null ? '<span class="wx-r">' + Math.round(d.max) + '° / ' + Math.round(d.min) + '°</span>' : '');
   }

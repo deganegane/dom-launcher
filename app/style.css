@@ -45,13 +45,14 @@ body {
 /* weather: hangs under the clock block in every layout, so it never disturbs how that block is laid out */
 #weather { display: none; }
 #weather.on {
-  display: flex; align-items: center; gap: 10px; position: absolute; top: 100%; right: 0; margin-top: 8px;
-  white-space: nowrap; font-size: 24px; text-shadow: 0 2px 10px rgba(0,0,0,.6);
+  display: flex; align-items: center; gap: 12px; position: absolute; top: 100%; right: 0; margin-top: 10px;
+  white-space: nowrap; font-size: 30px;
 }
-#weather svg { width: 30px; height: 30px; flex: 0 0 auto; }
+#weather svg { width: 38px; height: 38px; flex: 0 0 auto; }
+#weather .wx-c { opacity: .8; }
 #weather .wx-t { font-weight: 600; }
-#weather .wx-d { opacity: .85; }
-#weather .wx-r { opacity: .6; font-size: 20px; margin-left: 4px; }
+#weather .wx-d { opacity: .8; }
+#weather .wx-r { opacity: .6; font-size: .8em; margin-left: 4px; }
 
 /* ---------- top shelf ---------- */
 #shelf {
@@ -391,7 +392,7 @@ body {
 #stage.layout-konzola #topbar { right: 96px; top: 56px; display: flex; gap: 18px; align-items: baseline; }
 #stage.layout-konzola #date { font-size: 22px; opacity: .8; margin: 0; }
 #stage.layout-konzola #clock { font-size: 36px; font-weight: 600; }
-#stage.layout-konzola #grid-wrap { left: 96px; top: 78px; z-index: 4; width: 2300px; clip-path: inset(-120px 0 -420px -120px); }
+#stage.layout-konzola #grid-wrap { left: 96px; top: 78px; z-index: 4; width: 2090px; clip-path: inset(-120px 0 -420px -120px); }
 #stage.layout-konzola #grid { grid-auto-columns: auto; column-gap: 46px; align-items: start; }
 #stage.layout-konzola .tile { width: 180px; transition: margin 240ms cubic-bezier(.2,.8,.2,1); }
 #stage.layout-konzola .tile.focus { margin: 0 45px; }
@@ -455,12 +456,15 @@ body {
 
 /* ---- weather position per layout ---- */
 #stage.layout-sidebar #weather.on, #stage.layout-ambient #weather.on { right: auto; left: 0; }
-#stage.layout-sidebar #weather.on { font-size: 21px; margin-top: 10px; }
+#stage.layout-sidebar #weather.on { font-size: 22px; margin-top: 10px; gap: 8px; }
+#stage.layout-sidebar #weather svg { width: 28px; height: 28px; }
 #stage.layout-sidebar #weather .wx-r { display: none; }
 #stage.layout-ambient.has-wx #topbar { bottom: 346px; }
-#stage.layout-ambient #weather.on { font-size: 32px; margin-top: 18px; gap: 14px; }
-#stage.layout-ambient #weather svg { width: 40px; height: 40px; }
-#stage.layout-ambient #weather .wx-r { font-size: 26px; }
+#stage.layout-ambient #weather.on { font-size: 34px; margin-top: 18px; gap: 14px; }
+#stage.layout-ambient #weather svg { width: 44px; height: 44px; }
 #stage.layout-carousel #weather.on { right: auto; left: 50%; transform: translateX(-50%); }
-#stage.layout-bento #weather.on { font-size: 21px; margin-top: 4px; }
+#stage.layout-bento #weather.on { font-size: 22px; margin-top: 4px; gap: 8px; }
 #stage.layout-bento #weather svg { width: 26px; height: 26px; }
+#stage.layout-harmonika #weather.on { font-size: 26px; margin-top: 4px; }
+#stage.layout-harmonika #weather svg { width: 32px; height: 32px; }
+#stage.layout-sidebar #weather .wx-d { display: none; }
