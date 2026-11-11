@@ -64,6 +64,22 @@ FG="/tmp/dom-fg"
   done
 ) &
 
+# --- old-TV power-off effect: tell Dom the moment the power key is pressed, if Dom is what's on screen
+(
+  while true; do
+    luna-send -i luna://com.webos.service.tvpower/power/getPowerState '{"subscribe":true}' 2>/dev/null |
+    while read -r line; do
+      case "$line" in
+        *'"Request Power Off"'*)
+          [ "$(cat "$FG" 2>/dev/null)" = "$APPID" ] &&
+            luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\",\"params\":{\"dom\":\"poweroff\"}}" >/dev/null 2>&1
+          ;;
+      esac
+    done
+    sleep 2
+  done
+) &
+
 # --- Home: the system tells us the moment the foreground app changes (subscription),
 #     so Dom is brought up right away instead of at the next poll.
 while true; do

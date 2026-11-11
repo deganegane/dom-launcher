@@ -112,6 +112,7 @@
     zone: 'grid',             // grid | shelf | tabs | settings
     idx: 0, card: 0, tab: 0, moving: false,
     wall: store.get('wall', null) || { on: false, src: 'bing', mins: 5, paused: false },
+    crt: store.get('crt', true),   // old-TV effect when the TV is switched off
     lastStremio: 0
   };
   if (DEMO && !S.authKey) S.cw = demoCW();
@@ -993,6 +994,7 @@
   var okTimer = null, okHeld = false, okLong = false;
   function onKeyDown(e) {
     var k = e.keyCode;
+    if (crtAt) { crtRestore(); if (e.preventDefault) e.preventDefault(); return; }
     if (stage.classList.contains('out')) { fadeIn(true); if (e.preventDefault) e.preventDefault(); return; }
     if (S.zone === 'settings') { settingsKey(e); return; }
     // remotes with media or colour keys: play/pause or yellow keeps the wallpaper, fast-forward or blue shows the next one
@@ -1257,6 +1259,37 @@
   }
   setInterval(wallTick, 20000);
 
+  /* ================= old-TV power-off effect ================= */
+  // The picture collapses into a line and then a dot. It can only be seen while Dom is what's on screen,
+  // and only if the panel is still lit for a moment after the power key.
+  var crtAt = 0;
+  function crtOff(test) {
+    if ((!S.crt && !test) || crtAt || document.hidden) return;
+    crtAt = Date.now();
+    document.body.classList.add('crt-off');
+    if (test) setTimeout(crtRestore, 1600);
+  }
+  function crtRestore() {
+    if (!crtAt) return;
+    crtAt = 0;
+    document.body.classList.remove('crt-off');
+    fadeIn(true);
+  }
+  var powerBridge = null;
+  function watchPower() {
+    if (DEMO) return;
+    try {
+      powerBridge = new window.PalmServiceBridge();
+      powerBridge.onservicecallback = function (msg) {
+        var r; try { r = JSON.parse(msg); } catch (e) { return; }
+        if (!r || r.returnValue === false) return;
+        if (/^Request Power Off/.test(r.processing || '')) crtOff(false);
+        else if (r.state === 'Active' && !r.processing) crtRestore();
+      };
+      powerBridge.call('luna://com.webos.service.tvpower/power/getPowerState', JSON.stringify({ subscribe: true }));
+    } catch (e) {}
+  }
+
   /* ================= weather under the clock ================= */
   // Open-Meteo: free for personal use, no key. One request every half hour while Dom is on screen.
   var WX = { place: store.get('wxPlace', null), data: store.get('wxData', null), at: store.get('wxAt', 0), busy: false };
@@ -1425,6 +1458,10 @@
       applyLayout();
       renderSettings();
     } });
+    rows.push({ type: 'toggle', name: 'crt', label: 'Gašenje kao na starom TV-u', value: S.crt ? 'Uključeno' : 'Isključeno', off: !S.crt, act: function () {
+      S.crt = !S.crt; store.set('crt', S.crt); renderSettings();
+    } });
+    rows.push({ type: 'btn', name: 'crt-test', label: 'Isprobaj efekt gašenja', act: function () { closeSettings(); setTimeout(function () { crtOff(true); }, 350); } });
     if (!S.wall.on) wallRows(rows);
     wxRows(rows);
     rows.push({ h: 'Aplikacije' });
@@ -1593,6 +1630,8 @@
     toastTimer = setTimeout(function () { t.classList.remove('on'); }, 2800);
   }
   function tickClock() {
+    // never stay collapsed: if the TV did not go off after all, or is coming back, show the picture again
+    if (crtAt && Date.now() - crtAt > 6000) crtRestore();
     var d = new Date();
     $('#clock').textContent = d.toLocaleTimeString('hr-HR', { hour: '2-digit', minute: '2-digit' });
     var ds = d.toLocaleDateString('hr-HR', { weekday: 'long', day: 'numeric', month: 'long' }).toLowerCase();
@@ -1704,12 +1743,18 @@
 
   /* ================= boot ================= */
   window.addEventListener('resize', fit);
-  document.addEventListener('webOSRelaunch', onShow);
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
+  document.addEventListener('webOSRelaunch', function (e) {
+    // the home guard pokes us with this the moment the power key is pressed
+    if (e && e.detail && e.detail.dom === 'poweroff') { crtOff(false); return; }
+    crtRestore();
+    onShow();
+  });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { crtRestore(); fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
   fit();
   applyLayout();
   wallApply();
   wxRender(); wxRefresh(false);
+  watchPower();
   fadeIn();
   tickClock();
   setInterval(tickClock, 10000);

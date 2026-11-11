@@ -76,6 +76,7 @@ if [ -f /tmp/dom-homeguard.pid ]; then
 fi
 pkill -f "dom-homeguard.sh" 2>/dev/null || true
 pkill -f "getForegroundAppInfo" 2>/dev/null || true
+pkill -f "getPowerState" 2>/dev/null || true
 get_tool dom-ctl.sh /home/root/dom-ctl.sh
 chmod +x /home/root/dom-ctl.sh
 if [ -f /home/root/dom-disabled ]; then

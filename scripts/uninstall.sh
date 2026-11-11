@@ -4,6 +4,7 @@ APPID="com.deganegane.dom"
 rm -f /var/lib/webosbrew/init.d/90-dom-launcher
 [ -f /tmp/dom-homeguard.pid ] && kill "$(cat /tmp/dom-homeguard.pid)" 2>/dev/null
 pkill -f "getForegroundAppInfo" 2>/dev/null
+pkill -f "getPowerState" 2>/dev/null
 rm -f /home/root/dom-homeguard.sh
 [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh off
 rm -f /var/lib/webosbrew/init.d/06-dom-blank-home /home/root/dom-blank-home.sh /home/root/dom-ctl.sh /home/root/dom-disabled

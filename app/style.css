@@ -10,6 +10,26 @@ body {
   transform-origin: 0 0; overflow: hidden; background: #000;
 }
 
+/* ---------- old-TV power-off: the picture collapses to a line, the line to a dot ---------- */
+#tube { position: absolute; inset: 0; transform-origin: 50% 50%; }
+#crt-line {
+  position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; background: #fff; opacity: 0;
+  pointer-events: none; z-index: 99; box-shadow: 0 0 26px 8px rgba(255,255,255,.75); transform-origin: 50% 50%;
+}
+body.crt-off #tube { animation: crt-squash 430ms cubic-bezier(.6,0,.85,.35) forwards; }
+body.crt-off #crt-line { animation: crt-line 640ms ease-out forwards; }
+@keyframes crt-squash {
+  0% { transform: scale(1, 1); }
+  58% { transform: scale(1, .006); }
+  100% { transform: scale(0, .006); }
+}
+@keyframes crt-line {
+  0% { opacity: 0; transform: scaleX(1); }
+  30% { opacity: 1; transform: scaleX(1); }
+  62% { opacity: 1; transform: scaleX(.1); }
+  100% { opacity: 0; transform: scaleX(0); }
+}
+
 /* ---------- background ---------- */
 #bg, .bg-layer, .bg-img, #bg-shade { position: absolute; inset: 0; }
 .bg-layer { opacity: 0; transition: opacity 450ms ease; }

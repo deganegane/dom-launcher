@@ -10,6 +10,7 @@ stop_guard() {
   [ -f /tmp/dom-homeguard.pid ] && kill "$(cat /tmp/dom-homeguard.pid)" 2>/dev/null
   pkill -f dom-homeguard.sh 2>/dev/null
   pkill -f getForegroundAppInfo 2>/dev/null
+  pkill -f getPowerState 2>/dev/null
 }
 launch_home() { luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$HOME_ID\"}" >/dev/null 2>&1; }
 case "$1" in
