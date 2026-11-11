@@ -25,6 +25,8 @@
   function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : 5); }
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
+  var RENAME = { 'YouTube AdFree': 'YouTube' };   // shown name instead of the app's own
+  function shownName(t) { return RENAME[t] || (/^youtube\s*ad[\s-]*free$/i.test(t || '') ? 'YouTube' : t); }
 
   var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461, BKSP: 8, ESC: 27 };
 
@@ -126,7 +128,8 @@
         return {
           key: lp.launchPointId || lp.id,
           id: lp.id,
-          title: lp.title || lp.id,
+          title: shownName(lp.title) || lp.id,
+          title0: lp.title || lp.id,   // custom icons and backgrounds are still found by the original name
           iconPath: lp.extraLargeIcon || lp.largeIcon || lp.mediumLargeIcon || lp.icon || '',
           bgPath: lp.bgImage || '',
           icon: '',
@@ -158,14 +161,14 @@
     cmds.push('B=/home/root/dom-backgrounds');
     apps.forEach(function (a) {
       var base = a.key.replace(/[^A-Za-z0-9._-]/g, '_') + '_custom';
-      var names = [a.id, a.title].filter(Boolean).map(shq).join(' ');
+      var names = [a.id, a.title0, a.title].filter(function (n, i, all) { return n && all.indexOf(n) === i; }).map(shq).join(' ');
       cmds.push('for n in ' + names + '; do for e in jpg jpeg png webp; do if [ -f "$B/$n.$e" ]; then cp -f "$B/$n.$e" "$D/' + base + '.$e" && echo "CUSTOM|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e"; break 2; fi; done; done');
     });
     // own icons: /home/root/dom-icons/<app id or title>.png|jpg|webp
     cmds.push('I=/home/root/dom-icons');
     apps.forEach(function (a) {
       var base = a.key.replace(/[^A-Za-z0-9._-]/g, '_') + '_icon';
-      var names = [a.id, a.title].filter(Boolean).map(shq).join(' ');
+      var names = [a.id, a.title0, a.title].filter(function (n, i, all) { return n && all.indexOf(n) === i; }).map(shq).join(' ');
       cmds.push('for n in ' + names + '; do for e in png jpg jpeg webp; do if [ -f "$I/$n.$e" ]; then cp -f "$I/$n.$e" "$D/' + base + '.$e" && echo "ICON|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e|$(date -r "$I/$n.$e" +%s)"; break 2; fi; done; done');
     });
     // last frame of what was watched in each app, captured by dom-homeguard.sh

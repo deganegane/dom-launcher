@@ -138,6 +138,8 @@ cat > "$INITD/06-dom-blank-home" <<'EOF'
 EOF
 chmod +x "$INITD/06-dom-blank-home"
 /home/root/dom-blank-home.sh on || true
+# make sure LG Home still starts with its widget page hidden (falls back by itself if it does not)
+if [ ! -f /home/root/dom-disabled ]; then echo "   $(/home/root/dom-blank-home.sh check 2>/dev/null)"; fi
 
 echo "==> Čišćenje i ubrzanje"
 get_tool dom-tune.sh /home/root/dom-tune.sh
