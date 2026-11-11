@@ -1003,21 +1003,9 @@
 
   /* ================= keys ================= */
   var okTimer = null, okHeld = false, okLong = false;
-  var backTimer = null, backHeld = false, backLast = 0;
   function onKeyDown(e) {
     var k = e.keyCode;
     lastInput = Date.now();
-    if (k === KEY.BACK || k === KEY.ESC) {   // a short press goes back as always; holding it opens the list of open apps
-      var again = e.repeat || (backHeld && Date.now() - backLast < 400);
-      backLast = Date.now();
-      if (again) { if (e.preventDefault) e.preventDefault(); return; }
-      var fromRun = S.zone === 'settings' && SET.only === 'run';
-      backHeld = true;
-      clearTimeout(backTimer);
-      backTimer = setTimeout(function () {
-        if (backHeld && !fromRun && !SAVER.on && !crtAt && !S.moving && S.zone !== 'pin' && !document.hidden) openRun();
-      }, 650);
-    }
     if (SAVER.on) { saverOff(); if (e.preventDefault) e.preventDefault(); return; }
     if (crtAt) { crtRestore(); if (e.preventDefault) e.preventDefault(); return; }
     if (S.zone === 'pin') { pinKey(e); return; }
@@ -1117,7 +1105,6 @@
     onKeyDown({ keyCode: k, preventDefault: function () {} });
   }, { passive: false });
   document.addEventListener('keyup', function (e) {
-    if (e.keyCode === KEY.BACK || e.keyCode === KEY.ESC) { backHeld = false; clearTimeout(backTimer); return; }
     if (e.keyCode !== KEY.OK) return;
     if (!okHeld) return;               // press began elsewhere (e.g. in Settings, or before we were shown)
     okHeld = false;
@@ -2051,8 +2038,9 @@
     if (e && e.detail && e.detail.dom === 'poweroff') { crtOff(false); return; }
     crtRestore();
     onShow();
+    if (e && e.detail && e.detail.dom === 'recents' && !(S.zone === 'settings' && SET.only === 'run')) openRun();
   });
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); backHeld = false; clearTimeout(backTimer); if (document.hidden) { wasAway = true; saverOff(); fadeOutNow(); } else { crtRestore(); fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; saverOff(); fadeOutNow(); } else { crtRestore(); fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
   fit();
   applyLayout();
   wallApply();
@@ -2060,6 +2048,8 @@
   watchPower();
   saverSync();
   pinResetCheck();
+  // holding Back makes the system close the app in front; the home guard then starts Dom again with this note
+  try { if (JSON.parse((window.PalmSystem && window.PalmSystem.launchParams) || '{}').dom === 'recents') setTimeout(openRun, 300); } catch (e) {}
   (function () {   // own version, for "Nadogradi Dom" (XHR: fetch does not read local files)
     try {
       var x = new XMLHttpRequest();

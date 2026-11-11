@@ -18,6 +18,7 @@ stop_guard() {
   pkill -f getForegroundAppInfo 2>/dev/null
   pkill -f getPowerState 2>/dev/null
   pkill -f registerScreenSaverRequest 2>/dev/null
+  pkill -f getAppLifeEvents 2>/dev/null
 }
 launch_home() { luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$HOME_ID\"}" >/dev/null 2>&1; }
 case "$1" in

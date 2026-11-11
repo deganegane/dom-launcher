@@ -79,6 +79,7 @@ pkill -f "dom-homeguard.sh" 2>/dev/null || true
 pkill -f "getForegroundAppInfo" 2>/dev/null || true
 pkill -f "getPowerState" 2>/dev/null || true
 pkill -f "registerScreenSaverRequest" 2>/dev/null || true
+pkill -f "getAppLifeEvents" 2>/dev/null || true
 get_tool dom-ctl.sh /home/root/dom-ctl.sh
 chmod +x /home/root/dom-ctl.sh
 # a copy of this installer, for "Nadogradi Dom" in Settings

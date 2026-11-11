@@ -20,8 +20,12 @@ log() {
   echo "$(date +%T) $*" >> "$LOG"
   if [ "$(wc -l < "$LOG")" -gt 300 ]; then tail -n 100 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"; fi
 }
+RECENTS="/tmp/dom-recents"
 launch_dom() {
-  luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\"}" >/dev/null 2>&1
+  # right after a long press of Back (see below) Dom opens straight into its list of open apps
+  params="{}"
+  if [ $(( $(date +%s) - $(cat "$RECENTS" 2>/dev/null || echo 0) )) -lt 6 ]; then params='{"dom":"recents"}'; fi
+  luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\",\"params\":$params}" >/dev/null 2>&1
 }
 # Save a frame of the playing video for app $1. DRM video (Netflix etc.) captures as black,
 # which compresses to a tiny file, so small captures are thrown away.
@@ -75,6 +79,24 @@ FG="/tmp/dom-fg"
       luna-send -n 1 luna://com.webos.service.tvpower/power/responseScreenSaverRequest "{\"clientName\":\"dom\",\"ack\":$ack,\"timestamp\":\"$ts\"}" >/dev/null 2>&1
     done
     sleep 5
+  done
+) &
+
+# --- holding Back makes the system close the app in front ("windowPolicy"). When that app is Dom,
+#     start it again at once, opened on the list of open apps - the same gesture LG Home uses for recents.
+(
+  while true; do
+    luna-send -i luna://com.webos.applicationManager/getAppLifeEvents '{"subscribe":true}' 2>/dev/null |
+    while read -r line; do
+      case "$line" in
+        *'"event":"close"'*"\"appId\":\"$APPID\""*'"reason":"windowPolicy"'*)
+          date +%s > "$RECENTS"
+          log "Back held on Dom -> open apps"
+          launch_dom </dev/null
+          ;;
+      esac
+    done
+    sleep 2
   done
 ) &
 

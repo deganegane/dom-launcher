@@ -6,6 +6,7 @@ rm -f /var/lib/webosbrew/init.d/90-dom-launcher
 pkill -f "getForegroundAppInfo" 2>/dev/null
 pkill -f "getPowerState" 2>/dev/null
 pkill -f "registerScreenSaverRequest" 2>/dev/null
+pkill -f "getAppLifeEvents" 2>/dev/null
 rm -f /home/root/dom-homeguard.sh
 [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh off
 rm -f /var/lib/webosbrew/init.d/06-dom-blank-home /home/root/dom-blank-home.sh /home/root/dom-ctl.sh /home/root/dom-disabled
