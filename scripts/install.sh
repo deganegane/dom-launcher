@@ -91,6 +91,7 @@ fi
 
 echo "==> Stremio: pomoćnik za tipke"
 get_tool dom-keys.js /home/root/dom-keys.js
+get_tool dom-spotify.js /home/root/dom-spotify.js || true
 NODE=$(command -v node || ls /usr/bin/node /usr/local/bin/node 2>/dev/null | head -1)
 if [ -z "$NODE" ]; then
   echo "!! Node nije pronađen; otvaranje Stremio epizoda neće raditi."

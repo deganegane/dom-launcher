@@ -28,7 +28,7 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p app/tools && cp scripts/dom-homeguard.sh scripts/dom-keys.js scripts/dom-blank-home.sh scripts/dom-ctl.sh scripts/dom-tune.sh scripts/install.sh app/tools/
+          mkdir -p app/tools && cp scripts/dom-homeguard.sh scripts/dom-keys.js scripts/dom-spotify.js scripts/dom-blank-home.sh scripts/dom-ctl.sh scripts/dom-tune.sh scripts/install.sh app/tools/
           ares-package app -o out -n
           mv out/*.ipk out/com.deganegane.dom.ipk
           ls -la out

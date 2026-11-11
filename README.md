@@ -141,3 +141,14 @@ Postavke → Vremenska prognoza → upiši grad. Ispod sata se prikazuje trenutn
 - **Nadogradi Dom** (Postavke → Sustav) skida i instalira najnoviju verziju bez SSH-a.
 - **Spremi sigurnosnu kopiju** sprema postavke, ikone, pozadine i uparivanje u `/home/root/dom-backup`; **Vrati** ih učitava natrag.
 - **Ugasi Telnet** (Čišćenje i ubrzanje): radi samo ako je SSH uključen i pokrenut.
+
+## Što svira
+
+Ispod sata (i na čuvaru zaslona) Dom pokazuje pjesmu koja svira na tvom Spotify računu, na bilo kojem uređaju, ili film/epizodu pauziranu u Stremiju.
+
+Spotify se povezuje jednom:
+
+1. Na <https://developer.spotify.com/dashboard> napravi aplikaciju (treba Spotify Premium): Redirect URI `http://127.0.0.1:8888/callback`, API "Web API". Kopiraj Client ID.
+2. Preko SSH-a: `node /home/root/dom-spotify.js <Client ID>` i prati upute (otvoriš adresu, dopustiš, zalijepiš natrag adresu na koju te preglednik vrati).
+
+Prijava se čuva u `/home/root/dom-spotify.json`. Stremio ne traži ništa: ime se čita iz naziva datoteke koja je otvorena u pozadini.
