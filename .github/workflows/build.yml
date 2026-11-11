@@ -29,14 +29,14 @@ jobs:
       - name: Package
         run: |
           mkdir -p app/tools && cp scripts/dom-homeguard.sh scripts/dom-keys.js scripts/dom-blank-home.sh scripts/dom-ctl.sh scripts/dom-tune.sh app/tools/
-          ares-package app -o dist -n
-          mv dist/*.ipk dist/com.deganegane.dom.ipk
-          ls -la dist
+          ares-package app -o out -n
+          mv out/*.ipk out/com.deganegane.dom.ipk
+          ls -la out
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Dom 1.0.${{ github.run_number }}
-          files: dist/com.deganegane.dom.ipk
+          files: out/com.deganegane.dom.ipk
           make_latest: true
