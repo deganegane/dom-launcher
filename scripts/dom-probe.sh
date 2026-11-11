@@ -10,6 +10,17 @@ uptime
 grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo | tr -s ' '
 command -v systemctl >/dev/null && echo "init: systemd" || echo "init: upstart/other"
 
+echo; echo "== CPU/GPU takt"
+grep -c ^processor /proc/cpuinfo
+for c in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
+  [ -d "$c" ] && echo "$(basename $(dirname $c)): $(cat $c/scaling_governor) $(cat $c/scaling_cur_freq)/$(cat $c/cpuinfo_max_freq) [$(cat $c/scaling_available_governors 2>/dev/null)]"
+done | sort -u -k2
+for g in /sys/class/devfreq/*; do [ -d "$g" ] && echo "$(basename $g): $(cat $g/governor 2>/dev/null) $(cat $g/cur_freq 2>/dev/null)/$(cat $g/max_freq 2>/dev/null)"; done
+cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | tr '\n' ' '; echo
+echo "CPU opterećenje (5 s):"; head -1 /proc/stat > /tmp/s1; sleep 5; head -1 /proc/stat > /tmp/s2
+awk 'NR==1{for(i=2;i<=NF;i++)a+=$i; ia=$5} NR==2{for(i=2;i<=NF;i++)b+=$i; ib=$5} END{printf "%.0f%% zauzeto\n", 100*(1-(ib-ia)/(b-a))}' /tmp/s1 /tmp/s2
+echo "pmlog razina: $(cat /etc/pmlog.d/*.conf 2>/dev/null | grep -i level | head -3 | tr '\n' ' ')"
+
 echo; echo "== top 40 procesa po RAM-u (kB name)"
 for d in /proc/[0-9]*; do
   r=$(awk '/VmRSS/{print $2}' "$d/status" 2>/dev/null)
