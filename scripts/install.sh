@@ -78,8 +78,11 @@ fi
 pkill -f "dom-homeguard.sh" 2>/dev/null || true
 pkill -f "getForegroundAppInfo" 2>/dev/null || true
 pkill -f "getPowerState" 2>/dev/null || true
+pkill -f "registerScreenSaverRequest" 2>/dev/null || true
 get_tool dom-ctl.sh /home/root/dom-ctl.sh
 chmod +x /home/root/dom-ctl.sh
+# a copy of this installer, for "Nadogradi Dom" in Settings
+get_tool install.sh /home/root/dom-install.sh.new && mv /home/root/dom-install.sh.new /home/root/dom-install.sh && chmod +x /home/root/dom-install.sh || true
 if [ -f /home/root/dom-disabled ]; then
   echo "   (Dom je isključen u Postavkama — Home tipka ostaje na LG Homeu)"
 else

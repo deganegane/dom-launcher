@@ -64,6 +64,20 @@ FG="/tmp/dom-fg"
   done
 ) &
 
+# --- Dom's own screensaver: while it is switched on (flag file) and Dom is on screen, LG's screensaver is declined
+(
+  while true; do
+    luna-send -i luna://com.webos.service.tvpower/power/registerScreenSaverRequest '{"subscribe":true,"clientName":"dom"}' 2>/dev/null |
+    while read -r line; do
+      ts=$(echo "$line" | sed -n 's/.*"timestamp" *: *"\([^"]*\)".*/\1/p')
+      [ -n "$ts" ] || continue
+      if [ -f /home/root/dom-saver ] && [ "$(cat "$FG" 2>/dev/null)" = "$APPID" ]; then ack=false; else ack=true; fi
+      luna-send -n 1 luna://com.webos.service.tvpower/power/responseScreenSaverRequest "{\"clientName\":\"dom\",\"ack\":$ack,\"timestamp\":\"$ts\"}" >/dev/null 2>&1
+    done
+    sleep 5
+  done
+) &
+
 # --- old-TV power-off effect: tell Dom the moment the power key is pressed, if Dom is what's on screen
 (
   while true; do

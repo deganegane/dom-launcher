@@ -128,3 +128,16 @@ Klasično, Bočni izbornik, Bento, Karusel, Ambijent, Traka, Konzola, Harmonika.
 ## Vremenska prognoza
 
 Postavke → Vremenska prognoza → upiši grad. Ispod sata se prikazuje trenutna temperatura, stanje i dnevni raspon. Podaci: Open-Meteo (bez ključa, besplatno za osobnu upotrebu), osvježava se svakih pola sata dok je Dom na ekranu.
+
+## Čuvar zaslona, brze radnje, PIN
+
+- **Čuvar zaslona** (Postavke → Izgled): nakon 2, 5 ili 10 minuta mirovanja ostaju samo pozadina, sat i prognoza; sat se svake minute pomakne, a nakon 20 minuta slika se dodatno zatamni. Dok je uključen, LG-ev čuvar zaslona se preko Doma ne pali.
+- **Brze radnje** (vrh Postavki): gašenje ekrana uz zvuk i tajmer za spavanje (15/30/60/90 min).
+- **Najčešće korištene aplikacije naprijed**: redoslijed se slaže sam prema broju pokretanja.
+- **PIN za Postavke**: četiri znamenke; bez njega se Postavke (i skrivene aplikacije) ne otvaraju. Zaboravljen PIN: obriši podatke aplikacije ili ponovno instaliraj Dom.
+
+## Nadogradnja i sigurnosna kopija
+
+- **Nadogradi Dom** (Postavke → Sustav) skida i instalira najnoviju verziju bez SSH-a.
+- **Spremi sigurnosnu kopiju** sprema postavke, ikone, pozadine i uparivanje u `/home/root/dom-backup`; **Vrati** ih učitava natrag.
+- **Ugasi Telnet** (Čišćenje i ubrzanje): radi samo ako je SSH uključen i pokrenut.

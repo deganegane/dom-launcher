@@ -495,3 +495,37 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 #stage.layout-bento #weather .wx-t { font-size: 26px; }
 #stage.layout-harmonika #weather.on { margin-top: 2px; }
 #stage.layout-harmonika #weather .wx-t { font-size: 28px; }
+
+/* ---------- screensaver: the picture, a wandering clock, the weather ---------- */
+#stage.saver > *:not(#wall):not(#topbar):not(#cover):not(#toast) { opacity: 0 !important; pointer-events: none; transition: opacity 900ms ease; }
+#stage.saver #wall { display: block; }
+#stage.saver #wall::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.22); z-index: 1; transition: background 4s ease; }
+#stage.saver.saver-deep #wall::before { background: rgba(0,0,0,.72); }
+#stage.saver.saver-deep #topbar { opacity: .55 !important; }
+#stage.saver #topbar, #stage.saver.has-wx #topbar {
+  left: var(--sv-x, 120px) !important; top: var(--sv-y, 120px) !important; right: auto !important; bottom: auto !important;
+  display: flex !important; flex-direction: column-reverse !important; align-items: flex-start !important; gap: 0 !important;
+  text-align: left !important; opacity: 1 !important; z-index: 30;
+  transition: left 2400ms ease-in-out, top 2400ms ease-in-out;
+}
+#stage.saver #clock { font-size: 150px !important; font-weight: 300 !important; letter-spacing: -4px !important; line-height: 1 !important; opacity: 1 !important; }
+#stage.saver #date { font-size: 32px !important; opacity: .85 !important; margin: 8px 0 0 !important; }
+#stage.saver #weather.on { left: 0 !important; right: auto !important; transform: none !important; font-size: 28px !important; margin-top: 14px !important; }
+#stage.saver #weather .wx-t { font-size: 36px !important; }
+#stage.saver #weather .wx-d { display: inline !important; }
+#stage.saver #weather svg { width: 36px !important; height: 36px !important; }
+
+/* ---------- PIN pad ---------- */
+#pinpad { position: absolute; inset: 0; background: rgba(0,0,0,.72); z-index: 40; display: flex; align-items: center; justify-content: center; transition: opacity 200ms ease; }
+#pinpad.hidden { opacity: 0; pointer-events: none; }
+#pin-box { width: 520px; padding: 46px 50px 40px; border-radius: 34px; background: rgba(34,34,38,.98); box-shadow: 0 40px 100px rgba(0,0,0,.7); text-align: center; }
+#pin-box.bad { animation: pin-bad 360ms ease; }
+@keyframes pin-bad { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-16px); } 40%, 80% { transform: translateX(16px); } }
+#pin-title { font-size: 30px; font-weight: 600; margin-bottom: 26px; }
+#pin-dots { display: flex; justify-content: center; gap: 22px; margin-bottom: 34px; }
+#pin-dots i { width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255,255,255,.6); }
+#pin-dots i.on { background: #fff; border-color: #fff; }
+#pin-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.pin-key { height: 84px; line-height: 84px; border-radius: 20px; background: rgba(255,255,255,.1); font-size: 34px; font-weight: 500; transition: background 120ms ease, transform 120ms ease; }
+.pin-key.wide { font-size: 22px; }
+.pin-key.focus { background: #fff; color: #000; transform: scale(1.05); }

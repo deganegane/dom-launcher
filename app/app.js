@@ -113,6 +113,11 @@
     idx: 0, card: 0, tab: 0, moving: false,
     wall: store.get('wall', null) || { on: false, src: 'bing', mins: 5, paused: false },
     crt: store.get('crt', true),   // old-TV effect when the TV is switched off
+    saverMins: store.get('saverMins', 0),      // screensaver after this many idle minutes (0 = off)
+    autoOrder: store.get('autoOrder', false),  // most used apps first
+    uses: store.get('uses', {}),
+    pin: store.get('pin', ''),
+    sleepMins: 0, version: '',
     lastStremio: 0
   };
   if (DEMO && !S.authKey) S.cw = demoCW();
@@ -220,6 +225,9 @@
     var rest = S.apps.filter(function (a) { return byKey[a.key]; });
     rest.sort(function (a, b) { return (isStremio(b) ? 1 : 0) - (isStremio(a) ? 1 : 0); });
     out = out.concat(rest).filter(function (a) { return S.hidden.indexOf(a.key) < 0; });
+    if (S.autoOrder) {   // most used first; equal counts keep their manual order
+      out = out.map(function (a, i) { return [a, i]; }).sort(function (x, y) { return ((S.uses[y[0].key] || 0) - (S.uses[x[0].key] || 0)) || (x[1] - y[1]); }).map(function (x) { return x[0]; });
+    }
     out.push({ key: SETTINGS_KEY, title: 'Postavke' });
     S.list = out;
     if (S.idx >= S.list.length) S.idx = S.list.length - 1;
@@ -233,6 +241,7 @@
 
   function launch(app, extraParams) {
     if (!app) return;
+    if (app.key) { S.uses[app.key] = (S.uses[app.key] || 0) + 1; store.set('uses', S.uses); }
     if (DEMO) { toast('Pokrećem: ' + app.title); return; }
     var params = {};
     var k;
@@ -972,6 +981,7 @@
   function startMove() {
     var a = S.list[S.idx];
     if (!a || a.key === SETTINGS_KEY) return;
+    if (S.autoOrder) { toast('Uključen je automatski redoslijed. Isključi ga u Postavkama za ručno slaganje.'); return; }
     S.moving = true;
     applyFocus();
   }
@@ -994,7 +1004,10 @@
   var okTimer = null, okHeld = false, okLong = false;
   function onKeyDown(e) {
     var k = e.keyCode;
+    lastInput = Date.now();
+    if (SAVER.on) { saverOff(); if (e.preventDefault) e.preventDefault(); return; }
     if (crtAt) { crtRestore(); if (e.preventDefault) e.preventDefault(); return; }
+    if (S.zone === 'pin') { pinKey(e); return; }
     if (stage.classList.contains('out')) { fadeIn(true); if (e.preventDefault) e.preventDefault(); return; }
     if (S.zone === 'settings') { settingsKey(e); return; }
     // remotes with media or colour keys: play/pause or yellow keeps the wallpaper, fast-forward or blue shows the next one
@@ -1075,7 +1088,7 @@
   var wheelAcc = 0, wheelLast = 0;
   // ignore hover caused by content scrolling under a still pointer
   var lastMouseMove = 0;
-  document.addEventListener('mousemove', function () { lastMouseMove = Date.now(); }, true);
+  document.addEventListener('mousemove', function () { lastMouseMove = Date.now(); lastInput = Date.now(); if (SAVER.on) saverOff(); }, true);
   function pointerMoved() { return Date.now() - lastMouseMove < 150; }
   document.addEventListener('wheel', function (e) {
     e.preventDefault();
@@ -1093,7 +1106,7 @@
     if (e.keyCode !== KEY.OK) return;
     if (!okHeld) return;               // press began elsewhere (e.g. in Settings, or before we were shown)
     okHeld = false;
-    if (S.zone === 'settings') return;
+    if (S.zone === 'settings' || S.zone === 'pin') return;
     clearTimeout(okTimer);
     if (okLong) return;
     if (S.moving) { endMove(); return; }
@@ -1225,14 +1238,16 @@
     if (!item || !item.url) return;
     var im = new Image();
     im.onload = function () {
-      if (!S.wall.on) return;
+      if (!S.wall.on && !SAVER.on) return;
       var back = WALL.front === 'A' ? 'B' : 'A';
       $('#wall' + back).style.backgroundImage = 'url("' + item.url + '")';
       $('#wall' + back).classList.add('on');
       var old = $('#wall' + WALL.front);
       old.classList.remove('on');
       setTimeout(function () { if (!old.classList.contains('on')) old.style.backgroundImage = ''; }, 2200);
-      WALL.front = back; WALL.cur = item; WALL.shownAt = Date.now(); WALL.failed = 0;
+      WALL.front = back; WALL.failed = 0;
+      if (!S.wall.on) return;   // a screensaver picture: not remembered as the wallpaper
+      WALL.cur = item; WALL.shownAt = Date.now();
       store.set('wallCur', item);
       if (S.zone === 'settings') renderSettings();
     };
@@ -1307,6 +1322,174 @@
       };
       powerBridge.call('luna://com.webos.service.tvpower/power/getPowerState', JSON.stringify({ subscribe: true }));
     } catch (e) {}
+  }
+
+  /* ================= screensaver: only the picture, the clock and the weather ================= */
+  var lastInput = Date.now();
+  var SAVER = { on: false, timer: null, pic: 0 };
+  function saverMove() {
+    // the clock wanders so nothing stays in one place on the OLED
+    stage.style.setProperty('--sv-x', Math.round(110 + Math.random() * 1100) + 'px');
+    stage.style.setProperty('--sv-y', Math.round(110 + Math.random() * 560) + 'px');
+  }
+  function saverPic() {
+    // with wallpapers switched off the screensaver still needs pictures: it draws its own
+    if (S.wall.on || !window.DOM_LANDSCAPE) return;
+    SAVER.pic = Date.now();
+    wallShow(window.DOM_LANDSCAPE(Math.floor(Math.random() * 4294967296)));
+  }
+  function saverOn() {
+    if (SAVER.on || document.hidden || crtAt) return;
+    if (S.zone === 'pin') pinClose();
+    if (S.zone === 'settings') closeSettings();
+    if (S.moving) endMove();
+    SAVER.on = true; SAVER.since = Date.now();
+    saverMove();
+    stage.classList.add('saver');
+    saverPic();
+    SAVER.timer = setInterval(function () {
+      saverMove();
+      if (Date.now() - SAVER.since >= 20 * 60000) stage.classList.add('saver-deep');   // nobody is watching: much darker
+      if (!S.wall.on && Date.now() - SAVER.pic >= S.wall.mins * 60000) saverPic();
+    }, 60000);
+  }
+  function saverOff() {
+    if (!SAVER.on) return;
+    SAVER.on = false;
+    clearInterval(SAVER.timer);
+    stage.classList.remove('saver'); stage.classList.remove('saver-deep');
+    lastInput = Date.now();
+    if (!S.wall.on) { $('#wallA').classList.remove('on'); $('#wallB').classList.remove('on'); }
+  }
+  setInterval(function () {
+    if (S.saverMins && !SAVER.on && !document.hidden && Date.now() - lastInput >= S.saverMins * 60000) saverOn();
+  }, 10000);
+  function saverSync() {   // the home guard keeps LG's own screensaver away while ours is switched on
+    if (!DEMO) exec(S.saverMins ? 'touch /home/root/dom-saver' : 'rm -f /home/root/dom-saver').catch(function () {});
+  }
+
+  /* ================= PIN for Settings ================= */
+  var PIN = { code: '', pos: 0, cb: null };
+  var PIN_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '<', '0', 'x'];
+  function pinDraw() {
+    var dots = document.querySelectorAll('#pin-dots i');
+    for (var i = 0; i < dots.length; i++) dots[i].className = i < PIN.code.length ? 'on' : '';
+    var keys = document.querySelectorAll('#pin-keys .pin-key');
+    for (var k = 0; k < keys.length; k++) keys[k].classList.toggle('focus', k === PIN.pos);
+  }
+  function pinAsk(title, cb) {
+    PIN.code = ''; PIN.pos = 4; PIN.cb = cb;
+    if (S.zone !== 'pin') PIN.back = S.zone === 'settings' ? 'settings' : 'grid';
+    $('#pin-title').textContent = title;
+    var box = $('#pin-keys');
+    if (!box.firstChild) {
+      PIN_KEYS.forEach(function (k, i) {
+        var el = document.createElement('div');
+        el.className = 'pin-key';
+        el.textContent = k === '<' ? '⌫' : (k === 'x' ? 'Odustani' : k);
+        if (k === 'x') el.classList.add('wide');
+        el.addEventListener('mouseenter', function () { if (pointerMoved()) { PIN.pos = i; pinDraw(); } });
+        el.addEventListener('click', function () { PIN.pos = i; pinPress(k); });
+        box.appendChild(el);
+      });
+    }
+    S.zone = 'pin';
+    $('#pinpad').classList.remove('hidden');
+    pinDraw();
+  }
+  function pinClose() {
+    $('#pinpad').classList.add('hidden');
+    S.zone = PIN.back || 'grid';
+    PIN.cb = null;
+    if (S.zone === 'grid') applyFocus();
+  }
+  function pinPress(k) {
+    if (k === 'x') { pinClose(); return; }
+    if (k === '<') PIN.code = PIN.code.slice(0, -1);
+    else if (PIN.code.length < 4) PIN.code += k;
+    pinDraw();
+    if (PIN.code.length === 4) {
+      var code = PIN.code, cb = PIN.cb;
+      setTimeout(function () {
+        if (S.zone !== 'pin' || PIN.cb !== cb) return;
+        if (cb && cb(code) === false) {   // wrong: shake and start over
+          PIN.code = '';
+          var b = $('#pin-box'); b.classList.remove('bad'); void b.offsetWidth; b.classList.add('bad');
+          pinDraw();
+        }
+      }, 160);
+    }
+  }
+  function pinKey(e) {
+    var k = e.keyCode;
+    if (k >= 48 && k <= 57) pinPress(String(k - 48));
+    else if (k >= 96 && k <= 105) pinPress(String(k - 96));
+    else if (k === KEY.LEFT) { if (PIN.pos % 3) PIN.pos--; }
+    else if (k === KEY.RIGHT) { if (PIN.pos % 3 < 2) PIN.pos++; }
+    else if (k === KEY.UP) { if (PIN.pos >= 3) PIN.pos -= 3; }
+    else if (k === KEY.DOWN) { if (PIN.pos < 9) PIN.pos += 3; }
+    else if (k === KEY.OK) pinPress(PIN_KEYS[PIN.pos]);
+    else if (k === KEY.BACK || k === KEY.ESC) pinClose();
+    else if (k === KEY.BKSP) pinPress('<');
+    else return;
+    if (e.preventDefault) e.preventDefault();
+    if (S.zone === 'pin') pinDraw();
+  }
+
+  /* ================= update, backup, quick actions ================= */
+  var REPO_API = 'https://api.github.com/repos/deganegane/dom-launcher/releases/latest';
+  function domUpdate() {
+    if (DEMO) { toast('Demo: nadogradnja se ne pokreće'); return; }
+    var run = function (note) {
+      toast(note);
+      exec('/home/root/dom-ctl.sh update', 15000).catch(function () { toast('Nadogradnja nije krenula. Ponovi instalaciju preko SSH-a.'); });
+    };
+    getJSON(REPO_API).then(function (r) {
+      var latest = String((r && r.name) || '').replace(/^Dom\s*/, '');
+      if (latest && latest === S.version) toast('Imaš najnoviju verziju (' + S.version + ')');
+      else run('Skidam verziju ' + (latest || 'najnoviju') + '. Dom će se sam ponovno pokrenuti za minutu.');
+    }, function () { run('Ne mogu provjeriti verziju, pokrećem nadogradnju. Dom će se sam ponovno pokrenuti.'); });
+  }
+  var BACKUP_SKIP = /^dom\.(appsCache|appRows|cw|wallList|wallListSrc|wallListAt|wallPos|wallCur|wxData|wxAt|hdArt|metaCache)$/;
+  function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
+  function domBackup() {
+    var data = {};
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (/^dom\./.test(k) && !BACKUP_SKIP.test(k)) data[k] = localStorage.getItem(k);
+    }
+    if (DEMO) { toast('Demo: spremljeno ' + Object.keys(data).length + ' postavki'); return; }
+    exec('/home/root/dom-ctl.sh backup ' + shq(b64(JSON.stringify(data))), 30000).then(function (out) {
+      toast(/OK/.test(out) ? 'Spremljeno u /home/root/dom-backup (postavke, ikone, pozadine, uparivanje)' : 'Kopija nije uspjela');
+    }, function () { toast('Kopija nije uspjela'); });
+  }
+  function domRestore() {
+    if (DEMO) { toast('Demo: nema kopije'); return; }
+    exec('/home/root/dom-ctl.sh restore', 30000).then(function (out) {
+      var data; try { data = JSON.parse(out.trim()); } catch (e) { toast('Nema sigurnosne kopije'); return; }
+      Object.keys(data).forEach(function (k) { if (/^dom\./.test(k)) localStorage.setItem(k, data[k]); });
+      toast('Vraćeno. Ponovno učitavam…');
+      setTimeout(function () { location.reload(); }, 1200);
+    }, function () { toast('Nema sigurnosne kopije'); });
+  }
+  var SLEEP_STEPS = [0, 15, 30, 60, 90];
+  function sleepSet() {
+    var next = SLEEP_STEPS[(SLEEP_STEPS.indexOf(S.sleepMins) + 1) % SLEEP_STEPS.length];
+    S.sleepMins = next;
+    renderSettings();
+    if (!DEMO) exec('/home/root/dom-ctl.sh sleep ' + next, 15000).catch(function () { toast('Tajmer nije postavljen'); });
+    toast(next ? 'TV će se ugasiti za ' + next + ' min' : 'Tajmer za spavanje je isključen');
+  }
+  function screenOff() {
+    closeSettings();
+    if (DEMO) { toast('Demo: ekran bi se ugasio'); return; }
+    toast('Gasim ekran. Bilo koja tipka ga vraća.');
+    setTimeout(function () { exec('/home/root/dom-ctl.sh screenoff', 15000).catch(function () { toast('Ekran se nije dao ugasiti'); }); }, 900);
+  }
+  function quickRows(rows) {
+    rows.push({ h: 'Brze radnje' });
+    rows.push({ type: 'btn', name: 'q-screen', label: 'Ugasi ekran (zvuk ostaje)', act: screenOff });
+    rows.push({ type: 'btn', name: 'q-sleep', label: 'Tajmer za spavanje', value: (S.sleepMins ? S.sleepMins + ' min' : 'Isključen') + '  ›', act: sleepSet });
   }
 
   /* ================= weather under the clock ================= */
@@ -1404,6 +1587,7 @@
     { key: 'iot',   label: 'Ugasi pametni dom i ThinQ', warn: 'ThinQ aplikacija i pametni uređaji ne vide TV dok je ovo uključeno' },
     { key: 'cast',  label: 'Ugasi AirPlay i zrcaljenje zaslona', warn: 'AirPlay, Miracast i Chromecast ne rade dok je ovo uključeno' },
     { key: 'tv',    label: 'Ugasi TV vodič (antena/kabel)', warn: 'Vodič i podsjetnici za TV kanale ne rade dok je ovo uključeno' },
+    { key: 'telnet', label: 'Ugasi Telnet (SSH ostaje)', warn: 'Telnet se gasi odmah i više se ne pali nakon restarta' },
     { key: 'zram',  label: 'Brža izmjena aplikacija (pokusno)', warn: 'Pokusno: ako TV postane nestabilan, isključi ovo ili restartaj TV' }
   ];
   function parseTune(out) {
@@ -1415,7 +1599,7 @@
     return true;
   }
   function loadTune() {
-    if (DEMO) { if (!S.tune) S.tune = { track: 1, logs: 1, voice: 0, iot: 0, cast: 0, tv: 0, zram: 0, mem: 531, stopped: 5, safe: 0 }; return; }
+    if (DEMO) { if (!S.tune) S.tune = { track: 1, logs: 1, voice: 0, iot: 0, cast: 0, tv: 0, telnet: 0, zram: 0, mem: 531, stopped: 5, safe: 0 }; return; }
     exec('/home/root/dom-tune.sh get', 15000).then(function (out) {
       if (!parseTune(out)) S.tuneMissing = true;
     }, function () { S.tuneMissing = true; }).then(function () { if (S.zone === 'settings') renderSettings(); });
@@ -1455,7 +1639,8 @@
   }
   function settingsRows() {
     var rows = [];
-    if (S.wall.on) wallRows(rows);   // on top while in use, so keeping a picture is two presses away
+    quickRows(rows);
+    if (S.wall.on) wallRows(rows);   // near the top while in use, so keeping a picture is a few presses away
     rows.push({ h: 'Stremio' });
     if (S.authKey) {
       rows.push({ type: 'info', label: 'Prijavljen', value: S.stremioUser || 'da' });
@@ -1476,6 +1661,15 @@
       store.set('layout', S.layout);
       applyLayout();
       renderSettings();
+    } });
+    rows.push({ type: 'btn', name: 'saver', label: 'Čuvar zaslona', value: (S.saverMins ? 'nakon ' + S.saverMins + ' min' : 'Isključen') + '  ›', act: function () {
+      var steps = [0, 2, 5, 10];
+      S.saverMins = steps[(steps.indexOf(S.saverMins) + 1) % steps.length];
+      store.set('saverMins', S.saverMins); saverSync(); renderSettings();
+    } });
+    rows.push({ type: 'toggle', name: 'autoorder', label: 'Najčešće korištene aplikacije naprijed', value: S.autoOrder ? 'Uključeno' : 'Isključeno', off: !S.autoOrder, act: function () {
+      S.autoOrder = !S.autoOrder; store.set('autoOrder', S.autoOrder);
+      buildList(); renderGrid(); renderSettings();
     } });
     rows.push({ type: 'toggle', name: 'crt', label: 'Gašenje kao na starom TV-u', value: S.crt ? 'Uključeno' : 'Isključeno', off: !S.crt, act: function () {
       S.crt = !S.crt; store.set('crt', S.crt); renderSettings();
@@ -1511,6 +1705,19 @@
       });
     }
     rows.push({ h: 'Sustav' });
+    rows.push({ type: 'btn', name: 'update', label: 'Nadogradi Dom', value: S.version ? 'verzija ' + S.version : '', act: domUpdate });
+    rows.push({ type: 'toggle', name: 'pin', label: 'PIN za Postavke', value: S.pin ? 'Uključen' : 'Isključen', off: !S.pin, act: function () {
+      if (S.pin) { S.pin = ''; store.set('pin', ''); toast('PIN je uklonjen'); renderSettings(); return; }
+      pinAsk('Novi PIN (4 znamenke)', function (a) {
+        pinAsk('Ponovi PIN', function (b) {
+          if (a !== b) return false;
+          S.pin = a; store.set('pin', a); pinClose(); toast('PIN je postavljen'); renderSettings(); return true;
+        });
+        return true;
+      });
+    } });
+    rows.push({ type: 'btn', name: 'backup', label: 'Spremi sigurnosnu kopiju', act: domBackup });
+    rows.push({ type: 'btn', name: 'restore', label: 'Vrati iz sigurnosne kopije', act: domRestore });
     rows.push({ type: 'btn', name: 'domOnOff', label: 'Dom kao početni zaslon', value: S.disabled ? 'Isključeno' : 'Uključeno', act: function () {
       var off = !S.disabled;
       var done = function () {
@@ -1623,7 +1830,11 @@
       SET.busy = false; toast(e.message || 'Prijava nije uspjela'); renderSettings();
     });
   }
-  function openSettings() {
+  function openSettings(unlocked) {
+    if (S.pin && unlocked !== true) {
+      pinAsk('Upiši PIN', function (code) { if (code === S.pin) { pinClose(); openSettings(true); return true; } return false; });
+      return;
+    }
     S.zone = 'settings';
     SET.pos = 0; SET.rows = [];
     loadTune();
@@ -1725,7 +1936,14 @@
     bringToFront();
     var back = wasAway || stage.classList.contains('out');
     wasAway = false;
+    saverOff();
+    if (S.zone === 'pin') pinClose();
     if (S.zone === 'settings') closeSettings();
+    if (S.autoOrder) {   // what was just used may have moved up
+      var curKey = S.list[S.idx] && S.list[S.idx].key, before = tileSig(S.list);
+      buildList();
+      if (tileSig(S.list) !== before) { S.list.forEach(function (a, i) { if (a.key === curKey) S.idx = i; }); renderGrid(); }
+    }
     if (S.moving) endMove();
     S.zone = 'grid';
     // coming back from an app: stay on its tile (nothing jumps during the fade);
@@ -1768,12 +1986,22 @@
     crtRestore();
     onShow();
   });
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { crtRestore(); fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; saverOff(); fadeOutNow(); } else { crtRestore(); fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
   fit();
   applyLayout();
   wallApply();
   wxRender(); wxRefresh(false);
   watchPower();
+  saverSync();
+  (function () {   // own version, for "Nadogradi Dom" (XHR: fetch does not read local files)
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', 'appinfo.json');
+      x.onload = function () { try { S.version = JSON.parse(x.responseText).version || ''; } catch (e) {} };
+      x.onerror = function () {};
+      x.send();
+    } catch (e) {}
+  })();
   fadeIn();
   tickClock();
   setInterval(tickClock, 10000);

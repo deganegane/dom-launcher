@@ -3,6 +3,7 @@
 //
 //   node dom-keys.js pair            first-time pairing (accept the prompt on the TV)
 //   node dom-keys.js keys 0 DOWN OK  wait 0 ms, then press the buttons
+//   node dom-keys.js off             switch the TV off (same call phone remotes use)
 //   node dom-keys.js play <index>    open Stremio's Continue Watching item <index>
 //                                    using the template in /home/root/dom-stremio-keys.txt
 //
@@ -57,7 +58,7 @@ if (mode === 'keys') {
     else if (p) buttons.push(p.toUpperCase());
   });
   log('template "' + tpl + '" index ' + index + ' ->', buttons.join(' ') || '(none)');
-} else if (mode !== 'pair') {
+} else if (mode !== 'pair' && mode !== 'off') {
   die('unknown mode ' + mode);
 }
 
@@ -182,6 +183,11 @@ function attempt(i) {
         log('paired, key saved');
       }
       if (mode === 'pair') { log('pairing OK'); ws.close(); process.exit(0); }
+      if (mode === 'off') {
+        ws.send(JSON.stringify({ type: 'request', id: 'off', uri: 'ssap://system/turnOff' }));
+        setTimeout(function () { process.exit(0); }, 1500);
+        return;
+      }
       ws.send(JSON.stringify({ type: 'request', id: 'ptr', uri: 'ssap://com.webos.service.networkinput/getPointerInputSocket' }));
     } else if (msg.id === 'ptr') {
       if (!pl.socketPath) die('no pointer socket: ' + txt);

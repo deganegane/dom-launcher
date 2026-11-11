@@ -17,7 +17,7 @@ PENDING=/home/root/.dom-tune-pending
 LOG=/tmp/dom-tune.log
 ZDEV=/tmp/dom-tune.zram
 LPPREV=/home/root/.dom-liveplus-prev
-GRPS="track logs voice iot cast tv zram"
+GRPS="track logs voice iot cast tv telnet zram"
 
 # systemd units per group (stopped, never disabled)
 U_track="rdxd uploadd remotelogger contentminer nudge"
@@ -27,6 +27,8 @@ U_iot="com.webos.service.otbr com.webos.service.zigbeeadapter google-home-contro
 U_cast="airplay-adaptor appcasting miracast chromecast-provisioning dmr"
 U_tv="iepg tv-reservation-agent broadcast-conf-downloader"
 U_zram=""
+U_telnet=""
+TELNET_OFF=/var/luna/preferences/webosbrew_telnet_disabled
 # on-demand services per group (just ended; the system may start them again when asked)
 K_track="admanager"
 K_iot="iot-client"
@@ -189,6 +191,15 @@ apply_group() {
     track) hosts_del track; hosts_add track $(track_domains); lp_off ;;
     iot)   hosts_add iot api.lgtviot.com lgtviot.com ;;
     zram)  zram_on ;;
+    telnet)
+      # only with a working SSH server, so there is always a way in
+      if [ -e /var/luna/preferences/webosbrew_sshd_enabled ] && pidof dropbear >/dev/null 2>&1; then
+        touch "$TELNET_OFF"
+        for p in $(pidof telnetd 2>/dev/null); do kill "$p" 2>/dev/null; done
+        log "telnet off"
+      else
+        log "telnet left on: SSH is not running"
+      fi ;;
     logs)  command -v PmLogCtl >/dev/null 2>&1 && PmLogCtl set '*' err >/dev/null 2>&1 && log "logging -> err" ;;
   esac
 }
@@ -200,6 +211,7 @@ undo_group() {
     track) hosts_del track; lp_restore ;;
     iot)   hosts_del iot ;;
     zram)  zram_off ;;
+    telnet) rm -f "$TELNET_OFF"; log "telnet comes back after a restart" ;;
     logs)  log "logging level returns after a restart" ;;
   esac
 }
