@@ -54,14 +54,6 @@
     }
     return s;
   }
-  function birds(r, cx, cy, c) {
-    var s = '', n = 3 + Math.floor(r() * 4);
-    for (var i = 0; i < n; i++) {
-      var x = cx + (r() - 0.5) * 260, y = cy + (r() - 0.5) * 150, k = 9 + r() * 12;
-      s += '<path d="M' + f(x - k * 2) + ' ' + f(y - k * 0.3) + 'q' + f(k) + ' ' + f(-k * 0.6) + ' ' + f(k * 2) + ' ' + f(k * 0.5) + 'q' + f(k) + ' ' + f(-k * 1.1) + ' ' + f(k * 2) + ' ' + f(-k * 0.5) + '" fill="none" stroke="' + c + '" stroke-width="' + f(k * 0.28) + '" stroke-linecap="round"/>';
-    }
-    return s;
-  }
   function pine(x, y, h, c) {   // tiers of triangles on a short trunk
     var s = '', tiers = 4 + Math.round(h / 90), w = h * 0.36;
     for (var i = 0; i < tiers; i++) {
@@ -217,35 +209,10 @@
     },
   ];
 
-  // ---- proposals, second round ----
   BIRD.push(
     function (x, y, k, c) {   // P6 gull banking in a turn: one wing up, one flat
       return pa(fm('M% %Q% % % %Q% % % %Q% % % %Q% % % %Z', x - 2.3 * k, y - 1.0 * k, x - 1.0 * k, y - 0.95 * k, x, y - 0.05 * k, x + 1.2 * k, y - 0.55 * k, x + 2.7 * k, y + 0.05 * k,
         x + 1.2 * k, y - 0.2 * k, x, y + 0.34 * k, x - 0.9 * k, y - 0.55 * k, x - 2.3 * k, y - 1.0 * k), c.d);
-    },
-    function (x, y, k, c) {   // P7 a far-away swarm of tiny marks (the whole flock)
-      var s = '', a = 7;
-      for (var i = 0; i < 30; i++) {
-        a = (a * 73 + 41) % 997; var u = a / 997; a = (a * 73 + 41) % 997; var v = a / 997; a = (a * 73 + 41) % 997; var q = 0.22 + 0.2 * a / 997;
-        var bx = x + (u - 0.5) * k * 15 * (0.55 + 0.45 * Math.sin(v * 3.14)), by = y + (v - 0.5) * k * 6 + (u - 0.5) * k * 2.4, w = k * q;
-        s += ln(fm('M% %Q% % % %Q% % % %', bx - w * 1.5, by - w * 0.5, bx - w * 0.7, by - w * 0.9, bx, by, bx + w * 0.7, by - w * 0.9, bx + w * 1.5, by - w * 0.5), c.d, w * 0.5);
-      }
-      return s;
-    },
-    function (x, y, k, c) {   // P8 a string of gulls coming closer: small far away, large near (the whole flock)
-      var s = '', n = 6;
-      for (var i = 0; i < n; i++) {
-        var t = i / (n - 1), kk = k * (0.25 + t * t * 0.95);
-        s += BIRD[1](x - k * 8 + t * k * 15 + Math.sin(t * 3) * k, y - k * 3.2 + t * t * k * 6.4, kk, c);
-      }
-      return s;
-    },
-    function (x, y, k, c) {   // P9 a heron in flight, seen from the side
-      return el(x, y, 1.4 * k, 0.36 * k, c.d) + ln(fm('M% %Q% % % %', x + 1.1 * k, y - 0.08 * k, x + 1.9 * k, y - 0.1 * k, x + 2.6 * k, y - 0.42 * k), c.d, 0.2 * k) +
-        ci(x + 2.68 * k, y - 0.46 * k, 0.18 * k, c.d) + pa(fm('M% %L% %L% %Z', x + 2.74 * k, y - 0.6 * k, x + 3.5 * k, y - 0.4 * k, x + 2.74 * k, y - 0.34 * k), c.d) +
-        ln(fm('M% %L% %', x - 1.2 * k, y + 0.06 * k, x - 3.1 * k, y + 0.3 * k), c.d, 0.09 * k) +
-        pa(fm('M% %Q% % % %Q% % % %Z', x + 0.75 * k, y - 0.15 * k, x + 0.55 * k, y - 1.5 * k, x - 0.55 * k, y - 2.35 * k, x - 0.6 * k, y - 1.2 * k, x - 1.0 * k, y - 0.1 * k), c.d) +
-        pa(fm('M% %Q% % % %Q% % % %Z', x + 0.6 * k, y - 0.15 * k, x + 1.2 * k, y - 1.15 * k, x + 1.0 * k, y - 1.9 * k, x + 0.35 * k, y - 1.15 * k, x - 0.3 * k, y - 0.15 * k), c.d, 0.85);
     },
     function (x, y, k, c, phase) {   // P10 the same gull in three wing beats: up, level, down
       var ph = phase == null ? 0 : phase % 3;
@@ -303,50 +270,30 @@
       return one(x, y, w, w * 0.11) + one(x + w * 0.22, y + w * 0.05, w * 0.7, w * 0.07) + one(x - w * 0.26, y + w * 0.075, w * 0.5, w * 0.05);
     }
   ];
-  // a soft rolling outline through the points, flat tangents at each: no scallops, no corners
-  function roll(pts) {
-    var d = 'M' + f(pts[0][0]) + ' ' + f(pts[0][1]);
-    for (var i = 1; i < pts.length; i++) { var a = pts[i - 1], b = pts[i], m = (b[0] - a[0]) / 2; d += 'C' + f(a[0] + m) + ' ' + f(a[1]) + ' ' + f(b[0] - m) + ' ' + f(b[1]) + ' ' + f(b[0]) + ' ' + f(b[1]); }
-    return d;
-  }
-  function mound(x, y, w, hs) {   // hs: heights (in w) of peaks and dips, left to right
-    var pts = [[x - w / 2, y]], n = hs.length;
-    hs.forEach(function (h, i) { pts.push([x - w / 2 + w * (i + 1) / (n + 1), y - h * w]); });
-    pts.push([x + w / 2, y]);
-    return roll(pts) + 'Z';
-  }
   CLOUD.push(
-    function (x, y, w, c, o) {   // O4 soft layered cloud: a pale back layer, a full front one
-      return pa(mound(x - w * 0.06, y - w * 0.035, w * 0.86, [0.1, 0.07, 0.2, 0.13, 0.17, 0.06]), c, f(o * 0.5)) + pa(mound(x, y, w, [0.07, 0.05, 0.14, 0.1, 0.16, 0.08, 0.05]), c, o);
-    },
-    function (x, y, w, c, o) {   // O5 bands of mist with a gently rolling top (lies between ridges)
-      var band = function (yy, hh, sh, oo) {
-        var top = [], n = 6;
-        for (var i = 0; i <= n; i++) top.push([x - w / 2 + w * i / n, yy - hh * (0.45 + 0.55 * Math.abs(Math.sin(i * 1.7 + sh)))]);
-        return pa(roll(top) + 'L' + f(x + w / 2) + ' ' + f(yy + hh * 0.5) + 'L' + f(x - w / 2) + ' ' + f(yy + hh * 0.5) + 'Z', c, oo);
-      };
-      return band(y, w * 0.07, 0.4, f(o * 0.45)) + band(y + w * 0.09, w * 0.06, 2.1, f(o * 0.7));
-    },
-    function (x, y, w, c, o) {   // O6 a field of small cloudlets, smaller towards the horizon
-      var s = '', one = function (cx, cy, ww) { return pa(fm('M% %Q% % % %Q% % % %Z', cx - ww / 2, cy, cx, cy - ww * 0.16, cx + ww / 2, cy, cx, cy + ww * 0.07, cx - ww / 2, cy), c, o); };
-      [[0, 0.3, 3], [1, 0.22, 4], [2, 0.15, 5], [3, 0.1, 6]].forEach(function (q) {
-        for (var i = 0; i < q[2]; i++) s += one(x - w / 2 + w * (i + 0.5 + (q[0] % 2 ? 0.22 : -0.1)) / q[2], y + q[0] * w * 0.085, w * q[1] * (0.8 + 0.4 * ((i * 7 + q[0] * 3) % 5) / 5));
-      });
-      return s;
-    },
     function (x, y, w, c, o) {   // O7 wind-swept streaks with pointed ends
       var one = function (cx, cy, ww, hh, oo) { return pa(fm('M% %C% % % % % %C% % % % % %Z', cx - ww / 2, cy, cx - ww / 4, cy - hh, cx + ww / 4, cy - hh * 1.3, cx + ww / 2, cy - hh * 0.5, cx + ww / 4, cy - hh * 0.55, cx - ww / 4, cy + hh * 0.3, cx - ww / 2, cy), c, oo); };
       return one(x, y, w, w * 0.07, o) + one(x + w * 0.16, y + w * 0.09, w * 0.72, w * 0.05, f(o * 0.75)) + one(x - w * 0.2, y + w * 0.15, w * 0.5, w * 0.035, f(o * 0.55));
     },
-    function (x, y, w, c, o) {   // O8 a bank of cloud standing on the horizon
-      return pa(mound(x + w * 0.05, y, w * 1.05, [0.16, 0.12, 0.3, 0.24, 0.38, 0.27, 0.2, 0.1]), c, f(o * 0.45)) + pa(mound(x - w * 0.04, y, w, [0.08, 0.06, 0.17, 0.12, 0.22, 0.15, 0.2, 0.09, 0.05]), c, o);
-    }
   );
   function tag(arr, codes) { arr.forEach(function (fn, i) { fn.code = codes[i]; }); return arr; }
   var EL = {
     lighthouse: tag(LIGHTHOUSE, ['L2', 'L3', 'L4', 'L6']), ship: tag(SHIP, ['S1', 'S2', 'S4']), boat: tag(BOAT, ['B1', 'B2', 'B3', 'B4', 'B5']),
-    bird: tag(BIRD, ['P1', 'P2', 'P6', 'P7', 'P8', 'P9', 'P10']), tree: tag(TREE, ['T1', 'T2', 'T4', 'T5', 'T6', 'T7']), cloud: tag(CLOUD, ['O1', 'O3', 'O4', 'O5', 'O6', 'O7', 'O8'])
+    bird: tag(BIRD, ['P1', 'P2', 'P6', 'P10']), tree: tag(TREE, ['T1', 'T2', 'T4', 'T5', 'T6', 'T7']), cloud: tag(CLOUD, ['O1', 'O3', 'O7'])
   };
+  var FLOAT = EL.boat.filter(function (fn) { return fn.code !== 'B4'; });   // boats that are not tied to a jetty
+  function flipX(cx, g) { return '<g transform="translate(' + f(cx * 2) + ' 0) scale(-1 1)">' + g + '</g>'; }
+  // a few birds of one kind, each a little different
+  function flock(r, cx, cy, col) {
+    var fn = pick(r, EL.bird), n = 3 + Math.floor(r() * 4), g = '', c = { d: col };
+    for (var i = 0; i < n; i++) {
+      var x = cx + (r() - 0.5) * 300, y = cy + (r() - 0.5) * 150, one = fn(x, y, 8 + r() * 11, c, Math.floor(r() * 3));
+      g += (fn.code === 'P6' && r() < 0.5) ? flipX(x, one) : one;
+    }
+    return g;
+  }
+  var CLOUD_W = { O1: [700, 1100], O3: [320, 440], O7: [420, 560] };   // width: least, and how much more at random
+  function cloudAt(r, fn, x, y, col, o) { var q = CLOUD_W[fn.code]; return fn(x, y, q[0] + r() * q[1], col, o, r); }
 
   function svg(defs, body) {
     return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><defs>' + defs + '</defs>' + body + '</svg>');
@@ -365,6 +312,7 @@
     b += '<rect width="' + W + '" height="' + f(WL + 4) + '" fill="url(#sky)"/>' + stars(r, p.stars, WL - 180, p.star);
     var ox = 520 + r() * 880, oy = 190 + r() * 150, or = 60 + r() * 34;
     b += '<circle cx="' + f(ox) + '" cy="' + f(oy) + '" r="' + f(or * 5) + '" fill="url(#glow)"/><circle cx="' + f(ox) + '" cy="' + f(oy) + '" r="' + f(or) + '" fill="' + p.orb + '"/>';
+    if (r() < 0.65) { var cf = pick(r, EL.cloud), cn = 2 + Math.floor(r() * 3); for (i = 0; i < cn; i++) b += cloudAt(r, cf, r() * W, 110 + r() * (WL - 420), mix(p.sky[2], '#ffffff', 0.3), f(0.14 + r() * 0.16)); }
     var farG = '', vc = 0.35 + r() * 0.3;
     for (i = 0; i < 4; i++) {
       var side = (i % 2 ? 1 : -1) * (r() < 0.5 ? 1 : -1);
@@ -373,7 +321,7 @@
       })(side, vc + (r() - 0.5) * 0.2, i), WL + 2);
       defs += grad('f' + i, [p.far[i], mix(p.far[i], p.far[Math.min(3, i + 1)], 0.8)]);
       farG += '<path d="' + l.d + '" fill="url(#f' + i + ')"/>';
-      if (i === 1) farG += birds(r, ox + (r() - 0.5) * 500, WL - 330 + r() * 90, mix(p.near, p.far[3], 0.3));
+      if (i === 1) farG += flock(r, ox + (r() - 0.5) * 500, WL - 330 + r() * 90, mix(p.near, p.far[3], 0.3));
     }
     // dark wooded shores on both sides, leaving the middle open
     for (i = 0; i < 2; i++) {
@@ -391,13 +339,25 @@
       b += '<rect x="' + f(r() * W - rw / 2) + '" y="' + f(ry) + '" width="' + f(rw) + '" height="' + f(1.5 + (ry - WL) / 110) + '" rx="2" fill="#ffffff" opacity="' + f(0.05 + r() * 0.12) + '"/>';
     }
     b += '</g>';
-    // foreground shore sweeping in from one side
-    var fromLeft = r() < 0.5, d = 'M' + (fromLeft ? 0 : W) + ' ' + H + 'L' + (fromLeft ? 0 : W) + ' ' + f(WL + 70 + r() * 40), ph = r() * 6, reach = W * (0.55 + r() * 0.35);
+    // foreground shore sweeping in from one side (drawn as if from the left, mirrored for the right)
+    var fromLeft = r() < 0.5, ph = r() * 6, reach = W * (0.55 + r() * 0.35), pts = [], fg = '', ink = { d: p.near, s: mix(p.orb, p.water[1], 0.35), l: p.orb };
+    var d = 'M0 ' + H + 'L0 ' + f(WL + 70 + r() * 40);
     for (i = 1; i <= 40; i++) {
       var t = i / 40, x = t * reach + Math.sin(t * 9 + ph) * 110 * (1 - t * 0.6) * (0.4 + t), y = WL + 80 + Math.pow(t, 0.85) * (H - WL - 80);
-      d += 'L' + f(fromLeft ? x : W - x) + ' ' + f(y);
+      pts.push([x, y]); d += 'L' + f(x) + ' ' + f(y);
     }
-    b += '<path d="' + d + 'L' + (fromLeft ? 0 : W) + ' ' + H + 'Z" fill="' + p.near + '"/>';
+    if (r() < 0.6) { var by = WL + 50 + r() * 140, bx = W * (0.5 + r() * 0.35), boat = pick(r, FLOAT)(bx, by, 80 + (by - WL) * 0.55, ink); fg += r() < 0.5 ? flipX(bx, boat) : boat; }
+    if (r() < 0.35) { var j = pts[10 + Math.floor(r() * 6)], jw = 150 + (j[1] - WL) * 0.5; fg += EL.boat[3](j[0] + jw * 0.75, j[1] + 6, jw, ink); }
+    fg += '<path d="' + d + 'L0 ' + H + 'Z" fill="' + p.near + '"/>';
+    if (r() < 0.65) {   // a few tall trees of one kind frame the picture
+      var sp = pick(r, EL.tree), tn = 2 + Math.floor(r() * 2);
+      for (i = 0; i < tn; i++) {
+        var tx = 50 + i * 125 + r() * 40, ty = WL + 100;
+        for (var q = 0; q < pts.length; q++) if (pts[q][0] >= tx) { ty = pts[q][1]; break; }
+        fg += sp(tx, ty + 16, 300 + r() * 170 - i * 40, ink);
+      }
+    }
+    b += fromLeft ? fg : flipX(W / 2, fg);
     return { d: defs, b: b, name: p.name };
   }
 
@@ -409,7 +369,8 @@
   ];
   function valleyScene(r) {
     var p = pick(r, VALLEY), i, defs = grad('sky', p.sky) + grad('glw', p.glow) + grad('riv', p.river), b = '<rect width="' + W + '" height="' + H + '" fill="url(#sky)"/>';
-    for (i = 0; i < 6; i++) b += EL.cloud[0](r() * W, 110 + i * 62 + r() * 40, 700 + r() * 900, p.cloud, f(0.3 + r() * 0.3), r);
+    var cf = pick(r, EL.cloud);
+    for (i = 0; i < 6; i++) b += cloudAt(r, cf, r() * W, 110 + i * 62 + r() * 40, p.cloud, f((cf.code === 'O1' ? 0.3 : 0.5) + r() * 0.3));
     var sx = 760 + r() * 400, sy = 600 + r() * 50, lit = sx < W / 2;
     b += '<circle cx="' + f(sx) + '" cy="' + f(sy) + '" r="' + f(150 + r() * 50) + '" fill="' + p.sun + '"/>';
     // back range, then the big front peaks to the sides of the sun
@@ -431,13 +392,15 @@
     }
     b += '<path d="' + L + R.reverse().join('') + 'Z" fill="url(#riv)"/>';
     for (i = 0; i < 7; i++) { var ry = 900 + r() * 160, rw = 60 + (ry - 870) * 1.6; b += '<rect x="' + f(sx - rw / 2 + (r() - 0.5) * rw * 1.4) + '" y="' + f(ry) + '" width="' + f(rw) + '" height="4" rx="2" fill="#ffffff" opacity=".22"/>'; }
-    // dark banks with tall pines framing the picture
+    if (r() < 0.4) { var bt = 0.62 + r() * 0.2, bx = sx + Math.sin(bt * 2.4 + ph) * 260 * bt, boat = pick(r, FLOAT)(bx, 870 + bt * (H - 870), 60 + bt * bt * 190, { d: p.fg, s: p.sun, l: p.sun }); b += r() < 0.5 ? flipX(bx, boat) : boat; }
+    // dark banks with tall trees of one kind framing the picture
+    var sp = pick(r, EL.tree);
     [0, 1].forEach(function (side) {
       var l = land(ridge(r, 0.5, 64), H + 10, 250, function (x) { var t = side ? (x - 0.45) / 0.55 : (0.55 - x) / 0.55; return Math.max(0, t) * 1.1; });
       b += '<path d="' + l.d + '" fill="' + p.fg + '"/>';
-      for (var k = 0; k < 4; k++) { var x = side ? W - 40 - k * 105 - r() * 50 : 40 + k * 105 + r() * 50; b += pine(x, at(l, x) + 20, 520 - k * 95 + r() * 60, p.fg); }
+      for (var k = 0; k < 4; k++) { var x = side ? W - 40 - k * 105 - r() * 50 : 40 + k * 105 + r() * 50; b += sp(x, at(l, x) + 20, 520 - k * 95 + r() * 60, { d: p.fg }); }
     });
-    b += birds(r, sx + (r() - 0.5) * 600, 250 + r() * 120, p.bird);
+    b += flock(r, sx + (r() - 0.5) * 600, 250 + r() * 120, p.bird);
     return { d: defs, b: b, name: p.name };
   }
 
@@ -448,12 +411,10 @@
     { name: 'Obala · plavi sat', sky: ['#081a3a', '#143f78', '#4f8fd0', '#bfe0f0'], band: ['#103060', '#2f67a8', '#8fc1e8'], sun: '#f4fbff', sea: ['#bfe0f5', '#3f7fc0', '#0a2552'], far: ['#4f86c0', '#2f5f9c', '#1c3f78'], rock: ['#0b2242', '#07172f', '#040e20'], lamp: '#ffe98a', streak: '#e6f4ff' }
   ];
   function coast(r) {
-    var p = pick(r, COAST), HZ = 640 + r() * 40, i, defs = grad('sky', p.sky) + grad('sea', p.sea) + glowDef('lg', p.lamp, 0.9), b = '<rect width="' + W + '" height="' + f(HZ + 2) + '" fill="url(#sky)"/>';
-    // long soft bands of cloud
-    for (i = 0; i < 7; i++) {
-      var y = 90 + i * 70 + r() * 40, x0 = -200 + r() * 900, w = 700 + r() * 1100, h = 40 + r() * 70;
-      b += '<path d="M' + f(x0) + ' ' + f(y) + 'Q' + f(x0 + w * 0.3) + ' ' + f(y - h) + ' ' + f(x0 + w * 0.6) + ' ' + f(y - h * 0.4) + 'T' + f(x0 + w) + ' ' + f(y) + 'Z" fill="' + p.band[Math.min(2, Math.floor(i / 2.4))] + '" opacity="' + f(0.35 + r() * 0.3) + '"/>';
-    }
+    var p = pick(r, COAST), HZ = 640 + r() * 40, i, defs = grad('sky', p.sky) + grad('sea', p.sea), b = '<rect width="' + W + '" height="' + f(HZ + 2) + '" fill="url(#sky)"/>';
+    // clouds of one kind, in the colours of the sky at their height
+    var cf = pick(r, EL.cloud);
+    for (i = 0; i < 7; i++) b += cloudAt(r, cf, r() * W, 90 + i * 70 + r() * 40, p.band[Math.min(2, Math.floor(i / 2.4))], f((cf.code === 'O1' ? 0.35 : 0.5) + r() * 0.3));
     var left = r() < 0.5, sx = left ? 1050 + r() * 350 : 520 + r() * 350;
     b += '<circle cx="' + f(sx) + '" cy="' + f(HZ + 10) + '" r="' + f(95 + r() * 40) + '" fill="' + p.sun + '"/>';
     // far headlands on the side away from the cliff
@@ -467,23 +428,36 @@
       var ry = HZ + 12 + Math.pow(r(), 1.4) * (H - HZ - 30), spread = 120 + (ry - HZ) * 2.6, rw = 50 + r() * 420 * ((ry - HZ) / 300 + 0.3);
       b += '<rect x="' + f(sx + (r() - 0.5) * spread * 2 - rw / 2) + '" y="' + f(ry) + '" width="' + f(rw) + '" height="' + f(2 + (ry - HZ) / 90) + '" rx="3" fill="' + p.streak + '" opacity="' + f(0.25 + r() * 0.5) + '"/>';
     }
+    // out on the open water: a ship near the horizon, a small boat closer in
+    var ink = { d: p.rock[2], b: mix('#f4ecdf', p.sky[3], 0.2), a: mix('#c9505a', p.rock[1], 0.2), l: p.lamp, s: mix(p.sun, p.sea[0], 0.3) }, open = function () { return left ? W * (0.5 + r() * 0.4) : W * (0.1 + r() * 0.4); };
+    if (r() < 0.7) { var shp = pick(r, EL.ship), shx = open(), sh = shp(shx, HZ + 6 + r() * 22, (shp.code === 'S2' ? 150 : 100) + r() * 50, ink); b += r() < 0.5 ? flipX(shx, sh) : sh; }
+    if (r() < 0.45) { var by = HZ + 110 + r() * 150, bx = open(), boat = pick(r, FLOAT)(bx, by, 90 + (by - HZ) * 0.5, ink); b += r() < 0.5 ? flipX(bx, boat) : boat; }
     // the cliff: three overlapping faceted layers rising to one side
-    var cliff;
+    var layers = [], front;
     for (i = 0; i < 3; i++) {
       var c = land(ridge(r, 0.62, 64), H + 10, H + 10 - (HZ - 190 + i * 135), (function (i) { return function (x) { var t = left ? (0.62 + i * 0.1 - x) / 0.62 : (x - (0.38 - i * 0.1)) / 0.62; return Math.pow(Math.max(0, Math.min(1.1, t)), 0.8); }; })(i), H);
-      if (i === 0) cliff = c;
+      layers.push(c); front = c;
       b += '<path d="' + c.d + '" fill="' + p.rock[i] + '"/>';
     }
-    // the lighthouse stands on the top of the back layer
-    var lx = left ? 250 + r() * 220 : W - 250 - r() * 220, ly = at(cliff, lx) + 14, th = 250 + r() * 60, bw = 30, tw = 21, col = mix(p.rock[0], '#ffffff', 0.08);
-    b += '<circle cx="' + f(lx) + '" cy="' + f(ly - th - 26) + '" r="170" fill="url(#lg)"/>' +
-         '<path d="M' + f(lx - bw) + ' ' + f(ly) + 'L' + f(lx - tw) + ' ' + f(ly - th) + 'h' + f(tw * 2) + 'L' + f(lx + bw) + ' ' + f(ly) + 'Z" fill="' + col + '"/>' +
-         '<rect x="' + f(lx - tw - 9) + '" y="' + f(ly - th - 8) + '" width="' + f(tw * 2 + 18) + '" height="9" fill="' + p.rock[1] + '"/>' +
-         '<rect x="' + f(lx - tw + 3) + '" y="' + f(ly - th - 46) + '" width="' + f(tw * 2 - 6) + '" height="38" fill="' + p.lamp + '"/>' +
-         '<path d="M' + f(lx - tw - 2) + ' ' + f(ly - th - 46) + 'h' + f(tw * 2 + 4) + 'l' + f(-tw * 0.6) + ' -22h' + f(-tw * 0.8 - 4) + 'Z" fill="' + p.rock[1] + '"/>' +
-         '<rect x="' + f(lx - 1.5) + '" y="' + f(ly - th - 46) + '" width="3" height="38" fill="' + p.rock[1] + '"/>';
-    for (i = 0; i < 2; i++) b += '<rect x="' + f(lx - 5) + '" y="' + f(ly - th * (0.72 - i * 0.36)) + '" width="10" height="22" rx="2" fill="' + p.lamp + '" opacity=".9"/>';
-    b += birds(r, left ? W * 0.7 : W * 0.3, 240 + r() * 120, p.rock[1]);
+    // the visible top of the cliff at x, and which layer it belongs to
+    var top = function (x) { var y = at(layers[0], x), k = 0; for (var j = 1; j < 3; j++) if (at(layers[j], x) < y) { y = at(layers[j], x); k = j; } return [y, k]; };
+    // one of the lighthouses: on the top of the cliff, or (the harbour light) on a pier at its foot
+    var lh = pick(r, EL.lighthouse), lx = left ? 250 + r() * 220 : W - 250 - r() * 220, lk = { d: p.rock[1], b: ink.b, a: ink.a, l: p.lamp }, pier = lh.code === 'L6';
+    if (pier) {
+      var wy = HZ + 110 + r() * 60, px = left ? 0 : W, ph = 190 + r() * 40;
+      while (px >= 0 && px <= W && at(front, px) < wy) px += left ? 16 : -16;   // where the front layer meets the water
+      var light = lh(px + ph, wy, ph, { d: p.rock[2], b: ink.b, a: ink.a, l: p.lamp });
+      b += left ? light : flipX(px, light);
+    } else {
+      // the keeper's house goes on the uphill side
+      var tower = lh(lx, top(lx)[0] + 14, 310 + r() * 70, lk);
+      b += (lh.code === 'L3' && left) ? flipX(lx, tower) : tower;
+    }
+    if (pier || r() < 0.5) {   // a few trees of one kind on the cliff
+      var sp = pick(r, EL.tree), tn = 2 + Math.floor(r() * 2);
+      for (i = 0; i < tn; i++) { var tx = pier ? (left ? 70 + i * 95 + r() * 30 : W - 70 - i * 95 - r() * 30) : lx + (left ? -1 : 1) * (110 + i * 75 + r() * 25), tp = top(tx); b += sp(tx, tp[0] + 12, 120 + r() * 80, { d: p.rock[tp[1]] }); }
+    }
+    b += flock(r, left ? W * 0.7 : W * 0.3, 240 + r() * 120, p.rock[1]);
     return { d: defs, b: b, name: p.name };
   }
 
