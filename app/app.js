@@ -25,10 +25,11 @@
   function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : 5); }
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
-  var RENAME = { 'YouTube AdFree': 'YouTube' };   // shown name instead of the app's own
+  var RENAME = { 'YouTube AdFree': 'YouTube', 'PS5 Game Console': 'PlayStation' };   // shown name instead of the app's own
   function shownName(t) {
     if (RENAME[t]) return RENAME[t];
     if (/^youtube\s*ad[\s-]*free$/i.test(t || '')) return 'YouTube';
+    if (/^(ps\s?[45]|playstation(\s?[45])?)(\s+game)?(\s+console)?$/i.test(t || '')) return 'PlayStation';
     var m = /^(.{3,}?)\s+[-\u2013\u2014|:]\s+\S/.exec(t || '');   // "Name - what it does" -> "Name"
     return m && (t || '').length > 18 ? m[1] : t;
   }
