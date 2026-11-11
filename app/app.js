@@ -1364,6 +1364,12 @@
   setInterval(function () {
     if (S.saverMins && !SAVER.on && !document.hidden && Date.now() - lastInput >= S.saverMins * 60000) saverOn();
   }, 10000);
+  function pinResetCheck() {   // forgotten PIN: "dom-ctl.sh pinreset" over SSH leaves a flag file
+    if (DEMO || !S.pin) return;
+    exec('[ -f /home/root/dom-pin-reset ] && rm -f /home/root/dom-pin-reset && echo RESET').then(function (out) {
+      if (/RESET/.test(out)) { S.pin = ''; store.set('pin', ''); toast('PIN je uklonjen'); }
+    }, function () {});
+  }
   function saverSync() {   // the home guard keeps LG's own screensaver away while ours is switched on
     if (!DEMO) exec(S.saverMins ? 'touch /home/root/dom-saver' : 'rm -f /home/root/dom-saver').catch(function () {});
   }
@@ -1937,6 +1943,7 @@
     var back = wasAway || stage.classList.contains('out');
     wasAway = false;
     saverOff();
+    pinResetCheck();
     if (S.zone === 'pin') pinClose();
     if (S.zone === 'settings') closeSettings();
     if (S.autoOrder) {   // what was just used may have moved up
@@ -1993,6 +2000,7 @@
   wxRender(); wxRefresh(false);
   watchPower();
   saverSync();
+  pinResetCheck();
   (function () {   // own version, for "Nadogradi Dom" (XHR: fetch does not read local files)
     try {
       var x = new XMLHttpRequest();

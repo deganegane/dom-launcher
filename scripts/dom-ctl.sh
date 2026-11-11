@@ -8,6 +8,7 @@
 #   dom-ctl.sh update             install the newest Dom in the background
 #   dom-ctl.sh backup <base64>    keep Dom's settings (from the app), icons, backgrounds and the pairing key
 #   dom-ctl.sh restore            print the saved settings
+#   dom-ctl.sh pinreset           forget the Settings PIN
 FLAG=/home/root/dom-disabled
 ALLOW=/tmp/dom-allow-home
 HOME_ID=com.webos.app.home
@@ -60,6 +61,10 @@ case "$1" in
     case "$2" in ''|0|*[!0-9]*) exit 0 ;; esac
     nohup sh -c "sleep $(($2 * 60)); rm -f /tmp/dom-sleep.pid; /home/root/dom-ctl.sh poweroff" >/dev/null 2>&1 &
     echo $! > /tmp/dom-sleep.pid
+    ;;
+  pinreset)
+    touch /home/root/dom-pin-reset
+    echo "PIN se briše kad sljedeći put otvoriš Dom."
     ;;
   update)
     [ -x /home/root/dom-install.sh ] || exit 1
