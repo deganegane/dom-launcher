@@ -12,8 +12,33 @@ IPK="/tmp/$APPID.ipk"
 INITD="/var/lib/webosbrew/init.d"
 LOG="/tmp/dom-install.log"
 
+# The TV's DNS sometimes refuses GitHub (ad blockers, flaky resolver). When a normal download
+# fails, ask 1.1.1.1 for the address over HTTPS and follow redirects by hand, one host at a time.
+doh_ip() {
+  curl -fsS -m 8 -H 'accept: application/dns-json' "https://1.1.1.1/dns-query?name=$1&type=A" 2>/dev/null \
+    | grep -oE '"data":"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"' | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'
+}
+fetch() {  # fetch <url> <file>
+  curl -fsSL -m 180 -o "$2" "$1" 2>/dev/null && return 0
+  echo "   (DNS ne radi za ovu adresu, idem zaobilazno)"
+  f_url=$1; f_n=0
+  while [ $f_n -lt 6 ]; do
+    f_n=$((f_n + 1))
+    f_host=$(echo "$f_url" | sed 's#^https://\([^/:]*\).*#\1#')
+    f_ip=$(doh_ip "$f_host") || true
+    [ -n "$f_ip" ] || return 1
+    f_res=$(curl -sS -m 180 --resolve "$f_host:443:$f_ip" -o "$2" -w '%{http_code} %{redirect_url}' "$f_url") || return 1
+    case "$f_res" in
+      200*) return 0 ;;
+      3*) f_url=${f_res#* }; [ -n "$f_url" ] || return 1 ;;
+      *) return 1 ;;
+    esac
+  done
+  return 1
+}
+
 echo "==> Preuzimam $IPK_URL"
-curl -fL -o "$IPK" "$IPK_URL"
+fetch "$IPK_URL" "$IPK" || { echo "!! Preuzimanje nije uspjelo. Provjeri mrežu/DNS na TV-u (nslookup github.com)."; exit 1; }
 
 echo "==> Instaliram"
 rm -f "$LOG"
@@ -39,7 +64,7 @@ get_tool() {
   for d in /media/developer/apps/usr/palm/applications/$APPID /media/cryptofs/apps/usr/palm/applications/$APPID; do
     if [ -f "$d/tools/$1" ]; then cp -f "$d/tools/$1" "$2"; return 0; fi
   done
-  curl -fsSL -o "$2" "https://raw.githubusercontent.com/$REPO/main/scripts/$1$NOCACHE"
+  fetch "https://raw.githubusercontent.com/$REPO/main/scripts/$1$NOCACHE" "$2"
 }
 
 echo "==> Home guard (Home tipka otvara Dom)"
