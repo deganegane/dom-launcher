@@ -115,10 +115,6 @@
   function win(x, y, h, c) { return rc(x - h * 0.016, y, h * 0.032, h * 0.065, c.l, h * 0.008); }
 
   var LIGHTHOUSE = [
-    function (x, y, h, c) {   // L1 classic tapered tower, cone roof
-      var bw = h * 0.105, tw = h * 0.072, th = h * 0.76;
-      return halo(x, y - th - h * 0.09, h * 0.5, c.l) + tower(x, y, bw, tw, th, c.b) + lampHead(x, y - th, tw, h, c) + win(x, y - th * 0.74, h, c) + win(x, y - th * 0.4, h, c);
-    },
     function (x, y, h, c) {   // L2 striped, dome roof
       var bw = h * 0.11, tw = h * 0.07, th = h * 0.76, s = halo(x, y - th - h * 0.09, h * 0.5, c.l), n = 5;
       for (var i = 0; i < n; i++) {
@@ -140,13 +136,6 @@
       return pa(fm('M% %L% %L% %Z', x, ly, x - h * 1.25, ly - h * 0.16, x - h * 1.25, ly + h * 0.08), c.l, 0.16) + pa(fm('M% %L% %L% %Z', x, ly, x + h * 1.25, ly - h * 0.08, x + h * 1.25, ly + h * 0.16), c.l, 0.16) +
         halo(x, ly, h * 0.4, c.l) + tower(x, y, h * 0.1, h * 0.07, h * 0.07, c.d) + rc(x - tw, y - th, tw * 2, th - h * 0.06, c.b) +
         rc(x - tw, y - th * 0.62, tw * 2, h * 0.07, c.a) + lampHead(x, y - th, tw * 1.25, h, c, 'flat');
-    },
-    function (x, y, h, c) {   // L5 stone house with a square tower (an Adriatic "lanterna")
-      var hw = h * 0.62, hh = h * 0.22, tw = h * 0.085, th = h * 0.74, s = halo(x, y - th - h * 0.09, h * 0.5, c.l);
-      s += rc(x - hw / 2, y - hh, hw, hh, c.b) + pa(fm('M% %L% %L% %L% %Z', x - hw / 2 - h * 0.02, y - hh, x - hw / 2 + h * 0.05, y - hh - h * 0.07, x + hw / 2 - h * 0.05, y - hh - h * 0.07, x + hw / 2 + h * 0.02, y - hh), c.a);
-      [-0.23, -0.14, 0.14, 0.23].forEach(function (k) { s += rc(x + h * k - h * 0.018, y - hh * 0.7, h * 0.036, h * 0.07, c.l); });
-      return s + rc(x - tw, y - th, tw * 2, th, c.b) + rc(x - tw - h * 0.012, y - th, tw * 2 + h * 0.024, h * 0.02, c.d) +
-        lampHead(x, y - th, h * 0.058, h, c, 'dome') + win(x, y - th * 0.82, h, c) + win(x, y - th * 0.58, h, c);
     },
     function (x, y, h, c) {   // L6 small harbour light at the end of a pier
       var py = y - h * 0.07, bw = h * 0.085, tw = h * 0.06, th = h * 0.68, s = halo(x, py - th - h * 0.09, h * 0.42, c.l);
@@ -178,27 +167,12 @@
       return s + pa(fm('M% %L% %L% %Z', x + 0.27 * w, y - 0.56 * w, x + 0.7 * w, y - 0.215 * w, x + 0.31 * w, y - 0.19 * w), c.s, 0.9) +
         pa(fm('M% %L% %L% %L% %Z', x - 0.29 * w, y - 0.5 * w, x - 0.29 * w, y - 0.16 * w, x - 0.53 * w, y - 0.18 * w, x - 0.47 * w, y - 0.42 * w), c.s, 0.9);
     },
-    function (x, y, w, c) {   // S3 cargo ship with a funnel
-      var s = pa(fm('M% %L% %L% %L% %L% %L% %Z', x - 0.5 * w, y - 0.085 * w, x + 0.33 * w, y - 0.085 * w, x + 0.36 * w, y - 0.115 * w, x + 0.5 * w, y - 0.115 * w, x + 0.43 * w, y, x - 0.47 * w, y), c.d);
-      s += rc(x - 0.44 * w, y - 0.17 * w, 0.2 * w, 0.09 * w, c.d) + rc(x - 0.41 * w, y - 0.225 * w, 0.13 * w, 0.06 * w, c.d) +
-        pa(fm('M% %L% %L% %L% %Z', x - 0.365 * w, y - 0.225 * w, x - 0.35 * w, y - 0.315 * w, x - 0.3 * w, y - 0.315 * w, x - 0.295 * w, y - 0.225 * w), c.d) +
-        rc(x - 0.352 * w, y - 0.3 * w, 0.054 * w, 0.024 * w, c.a) + rc(x - 0.42 * w, y - 0.15 * w, 0.16 * w, 0.02 * w, c.l, 0, 0.9) + rc(x - 0.39 * w, y - 0.208 * w, 0.09 * w, 0.018 * w, c.l, 0, 0.9);
-      [0.05, 0.075, 0.055, 0.07].forEach(function (hh, i) { s += rc(x - 0.19 * w + i * 0.125 * w, y - 0.085 * w - hh * w, 0.11 * w, hh * w, i % 2 ? c.a : c.s, 0, 0.85); });
-      return s + rc(x + 0.4 * w, y - 0.26 * w, 0.008 * w, 0.15 * w, c.d) + ci(x - 0.34 * w, y - 0.36 * w, 0.03 * w, c.s, 0.3) + ci(x - 0.39 * w, y - 0.43 * w, 0.045 * w, c.s, 0.2) + ci(x - 0.47 * w, y - 0.5 * w, 0.06 * w, c.s, 0.12);
-    },
     function (x, y, w, c) {   // S4 fishing trawler
       return pa(fm('M% %Q% % % %Q% % % %L% %Q% % % %Z', x - 0.5 * w, y - 0.12 * w, x, y - 0.06 * w, x + 0.5 * w, y - 0.2 * w, x + 0.44 * w, y - 0.02 * w, x + 0.3 * w, y, x - 0.42 * w, y, x - 0.5 * w, y, x - 0.5 * w, y - 0.12 * w), c.d) +
         rc(x + 0.02 * w, y - 0.3 * w, 0.2 * w, 0.22 * w, c.d) + rc(x, y - 0.325 * w, 0.24 * w, 0.03 * w, c.d) + rc(x + 0.055 * w, y - 0.27 * w, 0.13 * w, 0.06 * w, c.l) +
         rc(x - 0.126 * w, y - 0.64 * w, 0.012 * w, 0.56 * w, c.d) + ln(fm('M% %L% %', x - 0.12 * w, y - 0.5 * w, x - 0.46 * w, y - 0.3 * w), c.d, 0.012 * w) +
         ln(fm('M% %L% %L% %', x + 0.48 * w, y - 0.19 * w, x - 0.12 * w, y - 0.63 * w, x - 0.48 * w, y - 0.12 * w), c.d, 0.005 * w) + ci(x - 0.12 * w, y - 0.655 * w, 0.014 * w, c.l);
     },
-    function (x, y, w, c) {   // S5 motor yacht / small ferry
-      return pa(fm('M% %L% %L% %Q% % % %L% %Z', x - 0.5 * w, y - 0.09 * w, x + 0.36 * w, y - 0.09 * w, x + 0.5 * w, y - 0.13 * w, x + 0.44 * w, y - 0.01 * w, x + 0.36 * w, y, x - 0.47 * w, y), c.d) +
-        pa(fm('M% %L% %L% %L% %Z', x - 0.42 * w, y - 0.085 * w, x - 0.4 * w, y - 0.17 * w, x + 0.18 * w, y - 0.17 * w, x + 0.28 * w, y - 0.085 * w), c.s) +
-        pa(fm('M% %L% %L% %L% %Z', x - 0.33 * w, y - 0.165 * w, x - 0.31 * w, y - 0.235 * w, x + 0.06 * w, y - 0.235 * w, x + 0.13 * w, y - 0.165 * w), c.s) +
-        rc(x - 0.37 * w, y - 0.148 * w, 0.52 * w, 0.026 * w, c.l, 0.01 * w) + rc(x - 0.28 * w, y - 0.215 * w, 0.3 * w, 0.022 * w, c.l, 0.01 * w) +
-        rc(x - 0.2 * w, y - 0.3 * w, 0.06 * w, 0.065 * w, c.d) + rc(x - 0.06 * w, y - 0.33 * w, 0.008 * w, 0.1 * w, c.d);
-    }
   ];
 
   function skiff(x, y, w, fill) { return pa(fm('M% %Q% % % %Q% % % %L% %Q% % % %Z', x - 0.5 * w, y - 0.17 * w, x, y - 0.1 * w, x + 0.5 * w, y - 0.17 * w, x + 0.4 * w, y + 0.01 * w, x + 0.22 * w, y + 0.01 * w, x - 0.22 * w, y + 0.01 * w, x - 0.4 * w, y + 0.01 * w, x - 0.5 * w, y - 0.17 * w), fill); }
@@ -241,27 +215,47 @@
     function (x, y, k, c) {   // P2 gull, filled
       return pa(fm('M% %Q% % % %Q% % % %Q% % % %Q% % % %Z', x - 2 * k, y - 0.25 * k, x - k, y - 1.15 * k, x, y - 0.05 * k, x + k, y - 1.15 * k, x + 2 * k, y - 0.25 * k, x + k, y - 0.6 * k, x, y + 0.4 * k, x - k, y - 0.6 * k, x - 2 * k, y - 0.25 * k), c.d);
     },
-    function (x, y, k, c) {   // P3 a V of distant geese (the whole formation)
-      var s = '';
-      for (var i = -4; i <= 4; i++) {
-        var a = Math.abs(i), bx = x + i * k * 1.5, by = y + a * k * 0.85 + (a % 2) * k * 0.12, u = k * 0.42;
-        s += ln(fm('M% %Q% % % %Q% % % %', bx - u * 1.6, by - u * 0.5, bx - u * 0.7, by - u * 0.9, bx, by, bx + u * 0.7, by - u * 0.9, bx + u * 1.6, by - u * 0.5), c.d, u * 0.42);
+  ];
+
+  // ---- proposals, second round ----
+  BIRD.push(
+    function (x, y, k, c) {   // P6 gull banking in a turn: one wing up, one flat
+      return pa(fm('M% %Q% % % %Q% % % %Q% % % %Q% % % %Z', x - 2.3 * k, y - 1.0 * k, x - 1.0 * k, y - 0.95 * k, x, y - 0.05 * k, x + 1.2 * k, y - 0.55 * k, x + 2.7 * k, y + 0.05 * k,
+        x + 1.2 * k, y - 0.2 * k, x, y + 0.34 * k, x - 0.9 * k, y - 0.55 * k, x - 2.3 * k, y - 1.0 * k), c.d);
+    },
+    function (x, y, k, c) {   // P7 a far-away swarm of tiny marks (the whole flock)
+      var s = '', a = 7;
+      for (var i = 0; i < 30; i++) {
+        a = (a * 73 + 41) % 997; var u = a / 997; a = (a * 73 + 41) % 997; var v = a / 997; a = (a * 73 + 41) % 997; var q = 0.22 + 0.2 * a / 997;
+        var bx = x + (u - 0.5) * k * 15 * (0.55 + 0.45 * Math.sin(v * 3.14)), by = y + (v - 0.5) * k * 6 + (u - 0.5) * k * 2.4, w = k * q;
+        s += ln(fm('M% %Q% % % %Q% % % %', bx - w * 1.5, by - w * 0.5, bx - w * 0.7, by - w * 0.9, bx, by, bx + w * 0.7, by - w * 0.9, bx + w * 1.5, by - w * 0.5), c.d, w * 0.5);
       }
       return s;
     },
-    function (x, y, k, c) {   // P4 a soaring bird of prey, close
-      var h = function (m) {
-        return fm('C% % % % % %L% %L% %L% %L% %L% %L% %C% % % % % %L% %', x + m * 0.3 * k, y - 0.32 * k, x + m * 1.2 * k, y - 0.78 * k, x + m * 3 * k, y - 0.95 * k,
-          x + m * 3.12 * k, y - 0.62 * k, x + m * 2.72 * k, y - 0.55 * k, x + m * 3 * k, y - 0.3 * k, x + m * 2.52 * k, y - 0.28 * k, x + m * 2.7 * k, y - 0.02 * k, x + m * 2.2 * k, y - 0.08 * k,
-          x + m * 1.4 * k, y + 0.1 * k, x + m * 0.7 * k, y + 0.15 * k, x + m * 0.32 * k, y + 0.35 * k, x + m * 0.46 * k, y + 0.98 * k);
-      };
-      return pa(fm('M% %', x, y - 0.3 * k) + h(1) + fm('L% %Z', x, y + 0.8 * k), c.d) + pa(fm('M% %', x, y - 0.3 * k) + h(-1) + fm('L% %Z', x, y + 0.8 * k), c.d) + ci(x, y - 0.3 * k, 0.17 * k, c.d);
+    function (x, y, k, c) {   // P8 a string of gulls coming closer: small far away, large near (the whole flock)
+      var s = '', n = 6;
+      for (var i = 0; i < n; i++) {
+        var t = i / (n - 1), kk = k * (0.25 + t * t * 0.95);
+        s += BIRD[1](x - k * 8 + t * k * 15 + Math.sin(t * 3) * k, y - k * 3.2 + t * t * k * 6.4, kk, c);
+      }
+      return s;
     },
-    function (x, y, k, c) {   // P5 swallow with a forked tail
-      return pa(fm('M% %Q% % % %Q% % % %L% %L% %L% %L% %Q% % % %Q% % % %Z', x, y - 0.35 * k, x + 0.9 * k, y - 0.95 * k, x + 2.1 * k, y - 0.1 * k, x + 1.05 * k, y - 0.42 * k, x + 0.28 * k, y + 0.1 * k,
-        x + 0.5 * k, y + 1.15 * k, x, y + 0.5 * k, x - 0.5 * k, y + 1.15 * k, x - 0.28 * k, y + 0.1 * k, x - 1.05 * k, y - 0.42 * k, x - 2.1 * k, y - 0.1 * k, x - 0.9 * k, y - 0.95 * k, x, y - 0.35 * k), c.d);
+    function (x, y, k, c) {   // P9 a heron in flight, seen from the side
+      return el(x, y, 1.4 * k, 0.36 * k, c.d) + ln(fm('M% %Q% % % %', x + 1.1 * k, y - 0.08 * k, x + 1.9 * k, y - 0.1 * k, x + 2.6 * k, y - 0.42 * k), c.d, 0.2 * k) +
+        ci(x + 2.68 * k, y - 0.46 * k, 0.18 * k, c.d) + pa(fm('M% %L% %L% %Z', x + 2.74 * k, y - 0.6 * k, x + 3.5 * k, y - 0.4 * k, x + 2.74 * k, y - 0.34 * k), c.d) +
+        ln(fm('M% %L% %', x - 1.2 * k, y + 0.06 * k, x - 3.1 * k, y + 0.3 * k), c.d, 0.09 * k) +
+        pa(fm('M% %Q% % % %Q% % % %Z', x + 0.75 * k, y - 0.15 * k, x + 0.55 * k, y - 1.5 * k, x - 0.55 * k, y - 2.35 * k, x - 0.6 * k, y - 1.2 * k, x - 1.0 * k, y - 0.1 * k), c.d) +
+        pa(fm('M% %Q% % % %Q% % % %Z', x + 0.6 * k, y - 0.15 * k, x + 1.2 * k, y - 1.15 * k, x + 1.0 * k, y - 1.9 * k, x + 0.35 * k, y - 1.15 * k, x - 0.3 * k, y - 0.15 * k), c.d, 0.85);
+    },
+    function (x, y, k, c, phase) {   // P10 the same gull in three wing beats: up, level, down
+      var ph = phase == null ? 0 : phase % 3;
+      if (ph === 1) return BIRD[1](x, y, k, c);
+      if (ph === 0) return pa(fm('M% %Q% % % %Q% % % %Q% % % %Q% % % %Z', x - 1.8 * k, y - 1.15 * k, x - 0.8 * k, y - 0.95 * k, x, y, x + 0.8 * k, y - 0.95 * k, x + 1.8 * k, y - 1.15 * k,
+        x + 0.9 * k, y - 0.5 * k, x, y + 0.42 * k, x - 0.9 * k, y - 0.5 * k, x - 1.8 * k, y - 1.15 * k), c.d);
+      return pa(fm('M% %Q% % % %Q% % % %Q% % % %Q% % % %Z', x - 2.0 * k, y + 0.5 * k, x - 1.0 * k, y - 0.55 * k, x, y - 0.18 * k, x + 1.0 * k, y - 0.55 * k, x + 2.0 * k, y + 0.5 * k,
+        x + 1.0 * k, y - 0.08 * k, x, y + 0.3 * k, x - 1.0 * k, y - 0.08 * k, x - 2.0 * k, y + 0.5 * k), c.d);
     }
-  ];
+  );
 
   var TREE = [
     function (x, y, h, c) { return pine(x, y, h, c.d); },   // T1 pine in tiers
@@ -273,11 +267,6 @@
         R.push('L' + f(x + w * 0.5) + ' ' + f(yy - h * 0.015) + 'L' + f(x + w) + ' ' + f(yy));
       }
       return rc(x - h * 0.014, y - h * 0.1, h * 0.028, h * 0.1 + 6, c.d) + pa('M' + f(x) + ' ' + f(y - h) + L + R.reverse().join('') + 'Z', c.d);
-    },
-    function (x, y, h, c) {   // T3 round-crowned deciduous tree
-      return pa(fm('M% %L% %L% %L% %Z', x - h * 0.045, y + 4, x - h * 0.025, y - h * 0.5, x + h * 0.025, y - h * 0.5, x + h * 0.045, y + 4), c.d) +
-        ln(fm('M% %L% %M% %L% %', x, y - h * 0.36, x - h * 0.16, y - h * 0.52, x, y - h * 0.3, x + h * 0.17, y - h * 0.5), c.d, h * 0.022) +
-        ci(x, y - h * 0.68, h * 0.26, c.d) + ci(x - h * 0.2, y - h * 0.56, h * 0.19, c.d) + ci(x + h * 0.2, y - h * 0.57, h * 0.2, c.d) + ci(x - h * 0.09, y - h * 0.82, h * 0.17, c.d) + ci(x + h * 0.11, y - h * 0.81, h * 0.16, c.d);
     },
     function (x, y, h, c) {   // T4 cypress
       return rc(x - h * 0.012, y - h * 0.1, h * 0.024, h * 0.1 + 6, c.d) + pa(fm('M% %C% % % % % %C% % % % % %Z', x, y - h, x + h * 0.13, y - h * 0.7, x + h * 0.12, y - h * 0.2, x, y - h * 0.07, x - h * 0.12, y - h * 0.2, x - h * 0.13, y - h * 0.7, x, y - h), c.d);
@@ -309,17 +298,55 @@
       var h = w * (0.045 + (r ? r() : 0.5) * 0.05), x0 = x - w / 2;
       return pa(fm('M% %Q% % % %T% %Z', x0, y, x0 + w * 0.3, y - h, x0 + w * 0.6, y - h * 0.4, x0 + w, y), c, o);
     },
-    function (x, y, w, c, o, r) {   // O2 thin streaks
-      var s = '', rows = [[-0.5, 0.62, 0], [-0.3, 0.8, 1], [-0.42, 0.5, 2], [-0.12, 0.6, 3], [-0.34, 0.36, 4]];
-      rows.forEach(function (q) { var j = r ? (r() - 0.5) * 0.12 : 0; s += rc(x + (q[0] + j) * w, y + q[2] * w * 0.034, q[1] * w, w * 0.016, c, w * 0.008, o); });
-      return s;
-    },
     function (x, y, w, c, o) {   // O3 lens-shaped wisps
       var one = function (cx, cy, ww, hh) { return pa(fm('M% %Q% % % %Q% % % %Z', cx - ww / 2, cy, cx, cy - hh, cx + ww / 2, cy, cx, cy + hh * 0.4, cx - ww / 2, cy), c, o); };
       return one(x, y, w, w * 0.11) + one(x + w * 0.22, y + w * 0.05, w * 0.7, w * 0.07) + one(x - w * 0.26, y + w * 0.075, w * 0.5, w * 0.05);
     }
   ];
-  var EL = { lighthouse: LIGHTHOUSE, ship: SHIP, boat: BOAT, bird: BIRD, tree: TREE, cloud: CLOUD };
+  // a soft rolling outline through the points, flat tangents at each: no scallops, no corners
+  function roll(pts) {
+    var d = 'M' + f(pts[0][0]) + ' ' + f(pts[0][1]);
+    for (var i = 1; i < pts.length; i++) { var a = pts[i - 1], b = pts[i], m = (b[0] - a[0]) / 2; d += 'C' + f(a[0] + m) + ' ' + f(a[1]) + ' ' + f(b[0] - m) + ' ' + f(b[1]) + ' ' + f(b[0]) + ' ' + f(b[1]); }
+    return d;
+  }
+  function mound(x, y, w, hs) {   // hs: heights (in w) of peaks and dips, left to right
+    var pts = [[x - w / 2, y]], n = hs.length;
+    hs.forEach(function (h, i) { pts.push([x - w / 2 + w * (i + 1) / (n + 1), y - h * w]); });
+    pts.push([x + w / 2, y]);
+    return roll(pts) + 'Z';
+  }
+  CLOUD.push(
+    function (x, y, w, c, o) {   // O4 soft layered cloud: a pale back layer, a full front one
+      return pa(mound(x - w * 0.06, y - w * 0.035, w * 0.86, [0.1, 0.07, 0.2, 0.13, 0.17, 0.06]), c, f(o * 0.5)) + pa(mound(x, y, w, [0.07, 0.05, 0.14, 0.1, 0.16, 0.08, 0.05]), c, o);
+    },
+    function (x, y, w, c, o) {   // O5 bands of mist with a gently rolling top (lies between ridges)
+      var band = function (yy, hh, sh, oo) {
+        var top = [], n = 6;
+        for (var i = 0; i <= n; i++) top.push([x - w / 2 + w * i / n, yy - hh * (0.45 + 0.55 * Math.abs(Math.sin(i * 1.7 + sh)))]);
+        return pa(roll(top) + 'L' + f(x + w / 2) + ' ' + f(yy + hh * 0.5) + 'L' + f(x - w / 2) + ' ' + f(yy + hh * 0.5) + 'Z', c, oo);
+      };
+      return band(y, w * 0.07, 0.4, f(o * 0.45)) + band(y + w * 0.09, w * 0.06, 2.1, f(o * 0.7));
+    },
+    function (x, y, w, c, o) {   // O6 a field of small cloudlets, smaller towards the horizon
+      var s = '', one = function (cx, cy, ww) { return pa(fm('M% %Q% % % %Q% % % %Z', cx - ww / 2, cy, cx, cy - ww * 0.16, cx + ww / 2, cy, cx, cy + ww * 0.07, cx - ww / 2, cy), c, o); };
+      [[0, 0.3, 3], [1, 0.22, 4], [2, 0.15, 5], [3, 0.1, 6]].forEach(function (q) {
+        for (var i = 0; i < q[2]; i++) s += one(x - w / 2 + w * (i + 0.5 + (q[0] % 2 ? 0.22 : -0.1)) / q[2], y + q[0] * w * 0.085, w * q[1] * (0.8 + 0.4 * ((i * 7 + q[0] * 3) % 5) / 5));
+      });
+      return s;
+    },
+    function (x, y, w, c, o) {   // O7 wind-swept streaks with pointed ends
+      var one = function (cx, cy, ww, hh, oo) { return pa(fm('M% %C% % % % % %C% % % % % %Z', cx - ww / 2, cy, cx - ww / 4, cy - hh, cx + ww / 4, cy - hh * 1.3, cx + ww / 2, cy - hh * 0.5, cx + ww / 4, cy - hh * 0.55, cx - ww / 4, cy + hh * 0.3, cx - ww / 2, cy), c, oo); };
+      return one(x, y, w, w * 0.07, o) + one(x + w * 0.16, y + w * 0.09, w * 0.72, w * 0.05, f(o * 0.75)) + one(x - w * 0.2, y + w * 0.15, w * 0.5, w * 0.035, f(o * 0.55));
+    },
+    function (x, y, w, c, o) {   // O8 a bank of cloud standing on the horizon
+      return pa(mound(x + w * 0.05, y, w * 1.05, [0.16, 0.12, 0.3, 0.24, 0.38, 0.27, 0.2, 0.1]), c, f(o * 0.45)) + pa(mound(x - w * 0.04, y, w, [0.08, 0.06, 0.17, 0.12, 0.22, 0.15, 0.2, 0.09, 0.05]), c, o);
+    }
+  );
+  function tag(arr, codes) { arr.forEach(function (fn, i) { fn.code = codes[i]; }); return arr; }
+  var EL = {
+    lighthouse: tag(LIGHTHOUSE, ['L2', 'L3', 'L4', 'L6']), ship: tag(SHIP, ['S1', 'S2', 'S4']), boat: tag(BOAT, ['B1', 'B2', 'B3', 'B4', 'B5']),
+    bird: tag(BIRD, ['P1', 'P2', 'P6', 'P7', 'P8', 'P9', 'P10']), tree: tag(TREE, ['T1', 'T2', 'T4', 'T5', 'T6', 'T7']), cloud: tag(CLOUD, ['O1', 'O3', 'O4', 'O5', 'O6', 'O7', 'O8'])
+  };
 
   function svg(defs, body) {
     return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><defs>' + defs + '</defs>' + body + '</svg>');
