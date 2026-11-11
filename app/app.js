@@ -980,7 +980,8 @@
   }
   function startMove() {
     var a = S.list[S.idx];
-    if (!a || a.key === SETTINGS_KEY) return;
+    if (a && a.key === SETTINGS_KEY) { openRun(); return; }   // holding OK on Settings: open apps
+    if (!a) return;
     if (S.autoOrder) { toast('Uključen je automatski redoslijed. Isključi ga u Postavkama za ručno slaganje.'); return; }
     S.moving = true;
     applyFocus();
@@ -1010,6 +1011,7 @@
     if (S.zone === 'pin') { pinKey(e); return; }
     if (stage.classList.contains('out')) { fadeIn(true); if (e.preventDefault) e.preventDefault(); return; }
     if (S.zone === 'settings') { settingsKey(e); return; }
+    if (k === 403 && !S.moving) { openRun(); if (e.preventDefault) e.preventDefault(); return; }   // red button: open apps
     // remotes with media or colour keys: play/pause or yellow keeps the wallpaper, fast-forward or blue shows the next one
     if (S.wall.on && (k === 415 || k === 19 || k === 10252 || k === 405)) { wallTogglePause(); e.preventDefault(); return; }
     if (S.wall.on && (k === 417 || k === 406)) { wallNext(true); e.preventDefault(); return; }
@@ -1492,8 +1494,48 @@
     toast('Gasim ekran. Bilo koja tipka ga vraća.');
     setTimeout(function () { exec('/home/root/dom-ctl.sh screenoff', 15000).catch(function () { toast('Ekran se nije dao ugasiti'); }); }, 900);
   }
+  /* ================= open apps: see what is running, close it ================= */
+  var RUN = { list: [], at: 0, busy: false };
+  var RUN_SKIP = /^com\.webos\.app\.(home|starfish|systemui)|^com\.deganegane\.dom$/;
+  function runLoad() {
+    var done = function (ids) {
+      RUN.busy = false; RUN.at = Date.now();
+      RUN.list = ids.filter(function (id) { return !RUN_SKIP.test(id); }).map(function (id) {
+        for (var i = 0; i < S.apps.length; i++) if (S.apps[i].id === id) return { id: id, title: S.apps[i].title, icon: S.apps[i].icon };
+        return /^com\.webos\./.test(id) ? null : { id: id, title: id, icon: '' };   // unknown system helpers stay out of the list
+      }).filter(Boolean);
+      if (S.zone === 'settings') renderSettings();
+    };
+    if (DEMO) { done(RUN.at ? RUN.list.map(function (x) { return x.id; }) : S.apps.slice(1, 5).map(function (a) { return a.id; })); return; }
+    RUN.busy = true;
+    luna('luna://com.webos.applicationManager/running', {}).then(function (r) { done((r.running || []).map(function (x) { return x.id; })); }, function () { done([]); });
+  }
+  function runClose(ids) {
+    if (DEMO) { RUN.list = RUN.list.filter(function (x) { return ids.indexOf(x.id) < 0; }); renderSettings(); return; }
+    RUN.busy = true; renderSettings();
+    Promise.all(ids.map(function (id) {
+      return luna('luna://com.webos.applicationManager/closeByAppId', { id: id }).catch(function () { return null; });
+    })).then(function () { setTimeout(runLoad, 800); });
+  }
+  function runRows() {
+    var rows = [{ note: RUN.busy ? 'Učitavam…' : (RUN.list.length ? 'OK zatvara aplikaciju i oslobađa memoriju.' : 'Nijedna aplikacija nije otvorena u pozadini.') }];
+    RUN.list.forEach(function (x) { rows.push({ type: 'btn', name: 'run-' + x.id, label: x.title, icon: x.icon, value: 'Zatvori', act: function () { runClose([x.id]); } }); });
+    if (RUN.list.length > 1) rows.push({ type: 'btn', name: 'run-all', label: 'Zatvori sve', act: function () { runClose(RUN.list.map(function (x) { return x.id; })); } });
+    return rows;
+  }
+  // its own view in the Settings panel; holds nothing sensitive, so it opens without the PIN (red button on the remote)
+  function openRun() {
+    S.zone = 'settings';
+    SET.only = 'run'; SET.pos = 0; SET.rows = [];
+    $('#settings h1').textContent = 'Otvorene aplikacije';
+    runLoad();
+    renderSettings();
+    $('#settings').classList.remove('hidden');
+    applyFocus();
+  }
   function quickRows(rows) {
     rows.push({ h: 'Brze radnje' });
+    rows.push({ type: 'btn', name: 'q-run', label: 'Otvorene aplikacije', value: (RUN.at ? RUN.list.length : '') + '  ›', act: openRun });
     rows.push({ type: 'btn', name: 'q-screen', label: 'Ugasi ekran (zvuk ostaje)', act: screenOff });
     rows.push({ type: 'btn', name: 'q-sleep', label: 'Tajmer za spavanje', value: (S.sleepMins ? S.sleepMins + ' min' : 'Isključen') + '  ›', act: sleepSet });
   }
@@ -1644,6 +1686,7 @@
     }
   }
   function settingsRows() {
+    if (SET.only === 'run') return runRows();
     var rows = [];
     quickRows(rows);
     if (S.wall.on) wallRows(rows);   // near the top while in use, so keeping a picture is a few presses away
@@ -1764,7 +1807,7 @@
         html += '<div class="s-row s-input" data-i="' + i + '"><input type="' + r.inputType + '" placeholder="' + esc(r.label) +
           '" value="' + esc(SET[r.name]) + '" data-name="' + r.name + '"></div>';
       } else {
-        var icon = r.app && r.app.icon ? '<img src="' + esc(r.app.icon) + '" alt="">' : '';
+        var ic = r.icon || (r.app && r.app.icon), icon = ic ? '<img src="' + esc(ic) + '" alt="">' : '';
         html += '<div class="s-row' + (r.off ? ' off' : '') + '" data-i="' + i + '"><div class="s-left">' + icon + '<span>' + esc(r.label) +
           '</span></div>' + (r.value ? '<div class="s-val">' + esc(r.value) + '</div>' : '') + '</div>';
       }
@@ -1842,8 +1885,10 @@
       return;
     }
     S.zone = 'settings';
-    SET.pos = 0; SET.rows = [];
+    SET.only = ''; SET.pos = 0; SET.rows = [];
+    $('#settings h1').textContent = 'Postavke';
     loadTune();
+    runLoad();
     renderSettings();
     $('#settings').classList.remove('hidden');
     applyFocus();
@@ -1851,6 +1896,7 @@
   function closeSettings() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     $('#settings').classList.add('hidden');
+    SET.only = '';
     S.zone = 'grid';
     applyFocus();
     updateShelf(true);

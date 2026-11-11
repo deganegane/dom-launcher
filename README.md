@@ -133,6 +133,7 @@ Postavke → Vremenska prognoza → upiši grad. Ispod sata se prikazuje trenutn
 
 - **Čuvar zaslona** (Postavke → Izgled): nakon 2, 5 ili 10 minuta mirovanja ostaju samo pozadina, sat i prognoza; sat se svake minute pomakne, a nakon 20 minuta slika se dodatno zatamni. Dok je uključen, LG-ev čuvar zaslona se preko Doma ne pali.
 - **Brze radnje** (vrh Postavki): gašenje ekrana uz zvuk i tajmer za spavanje (15/30/60/90 min).
+- **Otvorene aplikacije** (crvena tipka na daljinskom, dugi OK na pločici Postavke ili Postavke → Brze radnje): popis aplikacija koje rade u pozadini; OK zatvara jednu, "Zatvori sve" sve odjednom.
 - **Najčešće korištene aplikacije naprijed**: redoslijed se slaže sam prema broju pokretanja.
 - **PIN za Postavke**: četiri znamenke; bez njega se Postavke (i skrivene aplikacije) ne otvaraju. Zaboravljen PIN: preko SSH-a `/home/root/dom-ctl.sh pinreset`.
 
