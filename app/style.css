@@ -42,6 +42,17 @@ body {
 #clock { font-size: 40px; font-weight: 500; letter-spacing: .01em; }
 #date { font-size: 22px; opacity: .7; margin-bottom: 2px; }
 
+/* weather: hangs under the clock block in every layout, so it never disturbs how that block is laid out */
+#weather { display: none; }
+#weather.on {
+  display: flex; align-items: center; gap: 10px; position: absolute; top: 100%; right: 0; margin-top: 8px;
+  white-space: nowrap; font-size: 24px; text-shadow: 0 2px 10px rgba(0,0,0,.6);
+}
+#weather svg { width: 30px; height: 30px; flex: 0 0 auto; }
+#weather .wx-t { font-weight: 600; }
+#weather .wx-d { opacity: .85; }
+#weather .wx-r { opacity: .6; font-size: 20px; margin-left: 4px; }
+
 /* ---------- top shelf ---------- */
 #shelf {
   position: absolute; left: 114px; top: 0; width: 1692px; height: 620px;
@@ -365,7 +376,7 @@ body {
 #stage.layout-traka .tile-icon, #stage.layout-traka .tile-brand, #stage.layout-traka .tile-conicon,
 #stage.layout-traka .tile-pad, #stage.layout-traka .tile-art > svg { transform: scale(.7); }
 #stage.layout-traka .tile-label, #stage.layout-traka .tile.focus .tile-label {
-  top: 196px; transform: none; font-size: 26px; font-weight: 500; opacity: .75; left: -22px; right: -22px;
+  top: 196px; transform: none; font-size: 24px; font-weight: 500; opacity: .75; left: -12px; right: -12px;
 }
 #stage.layout-traka .tile.focus .tile-label { opacity: 1; font-weight: 600; }
 #stage.layout-traka.zone-shelf #grid-wrap, #stage.layout-traka.zone-tabs #grid-wrap { opacity: .75; }
@@ -441,3 +452,15 @@ body {
 #stage.layout-harmonika .tile .tile-art { --s: .4; }
 #stage.layout-harmonika .tile.focus .tile-art { left: 36px; top: 36px; bottom: auto; margin-left: 0; transform-origin: 0 0; --s: .5; }
 #stage.layout-harmonika .tile-sheen, #stage.layout-harmonika .tile-label { display: none; }
+
+/* ---- weather position per layout ---- */
+#stage.layout-sidebar #weather.on, #stage.layout-ambient #weather.on { right: auto; left: 0; }
+#stage.layout-sidebar #weather.on { font-size: 21px; margin-top: 10px; }
+#stage.layout-sidebar #weather .wx-r { display: none; }
+#stage.layout-ambient.has-wx #topbar { bottom: 346px; }
+#stage.layout-ambient #weather.on { font-size: 32px; margin-top: 18px; gap: 14px; }
+#stage.layout-ambient #weather svg { width: 40px; height: 40px; }
+#stage.layout-ambient #weather .wx-r { font-size: 26px; }
+#stage.layout-carousel #weather.on { right: auto; left: 50%; transform: translateX(-50%); }
+#stage.layout-bento #weather.on { font-size: 21px; margin-top: 4px; }
+#stage.layout-bento #weather svg { width: 26px; height: 26px; }

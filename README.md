@@ -124,3 +124,7 @@ Postavke → Pozadina → "Pozadine s interneta". Kad je uključeno, u pozadini 
 ## Izgledi
 
 Klasično, Bočni izbornik, Bento, Karusel, Ambijent, Traka, Konzola, Harmonika. Mijenjaju se u Postavke → Izgled početnog zaslona.
+
+## Vremenska prognoza
+
+Postavke → Vremenska prognoza → upiši grad. Ispod sata se prikazuje trenutna temperatura, stanje i dnevni raspon. Podaci: Open-Meteo (bez ključa, besplatno za osobnu upotrebu), osvježava se svakih pola sata dok je Dom na ekranu.

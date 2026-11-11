@@ -26,7 +26,12 @@
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
   var RENAME = { 'YouTube AdFree': 'YouTube' };   // shown name instead of the app's own
-  function shownName(t) { return RENAME[t] || (/^youtube\s*ad[\s-]*free$/i.test(t || '') ? 'YouTube' : t); }
+  function shownName(t) {
+    if (RENAME[t]) return RENAME[t];
+    if (/^youtube\s*ad[\s-]*free$/i.test(t || '')) return 'YouTube';
+    var m = /^(.{3,}?)\s+[-\u2013\u2014|:]\s+\S/.exec(t || '');   // "Name - what it does" -> "Name"
+    return m && (t || '').length > 18 ? m[1] : t;
+  }
 
   var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461, BKSP: 8, ESC: 27 };
 
@@ -328,6 +333,49 @@
     });
   }
 
+  /* ---------- real backdrops for cards that apps publish (those only carry a small picture) ---------- */
+  var hdArt = store.get('hdArt', {});   // normalised title -> imdb id, or the time of a lookup that found nothing
+  var hdBusy = {};
+  function normTitle(t) { return String(t || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function hdUrl(name) {
+    var v = hdArt[normTitle(name)];
+    return typeof v === 'string' && v ? 'https://images.metahub.space/background/large/' + v + '/img' : '';
+  }
+  function hdLookup(name) {
+    var k = normTitle(name), v = hdArt[k];
+    if (!k) return Promise.resolve('');
+    if (typeof v === 'string') return Promise.resolve(v);
+    if (typeof v === 'number' && Date.now() - v < 7 * 24 * 3600 * 1000) return Promise.resolve('');   // looked recently, nothing there
+    if (hdBusy[k]) return hdBusy[k];
+    var q = function (type) {
+      return getJSON('https://v3-cinemeta.strem.io/catalog/' + type + '/top/search=' + encodeURIComponent(name) + '.json')
+        .then(function (r) { return (r && r.metas) || []; }, function () { return null; });
+    };
+    hdBusy[k] = Promise.all([q('series'), q('movie')]).then(function (rs) {
+      delete hdBusy[k];
+      if (rs[0] === null && rs[1] === null) return '';   // offline: do not remember this as a miss
+      // only an exact title counts; between a series and a film of the same name, the newer one
+      var best = null;
+      rs.forEach(function (list) {
+        (list || []).some(function (m) {
+          if (normTitle(m.name) !== k || !/^tt\d+$/.test(m.id || '')) return false;
+          var y = parseInt(String(m.releaseInfo || m.year || '').slice(0, 4), 10) || 0;
+          if (!best || y > best.y) best = { id: m.id, y: y };
+          return true;
+        });
+      });
+      if (Object.keys(hdArt).length > 400) hdArt = {};
+      hdArt[k] = best ? best.id : Date.now();
+      store.set('hdArt', hdArt);
+      return best ? best.id : '';
+    });
+    return hdBusy[k];
+  }
+  function hdWarm(items) {   // one after another, so a fresh row does not fire twenty requests at once
+    items.slice(0, 8).reduce(function (p, it) { return p.then(function () { return hdLookup(it.name); }); }, Promise.resolve())
+      .then(function () { preloadCW(items.slice(0, 3).map(function (it) { return { backdrop: hdUrl(it.name) }; })); });
+  }
+
   /* ---------- "continue watching" rows that apps publish to LG Home ---------- */
   S.appRows = store.get('appRows', {});
   var lastAppRows = 0;
@@ -358,6 +406,7 @@
       S.appRows = rows;   // always keep the fresh launch parameters (they expire)
       store.set('appRows', rows);
       preloadCW([].concat.apply([], Object.keys(rows).map(function (k) { return rows[k]; })));
+      Object.keys(rows).forEach(function (k) { hdWarm(rows[k]); });
       if (changed) { S.cardsFor = null; updateShelf(true); }
     }).catch(function (e) { console.log('appContents', e); });
   }
@@ -684,7 +733,7 @@
       if (bgKey !== key) return;   // a newer background was requested meanwhile
       var back = bgFront === 'A' ? 'B' : 'A';
       var layer = $('#bg' + back), img = layer.querySelector('.bg-img');
-      img.className = 'bg-img' + (u && fb && fb.soft ? ' soft' : '');
+      img.className = 'bg-img' + (u && fb && (fb.soft || fb.softUrl === u) ? ' soft' : '');
       img.style.backgroundImage = u ? 'url("' + u + '")' : ((fb && fb.ambient) || '');
       img.style.backgroundColor = u ? '#111' : ((fb && fb.color) || '#0b0b0d');
       layer.classList.add('on');
@@ -743,9 +792,11 @@
     if (showCards) {
       var item = items[S.zone === 'shelf' ? Math.min(S.card, items.length - 1) : 0];
       if (item.kind === 'app') {
-        key = 'appcw:' + item.appId + ':' + item.id;
+        var hd = hdUrl(item.name);
+        key = 'appcw:' + item.appId + ':' + item.id + (hd ? ':hd' : '');
         info = { kicker: item.kicker || 'Nastavi gledati', title: item.name, sub: '', progress: -1,
-                 bg: [item.backdrop], fb: { color: '#202024', soft: true } };
+                 bg: [hd, item.backdrop], fb: { color: '#202024', softUrl: item.backdrop } };
+        if (!hd) hdLookup(item.name).then(function (id) { if (id) { shelfKey = ''; updateShelf(true); } });
       } else {
       key = 'cw:' + item.id + ':' + item.videoId;
       info = {
@@ -1205,6 +1256,92 @@
   }
   setInterval(wallTick, 20000);
 
+  /* ================= weather under the clock ================= */
+  // Open-Meteo: free for personal use, no key. One request every half hour while Dom is on screen.
+  var WX = { place: store.get('wxPlace', null), data: store.get('wxData', null), at: store.get('wxAt', 0), busy: false };
+  var WX_ICON = {
+    sun:   '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/>',
+    moon:  '<path d="M20 14.2A8 8 0 1 1 9.8 4a6.4 6.4 0 0 0 10.2 10.2z"/>',
+    part:  '<circle cx="8" cy="8" r="3"/><path d="M8 2.2v1.6M2.2 8h1.6M3.9 3.9 5 5M12.1 3.9 11 5"/><path d="M8.5 19.5h8.7a3.6 3.6 0 0 0 .4-7.2 5 5 0 0 0-9.5 1.3 3 3 0 0 0 .4 5.9z"/>',
+    cloud: '<path d="M7 18.5h10a4 4 0 0 0 .5-8 5.6 5.6 0 0 0-10.7 1.5A3.3 3.3 0 0 0 7 18.5z"/>',
+    fog:   '<path d="M7 14h10a3.6 3.6 0 0 0 .4-7.2A5 5 0 0 0 7.9 8.1 3 3 0 0 0 7 14zM4 17.5h16M6.5 20.5h11"/>',
+    rain:  '<path d="M7 14.5h10a3.6 3.6 0 0 0 .4-7.2 5 5 0 0 0-9.5 1.3A3 3 0 0 0 7 14.5zM8.5 17.5l-1 3M12.5 17.5l-1 3M16.5 17.5l-1 3"/>',
+    snow:  '<path d="M7 14.5h10a3.6 3.6 0 0 0 .4-7.2 5 5 0 0 0-9.5 1.3A3 3 0 0 0 7 14.5z"/><path d="M8 18.2v.1M12 18.2v.1M16 18.2v.1M10 21v.1M14 21v.1" stroke-width="2.4"/>',
+    storm: '<path d="M7 14.5h10a3.6 3.6 0 0 0 .4-7.2 5 5 0 0 0-9.5 1.3A3 3 0 0 0 7 14.5z"/><path d="M12.8 15.5l-2.3 3.2h3l-2 3"/>'
+  };
+  function wxKind(code, day) {   // WMO weather codes
+    if (code === 0) return [day ? 'sun' : 'moon', 'Vedro'];
+    if (code === 1) return [day ? 'sun' : 'moon', 'Pretežno vedro'];
+    if (code === 2) return ['part', 'Djelomično oblačno'];
+    if (code === 3) return ['cloud', 'Oblačno'];
+    if (code === 45 || code === 48) return ['fog', 'Magla'];
+    if (code >= 51 && code <= 57) return ['rain', 'Rosulja'];
+    if (code >= 61 && code <= 67) return ['rain', 'Kiša'];
+    if (code >= 71 && code <= 77) return ['snow', 'Snijeg'];
+    if (code >= 80 && code <= 82) return ['rain', 'Pljuskovi'];
+    if (code === 85 || code === 86) return ['snow', 'Snježni pljuskovi'];
+    if (code >= 95) return ['storm', 'Grmljavina'];
+    return ['cloud', ''];
+  }
+  function wxRender() {
+    var el = $('#weather'), d = WX.place && WX.data;
+    // nothing rather than a stale reading
+    if (!d || Date.now() - WX.at > 3 * 3600 * 1000) { el.innerHTML = ''; el.className = ''; stage.classList.remove('has-wx'); return; }
+    stage.classList.add('has-wx');
+    var k = wxKind(d.code, d.day);
+    el.className = 'on';
+    el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + WX_ICON[k[0]] + '</svg>' +
+      '<span class="wx-t">' + Math.round(d.temp) + '°</span>' + (k[1] ? '<span class="wx-d">' + esc(k[1]) + '</span>' : '') +
+      (d.max != null ? '<span class="wx-r">' + Math.round(d.max) + '° / ' + Math.round(d.min) + '°</span>' : '');
+  }
+  function wxRefresh(force) {
+    if (!WX.place || WX.busy) return;
+    if (!force && Date.now() - WX.at < 30 * 60000) return;
+    if (DEMO) { WX.data = { temp: 9, code: 2, day: 0, max: 13, min: 5 }; WX.at = Date.now(); wxRender(); return; }
+    WX.busy = true;
+    getJSON('https://api.open-meteo.com/v1/forecast?latitude=' + WX.place.lat + '&longitude=' + WX.place.lon +
+      '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1').then(function (r) {
+      var c = r && r.current, dl = (r && r.daily) || {};
+      if (!c || typeof c.temperature_2m !== 'number') return;
+      WX.data = { temp: c.temperature_2m, code: c.weather_code, day: c.is_day ? 1 : 0,
+                  max: dl.temperature_2m_max ? dl.temperature_2m_max[0] : null, min: dl.temperature_2m_min ? dl.temperature_2m_min[0] : null };
+      WX.at = Date.now();
+      store.set('wxData', WX.data); store.set('wxAt', WX.at);
+    }).catch(function () {}).then(function () { WX.busy = false; wxRender(); if (S.zone === 'settings') renderSettings(); });
+  }
+  function wxSetCity(name) {
+    name = String(name || '').trim();
+    if (!name) { toast('Upiši ime grada'); return; }
+    var done = function (p) {
+      WX.place = p; WX.data = null; WX.at = 0;
+      store.set('wxPlace', p); store.set('wxData', null); store.set('wxAt', 0);
+      SET.city = ''; SET.busy = false;
+      wxRefresh(true); renderSettings();
+    };
+    if (DEMO) { done({ name: name, lat: 45.81, lon: 15.98 }); return; }
+    SET.busy = true; renderSettings();
+    getJSON('https://geocoding-api.open-meteo.com/v1/search?count=1&language=hr&format=json&name=' + encodeURIComponent(name)).then(function (r) {
+      var g = r && r.results && r.results[0];
+      if (!g) { SET.busy = false; toast('Ne nalazim "' + name + '"'); renderSettings(); return; }
+      done({ name: g.name + (g.admin1 && g.admin1 !== g.name ? ', ' + g.admin1 : ''), lat: g.latitude, lon: g.longitude });
+    }, function () { SET.busy = false; toast('Ne mogu do servisa za prognozu'); renderSettings(); });
+  }
+  function wxRows(rows) {
+    rows.push({ h: 'Vremenska prognoza' });
+    if (WX.place) {
+      var d = WX.data;
+      rows.push({ type: 'info', label: WX.place.name, value: d ? Math.round(d.temp) + '° · ' + (wxKind(d.code, d.day)[1] || '') : '…' });
+      rows.push({ type: 'btn', name: 'wx-off', label: 'Ukloni prognozu', act: function () {
+        WX.place = null; WX.data = null; store.set('wxPlace', null); store.set('wxData', null); wxRender(); renderSettings();
+      } });
+    } else {
+      rows.push({ note: 'Upiši grad i ispod sata će se prikazivati trenutna temperatura i stanje.' });
+    }
+    rows.push({ type: 'input', name: 'city', label: WX.place ? 'Drugi grad' : 'Grad (npr. Zagreb)', inputType: 'text' });
+    rows.push({ type: 'btn', name: 'wx-set', label: SET.busy ? 'Tražim…' : 'Postavi grad', act: function () { if (!SET.busy) wxSetCity(SET.city); } });
+  }
+  setInterval(function () { if (!document.hidden) wxRefresh(false); }, 5 * 60000);
+
   /* ================= tune (debloat + speed) ================= */
   var TUNE_GROUPS = [
     { key: 'track', label: 'Blokiraj praćenje i reklame' },
@@ -1238,7 +1375,7 @@
   }
 
   /* ================= settings ================= */
-  var SET = { rows: [], pos: 0, email: '', password: '', busy: false };
+  var SET = { rows: [], pos: 0, email: '', password: '', city: '', busy: false };
   function wallRows(rows) {
     rows.push({ h: 'Pozadina' });
     if (S.wall.on) {
@@ -1287,6 +1424,7 @@
       renderSettings();
     } });
     if (!S.wall.on) wallRows(rows);
+    wxRows(rows);
     rows.push({ h: 'Aplikacije' });
     rows.push({ note: 'Dugi pritisak na OK na ikoni pokreće premještanje. Ovdje možeš sakriti aplikacije.' });
     S.apps.forEach(function (a) {
@@ -1565,10 +1703,11 @@
   /* ================= boot ================= */
   window.addEventListener('resize', fit);
   document.addEventListener('webOSRelaunch', onShow);
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { fadeIn(); refreshSoon(); wallTick(); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; fadeOutNow(); } else { fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
   fit();
   applyLayout();
   wallApply();
+  wxRender(); wxRefresh(false);
   fadeIn();
   tickClock();
   setInterval(tickClock, 10000);
