@@ -7,7 +7,8 @@ NOCACHE="?$(date +%s)"   # raw.githubusercontent caches files for ~5 min
 
 REPO="deganegane/dom-launcher"
 APPID="com.deganegane.dom"
-IPK_URL="https://github.com/$REPO/releases/latest/download/$APPID.ipk"
+# DOM_IPK_URL=<address> installs a specific package instead of the latest release
+IPK_URL="${DOM_IPK_URL:-https://github.com/$REPO/releases/latest/download/$APPID.ipk}"
 IPK="/tmp/$APPID.ipk"
 INITD="/var/lib/webosbrew/init.d"
 LOG="/tmp/dom-install.log"
