@@ -1035,7 +1035,8 @@
     { key: 'voice', label: 'Ugasi glasovno upravljanje', warn: 'Mikrofon na daljinskom ne radi dok je ovo uključeno' },
     { key: 'iot',   label: 'Ugasi pametni dom i ThinQ', warn: 'ThinQ aplikacija i pametni uređaji ne vide TV dok je ovo uključeno' },
     { key: 'cast',  label: 'Ugasi AirPlay i zrcaljenje zaslona', warn: 'AirPlay, Miracast i Chromecast ne rade dok je ovo uključeno' },
-    { key: 'tv',    label: 'Ugasi TV vodič (antena/kabel)', warn: 'Vodič i podsjetnici za TV kanale ne rade dok je ovo uključeno' }
+    { key: 'tv',    label: 'Ugasi TV vodič (antena/kabel)', warn: 'Vodič i podsjetnici za TV kanale ne rade dok je ovo uključeno' },
+    { key: 'zram',  label: 'Brža izmjena aplikacija (pokusno)', warn: 'Pokusno: ako TV postane nestabilan, isključi ovo ili restartaj TV' }
   ];
   function parseTune(out) {
     var m = /^track=\d.*$/m.exec(out || '');
@@ -1046,7 +1047,7 @@
     return true;
   }
   function loadTune() {
-    if (DEMO) { if (!S.tune) S.tune = { track: 1, logs: 1, voice: 0, iot: 0, cast: 0, tv: 0, mem: 531, stopped: 5, safe: 0 }; return; }
+    if (DEMO) { if (!S.tune) S.tune = { track: 1, logs: 1, voice: 0, iot: 0, cast: 0, tv: 0, zram: 0, mem: 531, stopped: 5, safe: 0 }; return; }
     exec('/home/root/dom-tune.sh get', 15000).then(function (out) {
       if (!parseTune(out)) S.tuneMissing = true;
     }, function () { S.tuneMissing = true; }).then(function () { if (S.zone === 'settings') renderSettings(); });

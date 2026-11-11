@@ -15,7 +15,9 @@ HOSTS=/home/root/.dom-hosts
 SAFE=/home/root/dom-tune-safe
 PENDING=/home/root/.dom-tune-pending
 LOG=/tmp/dom-tune.log
-GRPS="track logs voice iot cast tv"
+ZDEV=/tmp/dom-tune.zram
+LPPREV=/home/root/.dom-liveplus-prev
+GRPS="track logs voice iot cast tv zram"
 
 # systemd units per group (stopped, never disabled)
 U_track="rdxd uploadd remotelogger contentminer nudge"
@@ -24,6 +26,7 @@ U_voice="voiceinput voiceconductor"
 U_iot="com.webos.service.otbr com.webos.service.zigbeeadapter google-home-controller com.webos.service.ruleengine com.webos.service.pushclient"
 U_cast="airplay-adaptor appcasting miracast chromecast-provisioning dmr"
 U_tv="iepg tv-reservation-agent broadcast-conf-downloader"
+U_zram=""
 # on-demand services per group (just ended; the system may start them again when asked)
 K_track="admanager"
 K_iot="iot-client"
@@ -51,12 +54,10 @@ stop_unit() {
   # never pull down anything another unit hard-depends on
   dep=$(systemctl show "$u" -p RequiredBy -p BoundBy 2>/dev/null | sed 's/^[A-Za-z]*=//' | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
   if [ -n "$dep" ]; then log "skip $u (needed by: $dep)"; return 0; fi
-  if tmo 10 systemctl stop "$u" 2>/dev/null; then
-    grep -qx "$u" "$STOPPED" 2>/dev/null || echo "$u" >> "$STOPPED"
-    log "stopped $u"
-  else
-    log "could not stop $u"
-  fi
+  systemctl --no-block stop "$u" 2>/dev/null || { log "could not stop $u"; return 0; }
+  grep -qx "$u" "$STOPPED" 2>/dev/null || echo "$u" >> "$STOPPED"
+  i=0; while [ $i -lt 3 ] && systemctl is-active --quiet "$u" 2>/dev/null; do sleep 1; i=$((i + 1)); done
+  log "stopped $u"
 }
 start_unit() {
   u="$1.service"
@@ -110,6 +111,55 @@ track_domains() {
            ngfts.lge.com alphonso.tv api.alphonso.tv lgads.tv; do echo "$d"; done
 }
 
+# ---------- Live Plus (content recognition) ----------
+SET_URI=luna://com.webos.settingsservice
+lp_get() {
+  luna-send -n 1 -w 3000 $SET_URI/getSystemSettings '{"category":"option","keys":["livePlus"]}' 2>/dev/null \
+    | sed -n 's/.*"livePlus" *: *"\([a-z]*\)".*/\1/p'
+}
+lp_set() {
+  luna-send -n 1 -w 3000 $SET_URI/setSystemSettings "{\"category\":\"option\",\"settings\":{\"livePlus\":\"$1\"}}" >/dev/null 2>&1
+}
+lp_off() {
+  [ "$(lp_get)" = on ] || return 0
+  echo on > "$LPPREV"; lp_set off; log "Live Plus -> off"
+}
+lp_restore() {
+  [ -f "$LPPREV" ] || return 0
+  lp_set on; rm -f "$LPPREV"; log "Live Plus -> on (as before)"
+}
+
+# ---------- zram (compressed swap in RAM, ahead of the slow flash swap) ----------
+zram_on() {
+  [ -f "$ZDEV" ] && return 0
+  command -v mkswap >/dev/null 2>&1 && command -v swapon >/dev/null 2>&1 || { log "zram: no mkswap/swapon on this TV"; return 0; }
+  [ -r /sys/class/zram-control/hot_add ] || { log "zram: kernel cannot add a device"; return 0; }
+  # always a device of our own; zram0 may belong to the system
+  id=$(cat /sys/class/zram-control/hot_add 2>/dev/null)
+  case "$id" in ''|*[!0-9]*) log "zram: hot_add failed"; return 0 ;; esac
+  z=/sys/block/zram$id; dev=/dev/zram$id
+  i=0; while [ $i -lt 5 ] && [ ! -b "$dev" ]; do sleep 1; i=$((i + 1)); done
+  if [ -b "$dev" ]; then
+    grep -qw lz4 "$z/comp_algorithm" 2>/dev/null && echo lz4 > "$z/comp_algorithm" 2>/dev/null
+    kb=$(awk '/MemTotal/{print int($2 / 4)}' /proc/meminfo)
+    if echo "${kb}K" > "$z/disksize" 2>/dev/null && mkswap "$dev" >/dev/null 2>&1 && swapon -p 100 "$dev" 2>/dev/null; then
+      echo "$id" > "$ZDEV"; log "zram$id on ($((kb / 1024)) MB)"; return 0
+    fi
+  fi
+  echo "$id" > /sys/class/zram-control/hot_remove 2>/dev/null
+  log "zram: could not set up zram$id, removed again"
+}
+zram_off() {
+  [ -f "$ZDEV" ] || return 0
+  id=$(cat "$ZDEV")
+  if swapoff "/dev/zram$id" 2>/dev/null; then
+    echo "$id" > /sys/class/zram-control/hot_remove 2>/dev/null
+    rm -f "$ZDEV"; log "zram$id off"
+  else
+    log "zram$id: swapoff failed (not enough free memory); it goes away after a restart"
+  fi
+}
+
 # ---------- groups ----------
 apply_group() {
   g=$1
@@ -117,8 +167,9 @@ apply_group() {
   for x in $units; do stop_unit "$x"; done
   for x in $procs; do end_proc "$x"; done
   case "$g" in
-    track) hosts_add track $(track_domains) ;;
+    track) hosts_add track $(track_domains); lp_off ;;
     iot)   hosts_add iot api.lgtviot.com lgtviot.com ;;
+    zram)  zram_on ;;
     logs)  command -v PmLogCtl >/dev/null 2>&1 && PmLogCtl set '*' err >/dev/null 2>&1 && log "logging -> err" ;;
   esac
 }
@@ -127,8 +178,9 @@ undo_group() {
   eval "units=\$U_$g"
   for x in $units; do start_unit "$x"; done
   case "$g" in
-    track) hosts_del track ;;
+    track) hosts_del track; lp_restore ;;
     iot)   hosts_del iot ;;
+    zram)  zram_off ;;
     logs)  log "logging level returns after a restart" ;;
   esac
 }
@@ -138,7 +190,8 @@ state() {
   for g in $GRPS; do out="$out$g=$(cfg "$g") "; done
   safe=0; [ -f "$SAFE" ] && safe=1
   n=0; [ -f "$STOPPED" ] && n=$(grep -c . "$STOPPED")
-  echo "${out}mem=$(mem MemAvailable) swap=$(mem SwapFree) stopped=$n safe=$safe"
+  zr=0; [ -f "$ZDEV" ] && zr=1
+  echo "${out}mem=$(mem MemAvailable) swap=$(mem SwapFree) stopped=$n safe=$safe zramon=$zr"
 }
 
 case "$1" in
@@ -177,14 +230,20 @@ case "$1" in
     echo "blokiranih imena: $(grep -c '^0\.0\.0\.0 \|^127\.0\.0\.1 ' /etc/hosts 2>/dev/null)"
     echo; echo "== swap"
     cat /proc/swaps 2>/dev/null
-    echo "swappiness: $(cat /proc/sys/vm/swappiness 2>/dev/null)  zram: $(ls /sys/block 2>/dev/null | grep -c zram)"
-    echo; echo "== procesi kandidati (kB RAM, kB swap, ime, cgroup)"
-    CAND=" sdx update admanager iot-client trigger_thinq trigger_alexa nlpmanager voiceclick voiceinput_preprocessor iconnectivity hybridtv-manager legacy-broadcast-dvb awareness-agent user-intent-manager lg.thinqai.adapter wowplay contentminer sportsalarm ai-inference-manager nn-proxy telnetd "
+    echo "swappiness: $(cat /proc/sys/vm/swappiness 2>/dev/null)"
+    for z in /sys/block/zram*; do
+      [ -d "$z" ] && echo "$(basename "$z"): disksize=$(cat "$z/disksize" 2>/dev/null) alg=$(cat "$z/comp_algorithm" 2>/dev/null) mm=$(cat "$z/mm_stat" 2>/dev/null | tr -s ' ')"
+    done
+    echo "zram-control: $(ls /sys/class/zram-control 2>/dev/null | tr '\n' ' ') alati: $(command -v mkswap) $(command -v swapon) $(command -v swapoff)"
+    echo "Live Plus: $(lp_get)"
+    echo; echo "== procesi kandidati (kB RAM, kB swap, ime, roditelj)"
+    CAND=" nudge sdx update admanager iot-client trigger_thinq trigger_alexa nlpmanager voiceclick voiceinput_preprocessor iconnectivity hybridtv-manager legacy-broadcast-dvb awareness-agent user-intent-manager lg.thinqai.adapter wowplay contentminer sportsalarm ai-inference-manager nn-proxy telnetd "
     for d in /proc/[0-9]*; do
-      read -r n < "$d/comm" 2>/dev/null || continue
+      n=$(cat "$d/comm" 2>/dev/null) || continue
       [ ${#n} -ge 3 ] || continue
       case "$CAND" in *" $n"*) ;; *) continue ;; esac
-      echo "$(awk '/VmRSS/{r=$2} /VmSwap/{s=$2} END{print r+0, s+0}' "$d/status" 2>/dev/null) $n $(sed -n 's/.*\///p' "$d/cgroup" 2>/dev/null | head -1) exe=$(readlink "$d/exe" 2>/dev/null)"
+      pp=$(awk '/^PPid/{print $2}' "$d/status" 2>/dev/null)
+      echo "$(awk '/VmRSS/{r=$2} /VmSwap/{s=$2} END{print r+0, s+0}' "$d/status" 2>/dev/null) $n <- $(cat "/proc/$pp/comm" 2>/dev/null)($pp)"
     done
     echo; echo "== postavke (privatnost)"
     for c in option general other; do
