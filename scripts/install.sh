@@ -151,7 +151,7 @@ cat > "$INITD/07-dom-tune" <<'EOF'
 EOF
 chmod +x "$INITD/07-dom-tune"
 MEM0=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo)
-/home/root/dom-tune.sh apply >/dev/null 2>&1 || true
+/home/root/dom-tune.sh apply >/dev/null 2>&1 </dev/null || true
 sleep 3
 echo "   slobodno memorije: $MEM0 MB -> $(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo) MB"
 echo "   $(/home/root/dom-tune.sh get 2>/dev/null)"

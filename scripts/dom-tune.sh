@@ -94,12 +94,22 @@ hosts_del() {
   # rewrite in place: /etc/hosts is a bind mount of this very file
   sed "/# dom-$1-begin/,/# dom-$1-end/d" "$HOSTS" > /tmp/dom-hosts.new && cat /tmp/dom-hosts.new > "$HOSTS"
   rm -f /tmp/dom-hosts.new
-  log "hosts -$1"
+}
+opt_get() {  # value of one key in the "option" settings category; retries while the TV is busy
+  og_i=0
+  while [ $og_i -lt 3 ]; do
+    og_v=$(luna-send -n 1 -w 8000 luna://com.webos.settingsservice/getSystemSettings \
+      "{\"category\":\"option\",\"keys\":[\"$1\"]}" 2>/dev/null </dev/null | sed -n "s/.*\"$1\" *: *\"\([A-Za-z]*\)\".*/\1/p")
+    [ -n "$og_v" ] && { echo "$og_v"; return 0; }
+    og_i=$((og_i + 1)); sleep 2
+  done
+  return 1
 }
 country() {
-  luna-send -n 1 -w 3000 luna://com.webos.settingsservice/getSystemSettings \
-    '{"category":"option","keys":["smartServiceCountryCode2"]}' 2>/dev/null \
-    | sed -n 's/.*"smartServiceCountryCode2" *: *"\([A-Za-z]*\)".*/\1/p' | tr 'A-Z' 'a-z'
+  # remembered once known, so the block list does not depend on the settings service answering
+  cc=$(opt_get smartServiceCountryCode2 | tr 'A-Z' 'a-z')
+  if [ -n "$cc" ]; then echo "$cc" > /home/root/.dom-country; else cc=$(cat /home/root/.dom-country 2>/dev/null); fi
+  echo "$cc"
 }
 track_domains() {
   for p in "" $(country) eu us kr gb de; do
@@ -113,16 +123,17 @@ track_domains() {
 
 # ---------- Live Plus (content recognition) ----------
 SET_URI=luna://com.webos.settingsservice
-lp_get() {
-  luna-send -n 1 -w 3000 $SET_URI/getSystemSettings '{"category":"option","keys":["livePlus"]}' 2>/dev/null \
-    | sed -n 's/.*"livePlus" *: *"\([a-z]*\)".*/\1/p'
-}
+lp_get() { opt_get livePlus; }
 lp_set() {
-  luna-send -n 1 -w 3000 $SET_URI/setSystemSettings "{\"category\":\"option\",\"settings\":{\"livePlus\":\"$1\"}}" >/dev/null 2>&1
+  luna-send -n 1 -w 8000 $SET_URI/setSystemSettings "{\"category\":\"option\",\"settings\":{\"livePlus\":\"$1\"}}" >/dev/null 2>&1 </dev/null
 }
 lp_off() {
-  [ "$(lp_get)" = on ] || return 0
-  echo on > "$LPPREV"; lp_set off; log "Live Plus -> off"
+  lp=$(lp_get)
+  case "$lp" in
+    on) echo on > "$LPPREV"; lp_set off; log "Live Plus -> $(lp_get)" ;;
+    off) ;;
+    *) log "Live Plus: settings service did not answer, will retry on the next apply" ;;
+  esac
 }
 lp_restore() {
   [ -f "$LPPREV" ] || return 0
@@ -131,7 +142,10 @@ lp_restore() {
 
 # ---------- zram (compressed swap in RAM, ahead of the slow flash swap) ----------
 zram_on() {
-  [ -f "$ZDEV" ] && return 0
+  if [ -f "$ZDEV" ]; then
+    [ -f /tmp/dom-tune.swappiness ] || { cat /proc/sys/vm/swappiness > /tmp/dom-tune.swappiness 2>/dev/null; echo 100 > /proc/sys/vm/swappiness 2>/dev/null; }
+    return 0
+  fi
   command -v mkswap >/dev/null 2>&1 && command -v swapon >/dev/null 2>&1 || { log "zram: no mkswap/swapon on this TV"; return 0; }
   [ -r /sys/class/zram-control/hot_add ] || { log "zram: kernel cannot add a device"; return 0; }
   # always a device of our own; zram0 may belong to the system
@@ -143,7 +157,10 @@ zram_on() {
     grep -qw lz4 "$z/comp_algorithm" 2>/dev/null && echo lz4 > "$z/comp_algorithm" 2>/dev/null
     kb=$(awk '/MemTotal/{print int($2 / 4)}' /proc/meminfo)
     if echo "${kb}K" > "$z/disksize" 2>/dev/null && mkswap "$dev" >/dev/null 2>&1 && swapon -p 100 "$dev" 2>/dev/null; then
-      echo "$id" > "$ZDEV"; log "zram$id on ($((kb / 1024)) MB)"; return 0
+      echo "$id" > "$ZDEV"
+      cat /proc/sys/vm/swappiness > /tmp/dom-tune.swappiness 2>/dev/null
+      echo 100 > /proc/sys/vm/swappiness 2>/dev/null
+      log "zram$id on ($((kb / 1024)) MB)"; return 0
     fi
   fi
   echo "$id" > /sys/class/zram-control/hot_remove 2>/dev/null
@@ -155,6 +172,8 @@ zram_off() {
   if swapoff "/dev/zram$id" 2>/dev/null; then
     echo "$id" > /sys/class/zram-control/hot_remove 2>/dev/null
     rm -f "$ZDEV"; log "zram$id off"
+    [ -s /tmp/dom-tune.swappiness ] && cat /tmp/dom-tune.swappiness > /proc/sys/vm/swappiness 2>/dev/null
+    rm -f /tmp/dom-tune.swappiness
   else
     log "zram$id: swapoff failed (not enough free memory); it goes away after a restart"
   fi
@@ -167,7 +186,7 @@ apply_group() {
   for x in $units; do stop_unit "$x"; done
   for x in $procs; do end_proc "$x"; done
   case "$g" in
-    track) hosts_add track $(track_domains); lp_off ;;
+    track) hosts_del track; hosts_add track $(track_domains); lp_off ;;
     iot)   hosts_add iot api.lgtviot.com lgtviot.com ;;
     zram)  zram_on ;;
     logs)  command -v PmLogCtl >/dev/null 2>&1 && PmLogCtl set '*' err >/dev/null 2>&1 && log "logging -> err" ;;
