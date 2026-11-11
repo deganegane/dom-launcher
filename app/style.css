@@ -211,7 +211,7 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 .s-note { font-size: 22px; opacity: .65; margin: 0 6px 12px; line-height: 1.35; }
 .s-row {
   display: flex; align-items: center; justify-content: space-between; gap: 20px;
-  padding: 20px 26px; border-radius: 14px; font-size: 28px; margin-bottom: 6px;
+  padding: 20px 28px; border-radius: 26px; font-size: 28px; margin-bottom: 6px;
   background: rgba(255,255,255,.06); transition: background 150ms ease, color 150ms ease, transform 150ms ease;
 }
 .s-row .s-val { opacity: .6; font-size: 24px; }
@@ -223,7 +223,7 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 .s-row.off .s-left { opacity: .45; }
 .s-input { padding: 6px; }
 .s-input input {
-  width: 100%; font: inherit; font-size: 28px; padding: 16px 20px; border-radius: 12px; border: 0; outline: 0;
+  width: 100%; font: inherit; font-size: 28px; padding: 16px 20px; border-radius: 21px; border: 0; outline: 0;
   background: rgba(255,255,255,.12); color: #fff;
 }
 .s-input.focus { background: rgba(255,255,255,.18); }
