@@ -1131,9 +1131,9 @@
   })();
 
   /* ================= wallpapers from the internet ================= */
-  var WALL_SRC = { bing: 'Fotografija dana (Bing)', vector: 'Crtani krajolici', earth: 'Zemlja iz svemira', colors: 'Boje' };
-  var WALL_SRC_ORDER = ['bing', 'vector', 'earth', 'colors'];
-  if (!WALL_SRC[S.wall.src]) S.wall.src = 'bing';   // a source that no longer exists
+  var WALL_SRC = { bing: 'Fotografija dana (Bing)', art: 'Ilustracije s interneta', vector: 'Crtani krajolici', earth: 'Zemlja iz svemira' };
+  var WALL_SRC_ORDER = ['bing', 'art', 'vector', 'earth'];
+  if (!WALL_SRC[S.wall.src]) S.wall.src = S.wall.src === 'colors' ? 'vector' : 'bing';   // a source that no longer exists
   var WALL_MINS = [1, 5, 15, 30, 60];
   var WALL = { list: store.get('wallList', []), listSrc: store.get('wallListSrc', ''), listAt: store.get('wallListAt', 0),
                pos: store.get('wallPos', -1), cur: store.get('wallCur', null), front: 'A', shownAt: 0, loading: null };
@@ -1172,91 +1172,25 @@
     }).filter(function (i) { return /\/\d+\.jpg$/.test(i.url); });
   }
 
-  /* ---------- pictures Dom draws itself (no network): vector landscapes and soft colours ---------- */
-  function rng(seed) {   // small seeded generator, so a kept picture can be drawn again
-    var a = seed >>> 0;
-    return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  }
-  var SCENES = [
-    { name: 'Sumrak',   sky: ['#241a47', '#7a3b7a', '#f08a5d'], orb: '#ffd9a0', glow: '#ffb37a', layers: ['#8a5a9c', '#6a4488', '#4b3070', '#301f52', '#190f30'], stars: 0.25 },
-    { name: 'Zora',     sky: ['#7fa8d6', '#c9b6dc', '#fbd3b0'], orb: '#fff3d6', glow: '#ffe0b8', layers: ['#c7aed0', '#a48dbb', '#7d6ba1', '#584b80', '#35305c'], clouds: 1 },
-    { name: 'Dan',      sky: ['#4fa9e8', '#8fd0f5', '#dcf3ff'], orb: '#fffbe0', glow: '#fff3b0', layers: ['#a9dccd', '#7cc4aa', '#4fa387', '#2f7c69', '#1c5348'], clouds: 1, trees: 1 },
-    { name: 'Noć',      sky: ['#070b1d', '#111c40', '#2a3f73'], orb: '#eef3ff', glow: '#9fb6ee', layers: ['#22346a', '#1a2854', '#131e40', '#0d152e', '#070c1d'], stars: 1, moon: 1 },
-    { name: 'Pustinja', sky: ['#e9824a', '#f6b469', '#fde6bb'], orb: '#fff4cf', glow: '#ffd98a', layers: ['#eb9a58', '#d5743f', '#b05334', '#85392a', '#55221d'] },
-    { name: 'Magla',    sky: ['#b7ced3', '#d7e6e6', '#f0f6f3'], orb: '#ffffff', glow: '#ffffff', layers: ['#a9c3bd', '#82a8a0', '#5b867f', '#3a655f', '#1f423f'], trees: 1 },
-    { name: 'Zalazak',  sky: ['#3b1d52', '#c0456b', '#ffb46b'], orb: '#fff0c4', glow: '#ff9a62', layers: ['#b0507a', '#873d70', '#602e62', '#3f2150', '#22133a'], clouds: 1 },
-    { name: 'Fjord',    sky: ['#17324d', '#2f6a86', '#9fd6d2'], orb: '#f4fffb', glow: '#bff0e6', layers: ['#4f93a3', '#3a7688', '#2a596c', '#1c3f52', '#102838'], stars: 0.15 }
-  ];
-  function svgUri(body, defs) {
-    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">' +
-      (defs ? '<defs>' + defs + '</defs>' : '') + body + '</svg>');
-  }
-  function genVector(seed) {
-    var r = rng(seed), sc = SCENES[Math.floor(r() * SCENES.length)], n = sc.layers.length, i, x;
-    var defs = '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + sc.sky[0] + '"/><stop offset=".55" stop-color="' + sc.sky[1] + '"/><stop offset="1" stop-color="' + sc.sky[2] + '"/></linearGradient>' +
-      '<radialGradient id="glow"><stop offset="0" stop-color="' + sc.glow + '" stop-opacity=".75"/><stop offset="1" stop-color="' + sc.glow + '" stop-opacity="0"/></radialGradient>';
-    var out = '<rect width="1920" height="1080" fill="url(#sky)"/>';
-    if (sc.stars) {
-      for (i = 0; i < 110; i++) out += '<circle cx="' + Math.round(r() * 1920) + '" cy="' + Math.round(r() * 620) + '" r="' + (0.6 + r() * 1.5).toFixed(1) + '" fill="#fff" opacity="' + (sc.stars * (0.25 + r() * 0.7)).toFixed(2) + '"/>';
-    }
-    // sun or moon, sitting just above the far ridge
-    var ox = 320 + r() * 1280, oy = 250 + r() * 190, or = 62 + r() * 46;
-    out += '<circle cx="' + ox.toFixed(0) + '" cy="' + oy.toFixed(0) + '" r="' + (or * 4.2).toFixed(0) + '" fill="url(#glow)"/>';
-    if (sc.moon) {   // a crescent: the outer arc of the disc and a flatter inner arc
-      out += '<path transform="rotate(-24 ' + ox.toFixed(0) + ' ' + oy.toFixed(0) + ')" d="M' + ox.toFixed(0) + ' ' + (oy - or).toFixed(0) + 'A' + or.toFixed(0) + ' ' + or.toFixed(0) + ' 0 1 0 ' + ox.toFixed(0) + ' ' + (oy + or).toFixed(0) +
-             'A' + (or * 0.62).toFixed(0) + ' ' + or.toFixed(0) + ' 0 1 1 ' + ox.toFixed(0) + ' ' + (oy - or).toFixed(0) + 'Z" fill="' + sc.orb + '"/>';
-    } else out += '<circle cx="' + ox.toFixed(0) + '" cy="' + oy.toFixed(0) + '" r="' + or.toFixed(0) + '" fill="' + sc.orb + '"/>';
-    if (sc.clouds) {
-      for (i = 0; i < 5; i++) {
-        var cx = r() * 1920, cy = 110 + r() * 300, cw = 140 + r() * 220;
-        out += '<g fill="#fff" opacity="' + (0.16 + r() * 0.2).toFixed(2) + '"><ellipse cx="' + cx.toFixed(0) + '" cy="' + cy.toFixed(0) + '" rx="' + cw.toFixed(0) + '" ry="' + (cw * 0.16).toFixed(0) + '"/>' +
-               '<ellipse cx="' + (cx + cw * 0.35).toFixed(0) + '" cy="' + (cy - cw * 0.1).toFixed(0) + '" rx="' + (cw * 0.55).toFixed(0) + '" ry="' + (cw * 0.14).toFixed(0) + '"/></g>';
-      }
-    }
-    for (i = 0; i < n; i++) {
-      // far layers are jagged mountains, near ones are rolling hills
-      var base = 500 + i * 108 + r() * 30, amp = 150 - i * 24, peaky = Math.max(0, 1 - i / 2.2);
-      var f1 = 0.0016 + r() * 0.0022, f2 = 0.005 + r() * 0.006, f3 = 0.013 + r() * 0.012, p1 = r() * 7, p2 = r() * 7, p3 = r() * 7;
-      var d = 'M0 1080', ys = [];
-      for (x = 0; x <= 1920; x += 16) {
-        var w = Math.sin(x * f1 + p1) * 0.6 + Math.sin(x * f2 + p2) * 0.3 + Math.sin(x * f3 + p3) * 0.1;
-        var m = 1 - Math.abs(Math.sin(x * f2 * 0.9 + p2)) * 1.25 + Math.sin(x * f3 + p3) * 0.12;   // ridges with peaks
-        var y = base - amp * (peaky * m + (1 - peaky) * w);
-        ys.push(y);
-        d += 'L' + x + ' ' + y.toFixed(1);
-      }
-      defs += '<linearGradient id="l' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + sc.layers[i] + '"/><stop offset="1" stop-color="' + sc.layers[Math.min(n - 1, i + 1)] + '"/></linearGradient>';
-      out += '<path d="' + d + 'L1920 1080Z" fill="url(#l' + i + ')"/>';
-      if (sc.trees && i >= n - 2) {   // pines along the two nearest ridges
-        var t = '';
-        for (x = r() * 40; x < 1920; x += 26 + r() * 70) {
-          var ty = ys[Math.min(ys.length - 1, Math.round(x / 16))], th = 34 + r() * (i === n - 1 ? 80 : 46), tw = th * 0.34;
-          t += 'M' + (x - tw).toFixed(0) + ' ' + (ty + 6).toFixed(0) + 'L' + x.toFixed(0) + ' ' + (ty - th).toFixed(0) + 'L' + (x + tw).toFixed(0) + ' ' + (ty + 6).toFixed(0) + 'Z';
-        }
-        out += '<path d="' + t + '" fill="' + sc.layers[i] + '"/>';
-      }
-    }
-    return { url: svgUri(out, defs), title: 'Krajolik · ' + sc.name, credit: '', seed: seed, gen: 'vector' };
-  }
-  var COLOR_SETS = [
-    ['#0b1026', '#5b2a86', '#e94f8b', '#ffb36b', '#2b6cff'], ['#06141b', '#11698e', '#19d3da', '#8be9c5', '#235789'],
-    ['#150a1e', '#9b2c5a', '#ff7a59', '#ffd166', '#6a0572'], ['#0a1410', '#1f7a5c', '#7bd389', '#e6f4a2', '#0b4f6c'],
-    ['#0d0d1a', '#3a3fd6', '#8a5cf6', '#f0a6ca', '#1fb6c9'], ['#1a0f0a', '#b5471b', '#f29e4c', '#f7d08a', '#7b2d26']
-  ];
-  function genColors(seed) {
-    // soft blobs of colour: radial gradients, no blur filter (cheap to draw on the TV)
-    var r = rng(seed), c = COLOR_SETS[Math.floor(r() * COLOR_SETS.length)], defs = '', out = '<rect width="1920" height="1080" fill="' + c[0] + '"/>';
-    for (var k = 1; k <= 4; k++) defs += '<radialGradient id="g' + k + '"><stop offset="0" stop-color="' + c[k] + '" stop-opacity=".9"/><stop offset=".5" stop-color="' + c[k] + '" stop-opacity=".5"/><stop offset="1" stop-color="' + c[k] + '" stop-opacity="0"/></radialGradient>';
-    for (var i = 0; i < 7; i++) {
-      out += '<circle cx="' + Math.round(r() * 1920) + '" cy="' + Math.round(r() * 1080) + '" r="' + Math.round(480 + r() * 520) + '" fill="url(#g' + (1 + Math.floor(r() * 4)) + ')"/>';
-    }
-    out += '<rect width="1920" height="1080" fill="#000" opacity=".1"/>';
-    return { url: svgUri(out, defs), title: 'Boje', credit: '', seed: seed, gen: 'colors' };
-  }
-  function wallGenerated() { return S.wall.src === 'vector' || S.wall.src === 'colors'; }
-  function wallGen() {
-    var seed = Math.floor(Math.random() * 4294967296);
-    return S.wall.src === 'colors' ? genColors(seed) : genVector(seed);
+  function wallFetchArt() {
+    // illustrated landscapes (flat, vector, minimal) from wallhaven.cc: 16:9, safe-for-work, most favourited first
+    var base = 'https://wallhaven.cc/api/v1/search?categories=100&purity=100&ratios=16x9&atleast=1920x1080&sorting=favorites&q=';
+    var qs = [['vector landscape', 1], ['vector landscape', 2], ['minimalism landscape illustration', 1], ['minimalism landscape illustration', 2],
+              ['flat landscape digital art', 1], ['landscape illustration minimalism digital art', 1], ['low poly landscape', 1], ['firewatch', 1]];
+    return Promise.all(qs.map(function (q) {
+      return getJSON(base + encodeURIComponent(q[0]) + '&page=' + q[1]).then(function (r) { return (r && r.data) || []; }, function () { return []; });
+    })).then(function (rs) {
+      var seen = {}, out = [];
+      rs.forEach(function (list) {
+        list.forEach(function (d) {
+          // nothing bigger than 4K or heavier than 8 MB: the TV has little memory to spare
+          if (!d || !d.path || seen[d.id] || d.purity !== 'sfw' || d.dimension_x > 3840 || d.dimension_y > 2160 || d.file_size > 8e6) return;
+          seen[d.id] = 1;
+          out.push({ url: d.path, title: 'Ilustracija', credit: 'wallhaven.cc/w/' + d.id });
+        });
+      });
+      return out;
+    });
   }
   function demoWall() {
     return [['#1d3b6e', '#0b1326'], ['#6e2a1d', '#1b0d0a'], ['#1d6e4b', '#08140f']].map(function (c, i) {
@@ -1273,7 +1207,7 @@
       WALL.list = shuffle(wallEarth()); WALL.listSrc = src; WALL.listAt = Date.now(); WALL.pos = -1;
       return WALL.list.length ? Promise.resolve(WALL.list) : Promise.reject(new Error('no list'));
     }
-    var f = DEMO ? Promise.resolve(demoWall()) : wallFetchBing();
+    var f = DEMO ? Promise.resolve(demoWall()) : (src === 'art' ? wallFetchArt() : wallFetchBing());
     WALL.loading = f.then(function (list) {
       WALL.loading = null;
       if (!list || !list.length) throw new Error('no wallpapers');
@@ -1295,7 +1229,9 @@
       var back = WALL.front === 'A' ? 'B' : 'A';
       $('#wall' + back).style.backgroundImage = 'url("' + item.url + '")';
       $('#wall' + back).classList.add('on');
-      $('#wall' + WALL.front).classList.remove('on');
+      var old = $('#wall' + WALL.front);
+      old.classList.remove('on');
+      setTimeout(function () { if (!old.classList.contains('on')) old.style.backgroundImage = ''; }, 2200);
       WALL.front = back; WALL.cur = item; WALL.shownAt = Date.now(); WALL.failed = 0;
       store.set('wallCur', item);
       if (S.zone === 'settings') renderSettings();
@@ -1309,7 +1245,10 @@
     im.src = item.url;
   }
   function wallNext(manual) {
-    if (wallGenerated()) { wallShow(wallGen()); return; }
+    if (S.wall.src === 'vector') {   // drawn on the TV itself (landscapes.js), a new one every time
+      if (window.DOM_LANDSCAPE) wallShow(window.DOM_LANDSCAPE(Math.floor(Math.random() * 4294967296)));
+      return;
+    }
     wallList(false).then(function (list) {
       WALL.pos = (WALL.pos + 1) % list.length;
       store.set('wallPos', WALL.pos);
@@ -1332,7 +1271,8 @@
     shelfKey = ''; bgKey = '';
     updateShelf(true);
     if (!S.wall.on) { $('#wallA').classList.remove('on'); $('#wallB').classList.remove('on'); WALL.shownAt = 0; return; }
-    var mine = WALL.cur && (wallGenerated() ? WALL.cur.gen === S.wall.src : (!WALL.cur.gen && (WALL.listSrc === S.wall.src || S.wall.src === 'earth' && /prettyearth/.test(WALL.cur.url))));
+    var host = { bing: /bing\.com/, art: /wallhaven/, earth: /prettyearth/, vector: /^data:image\/svg/ }[S.wall.src];
+    var mine = WALL.cur && (DEMO || (host && host.test(WALL.cur.url || '')));
     if (mine && !WALL.shownAt) wallShow(WALL.cur);   // the last (or kept) one comes back first
     else if (!WALL.shownAt) wallNext(true);
   }

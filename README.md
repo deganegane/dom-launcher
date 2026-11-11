@@ -119,7 +119,7 @@ Ako se TV dvaput zaredom restarta unutar 10 minuta od primjene, čišćenje se s
 
 ## Pozadine s interneta
 
-Postavke → Pozadina → "Pozadine s interneta". Kad je uključeno, u pozadini se izmjenjuju fotografije (Bing fotografija dana, crtani krajolici koje Dom sam generira, satelitske snimke Google Earth View ili meke boje) umjesto snimki iz aplikacija. Interval se bira (1 min – 1 h), "Zadrži trenutnu pozadinu" pauzira izmjenu, a "Sljedeća pozadina" preskače. Na daljinskima s medijskim ili obojenim tipkama: Play/Pause ili žuta zadržava, Fast-forward ili plava preskače.
+Postavke → Pozadina → "Pozadine s interneta". Kad je uključeno, u pozadini se izmjenjuju fotografije (Bing fotografija dana, ilustracije krajolika s wallhaven.cc, crtani krajolici koje Dom sam generira (landscapes.js) ili satelitske snimke Google Earth View) umjesto snimki iz aplikacija. Interval se bira (1 min – 1 h), "Zadrži trenutnu pozadinu" pauzira izmjenu, a "Sljedeća pozadina" preskače. Na daljinskima s medijskim ili obojenim tipkama: Play/Pause ili žuta zadržava, Fast-forward ili plava preskače.
 
 ## Izgledi
 
