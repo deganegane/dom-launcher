@@ -366,9 +366,9 @@
 
   /* ---------------- 2: a valley at sunset, poster style ---------------- */
   var VALLEY = [
-    { name: 'Dolina · zalazak', sky: ['#47695f', '#b9785f', '#ff8a5c'], cloud: '#ffc477', sun: '#ffdc8f', peakD: '#3b2230', peakL: '#e77d5c', backD: '#7a4250', backL: '#f09a6c', glow: ['#ffb02e', '#f58a2a'], forest: ['#2f8477', '#1f5d58', '#143f40'], river: ['#ffd58a', '#ff8f7a'], fg: '#231722', bird: '#3b2230' },
-    { name: 'Dolina · sumrak', sky: ['#1c1d4a', '#5a3b85', '#f07fa0'], cloud: '#f7a8c0', sun: '#ffd9c2', peakD: '#221a4a', peakL: '#8f5fb5', backD: '#4a3580', backL: '#c58ad0', glow: ['#f58bb0', '#b85fa8'], forest: ['#3b4f95', '#2a3873', '#1b2452'], river: ['#ffc7d6', '#9a78d8'], fg: '#110d2a', bird: '#221a4a' },
-    { name: 'Dolina · jutro', sky: ['#5fa8b8', '#a8d3c4', '#ffe1b0'], cloud: '#fff4d6', sun: '#fff2c4', peakD: '#3f6b7a', peakL: '#e9c9a0', backD: '#6f9aa3', backL: '#f6dcb4', glow: ['#ffd98f', '#f2b872'], forest: ['#4f9a7c', '#33735f', '#1f4f47'], river: ['#fff0c9', '#9fd6cf'], fg: '#12322f', bird: '#3f6b7a' }
+    { name: 'Dolina · zalazak', sky: ['#2b1055', '#c2356b', '#ff8a3d'], cloud: '#ffb36b', sun: '#ffe08a', peakD: '#3a1747', peakL: '#ff6f4f', backD: '#7a2a63', backL: '#ff9a5c', glow: ['#ffbf2e', '#ff7a1f'], forest: ['#11897a', '#0c5f66', '#0a3f52'], river: ['#ffd36b', '#ff6f6f'], fg: '#1a0b2a', bird: '#3a1747' },
+    { name: 'Dolina · sumrak', sky: ['#12104a', '#5b2a9c', '#ff5fa2'], cloud: '#ff9ac4', sun: '#ffe0d0', peakD: '#1d1560', peakL: '#a45fe0', backD: '#4a2c9a', backL: '#d98af0', glow: ['#ff7ab8', '#c04fc0'], forest: ['#2f52c9', '#2038a0', '#141f6e'], river: ['#ffc2dc', '#8f6cff'], fg: '#0c0830', bird: '#1d1560' },
+    { name: 'Dolina · jutro', sky: ['#0f6fb8', '#39b8c8', '#ffe07a'], cloud: '#fff3c4', sun: '#fff6c9', peakD: '#1f5f8f', peakL: '#ffd08a', backD: '#3f8fb0', backL: '#ffe2a8', glow: ['#ffd84f', '#ffa53a'], forest: ['#1fae7a', '#128a68', '#0b5f52'], river: ['#fff2b0', '#5fd6d0'], fg: '#06323a', bird: '#1f5f8f' }
   ];
   function valleyScene(r) {
     var p = pick(r, VALLEY), i, defs = grad('sky', p.sky) + grad('glw', p.glow) + grad('riv', p.river), b = '<rect width="' + W + '" height="' + H + '" fill="url(#sky)"/>';
