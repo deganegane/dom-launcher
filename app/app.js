@@ -118,7 +118,6 @@
     uses: store.get('uses', {}),
     pin: store.get('pin', ''),
     sleepMins: 0, version: '',
-    nowOn: store.get('nowOn', true),   // "what's playing" line under the clock
     lastStremio: 0
   };
   if (DEMO && !S.authKey) S.cw = demoCW();
@@ -1457,7 +1456,7 @@
       else run('Skidam verziju ' + (latest || 'najnoviju') + '. Dom će se sam ponovno pokrenuti za minutu.');
     }, function () { run('Ne mogu provjeriti verziju, pokrećem nadogradnju. Dom će se sam ponovno pokrenuti.'); });
   }
-  var BACKUP_SKIP = /^dom\.(appsCache|appRows|cw|wallList|wallListSrc|wallListAt|wallPos|wallCur|wxData|wxAt|hdArt|metaCache|spot)$/;
+  var BACKUP_SKIP = /^dom\.(appsCache|appRows|cw|wallList|wallListSrc|wallListAt|wallPos|wallCur|wxData|wxAt|hdArt|metaCache)$/;
   function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
   function domBackup() {
     var data = {};
@@ -1497,155 +1496,6 @@
     rows.push({ h: 'Brze radnje' });
     rows.push({ type: 'btn', name: 'q-screen', label: 'Ugasi ekran (zvuk ostaje)', act: screenOff });
     rows.push({ type: 'btn', name: 'q-sleep', label: 'Tajmer za spavanje', value: (S.sleepMins ? S.sleepMins + ' min' : 'Isključen') + '  ›', act: sleepSet });
-  }
-
-  /* ================= what's playing: Spotify (their web API) or a film paused in Stremio ================= */
-  var SPOT = store.get('spot', null);   // { cid, refresh, access, exp, at } once connected over SSH (dom-spotify.js)
-  var SPOT_FILE = '/home/root/dom-spotify.json';
-  var NOW = { spot: null, strem: null, spotAt: 0, stremAt: 0, wait: 0, busy: false, sig: '' };
-  function nowRender() {
-    var el = $('#now'), it = S.nowOn ? (NOW.spot || NOW.strem) : null;
-    var sig = it ? [it.kind, it.title, it.sub, it.art].join('|') : '';
-    if (sig === NOW.sig) return;
-    NOW.sig = sig;
-    stage.classList.toggle('has-now', !!it);
-    if (!it) { el.className = ''; el.innerHTML = ''; return; }
-    el.className = 'on ' + it.kind;
-    el.innerHTML = (it.art ? '<img src="' + esc(it.art) + '" alt="">' :
-        '<div class="now-ic"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></div>') +
-      '<div class="now-t"><div class="now-1">' + esc(it.title) + '</div><div class="now-2">' + esc(it.sub) + '</div></div>';
-    var img = el.querySelector('img');
-    if (img) img.onerror = function () { img.style.visibility = 'hidden'; };
-  }
-  // request with the page's own fetch; when that fails (DNS, CORS) the same request goes out through curl as root
-  function spotHttp(method, url, headers, body) {
-    var parse = function (status, text) { var j = null; try { j = text ? JSON.parse(text) : null; } catch (e) {} return { status: status, json: j }; };
-    return fetch(url, { method: method, headers: headers, body: body }).then(function (res) {
-      return res.text().then(function (t) { return parse(res.status, t); });
-    }).catch(function (err) {
-      if (DEMO) throw err;
-      var cmd = 'curl -s -m 12 -X ' + method + " -w '\\n%{http_code}'";
-      Object.keys(headers || {}).forEach(function (h) { cmd += ' -H ' + shq(h + ': ' + headers[h]); });
-      if (body) cmd += ' --data ' + shq(body);
-      return exec(cmd + ' ' + shq(url), 20000).then(function (out) {
-        var i = out.lastIndexOf('\n');
-        return parse(parseInt(out.slice(i + 1), 10) || 0, out.slice(0, Math.max(i, 0)));
-      });
-    });
-  }
-  function spotSave() {
-    store.set('spot', SPOT);
-    if (DEMO || !SPOT) return;
-    // the file follows the newest tokens, so a wiped app can pick the login up again
-    exec('printf %s ' + shq(JSON.stringify({ client_id: SPOT.cid, refresh_token: SPOT.refresh, access_token: SPOT.access, expires_at: SPOT.exp, at: SPOT.at })) +
-      ' > ' + SPOT_FILE + ' && chmod 600 ' + SPOT_FILE).catch(function () {});
-  }
-  function spotImport(cb) {   // a login made over SSH lands in a file; a newer file wins over what the app holds
-    if (DEMO) { if (cb) cb(); return; }
-    exec('cat ' + SPOT_FILE + ' 2>/dev/null').then(function (out) {
-      var f = null; try { f = JSON.parse(out); } catch (e) {}
-      if (f && f.client_id && f.refresh_token && (!SPOT || (f.at || 0) > (SPOT.at || 0))) {
-        SPOT = { cid: f.client_id, refresh: f.refresh_token, access: f.access_token || '', exp: f.expires_at || 0, at: f.at || Date.now() };
-        store.set('spot', SPOT);
-        NOW.wait = 0; NOW.spotAt = 0;
-      }
-    }, function () {}).then(function () { if (cb) cb(); });
-  }
-  function spotRefresh() {
-    return spotHttp('POST', 'https://accounts.spotify.com/api/token', { 'Content-Type': 'application/x-www-form-urlencoded' },
-      'grant_type=refresh_token&refresh_token=' + encodeURIComponent(SPOT.refresh) + '&client_id=' + encodeURIComponent(SPOT.cid)).then(function (r) {
-      var t = r.json || {};
-      if (t.access_token) {
-        SPOT.access = t.access_token;
-        SPOT.exp = Date.now() + ((t.expires_in || 3600) - 60) * 1000;
-        if (t.refresh_token) SPOT.refresh = t.refresh_token;
-        SPOT.dead = false;
-        spotSave();
-        return true;
-      }
-      if (r.status === 400 || r.status === 401) { SPOT.dead = true; store.set('spot', SPOT); }   // login no longer valid: needs a new one over SSH
-      return false;
-    });
-  }
-  function spotPoll() {
-    if (!SPOT || SPOT.dead || NOW.busy || Date.now() < NOW.wait) return;
-    NOW.busy = true; NOW.spotAt = Date.now();
-    var ready = (SPOT.access && Date.now() < SPOT.exp) ? Promise.resolve(true) : spotRefresh();
-    ready.then(function (ok) {
-      if (!ok) return null;
-      return spotHttp('GET', 'https://api.spotify.com/v1/me/player/currently-playing?additional_types=episode', { Authorization: 'Bearer ' + SPOT.access });
-    }).then(function (r) {
-      if (!r) { NOW.spot = null; return; }
-      if (r.status === 401) { SPOT.exp = 0; store.set('spot', SPOT); return; }          // token gone early: refreshed on the next round
-      if (r.status === 429) { NOW.wait = Date.now() + 5 * 60000; return; }               // asked too often: leave it alone for a while
-      var j = r.json, it = j && j.item;
-      if (r.status !== 200 || !it || !j.is_playing) { NOW.spot = null; return; }
-      var imgs = (it.album && it.album.images) || it.images || [];
-      var art = imgs.length ? (imgs[1] || imgs[0]).url : '';
-      var who = it.artists ? it.artists.map(function (a) { return a.name; }).join(', ') : ((it.show && it.show.name) || '');
-      NOW.spot = { kind: 'spotify', title: it.name || '', sub: who, art: art };
-    }).catch(function () { /* offline: keep what is shown, try again later */ }).then(function () { NOW.busy = false; nowRender(); });
-  }
-  // "Supernatural S01E04 Phantom Traveler [1080p x265].mkv" -> "Supernatural · S1E4"; nothing when the name says nothing
-  function fileTitle(uri) {
-    var seg = String(uri || '').split(/[?#]/)[0].split('/').pop();
-    try { seg = decodeURIComponent(seg); } catch (e) {}
-    seg = seg.replace(/\.(mkv|mp4|avi|m4v|mov|webm|ts|m3u8)$/i, '').replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim();
-    var clean = function (t) { return t.replace(/[\[(][^\])]*[\])]/g, ' ').replace(/[\s\-–]+$/, '').replace(/\s+/g, ' ').trim(); };
-    var m = /^(.*?)[\s\-]*\bS(\d{1,2})\s*E(\d{1,3})\b/i.exec(seg);
-    if (m && clean(m[1])) return clean(m[1]) + ' · S' + (+m[2]) + 'E' + (+m[3]);
-    m = /^(.*?)[\s(\[]+((?:19|20)\d\d)\b/.exec(seg);
-    if (m && clean(m[1])) return clean(m[1]);
-    m = /^(.*?)\s+(2160p|1080p|720p|480p|WEB|WEBRip|BluRay|BRRip|HDTV|x26[45]|HEVC)\b/i.exec(seg);
-    if (m && clean(m[1])) return clean(m[1]);
-    return '';
-  }
-  function stremPoll() {
-    NOW.stremAt = Date.now();
-    if (DEMO) return;
-    // the stream address is only used here, to read the file name out of it; it is not stored or sent anywhere
-    exec("luna-send -n 1 -w 4000 luna://com.webos.media/getActivePipelines '{}' </dev/null", 10000).then(function (out) {
-      var list = []; try { list = JSON.parse(out); } catch (e) {}
-      var hit = null;
-      (Array.isArray(list) ? list : []).forEach(function (p) {
-        if (p && p.type === 'media' && /strem/i.test(p.appId || '') && p.uri && p.mediaState === 'pause') hit = p;
-      });
-      var t = hit ? fileTitle(hit.uri) : '';
-      NOW.strem = t ? { kind: 'stremio', title: t, sub: 'Pauzirano u Stremiju', art: '' } : null;
-    }, function () {}).then(nowRender);
-  }
-  function nowTick(force) {
-    if (document.hidden) return;
-    if (!S.nowOn) { nowRender(); return; }
-    var t = Date.now();
-    if (force || t - NOW.spotAt >= (NOW.spot ? 10000 : 30000)) spotPoll();
-    if (force || t - NOW.stremAt >= 60000) stremPoll();
-  }
-  setInterval(function () { nowTick(false); }, 5000);
-  (function () {   // demo: index.html?now=spotify or ?now=stremio
-    var m = DEMO && /[?&]now=(\w+)/.exec(location.search);
-    if (!m) return;
-    if (m[1] === 'spotify') NOW.spot = { kind: 'spotify', title: 'Weird Fishes / Arpeggi', sub: 'Radiohead', art: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#2a6f6a"/><circle cx="24" cy="26" r="16" fill="#e8b34a"/></svg>') };
-    else NOW.strem = { kind: 'stremio', title: fileTitle('https://x/y/Supernatural%20S01E04%20Phontom%20Traverler%20%20%5B1080p%20x265%2010bit%20Joy%5D.mkv'), sub: 'Pauzirano u Stremiju', art: '' };
-  })();
-  function nowRows(rows) {
-    rows.push({ h: 'Što svira' });
-    rows.push({ type: 'toggle', name: 'now', label: 'Prikaži što svira ispod sata', value: S.nowOn ? 'Uključeno' : 'Isključeno', off: !S.nowOn, act: function () {
-      S.nowOn = !S.nowOn; store.set('nowOn', S.nowOn); nowTick(true); nowRender(); renderSettings();
-    } });
-    var st = !SPOT ? 'Nije povezan  ›' : (SPOT.dead ? 'Prijava je istekla  ›' : 'Povezan');
-    rows.push({ type: 'btn', name: 'spot', label: 'Spotify', value: st, act: function () {
-      spotImport(function () {
-        if (SPOT && !SPOT.dead) { toast('Spotify je povezan'); nowTick(true); }
-        else toast('Povezuje se jednom preko SSH-a: node /home/root/dom-spotify.js <Client ID>');
-        renderSettings();
-      });
-    } });
-    if (SPOT) rows.push({ type: 'btn', name: 'spot-out', label: 'Odspoji Spotify', act: function () {
-      SPOT = null; NOW.spot = null; store.set('spot', null); nowRender();
-      if (!DEMO) exec('rm -f ' + SPOT_FILE).catch(function () {});
-      toast('Spotify je odspojen'); renderSettings();
-    } });
   }
 
   /* ================= weather under the clock ================= */
@@ -1720,7 +1570,6 @@
     }, function () { SET.busy = false; toast('Ne mogu do servisa za prognozu'); renderSettings(); });
   }
   function wxRows(rows) {
-    nowRows(rows);
     rows.push({ h: 'Vremenska prognoza' });
     if (WX.place) {
       var d = WX.data;
@@ -2144,7 +1993,7 @@
     crtRestore();
     onShow();
   });
-  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; saverOff(); fadeOutNow(); } else { crtRestore(); fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); nowTick(true); } });
+  document.addEventListener('visibilitychange', function () { okHeld = false; clearTimeout(okTimer); if (document.hidden) { wasAway = true; saverOff(); fadeOutNow(); } else { crtRestore(); fadeIn(); refreshSoon(); wallTick(); wxRender(); wxRefresh(false); } });
   fit();
   applyLayout();
   wallApply();
@@ -2152,8 +2001,6 @@
   watchPower();
   saverSync();
   pinResetCheck();
-  nowRender();
-  spotImport(function () { nowTick(true); });
   (function () {   // own version, for "Nadogradi Dom" (XHR: fetch does not read local files)
     try {
       var x = new XMLHttpRequest();

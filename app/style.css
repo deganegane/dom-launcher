@@ -497,7 +497,7 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 #stage.layout-harmonika #weather .wx-t { font-size: 28px; }
 
 /* ---------- screensaver: the picture, a wandering clock, the weather ---------- */
-#stage.saver > *:not(#wall):not(#topbar):not(#now):not(#cover):not(#toast) { opacity: 0 !important; pointer-events: none; transition: opacity 900ms ease; }
+#stage.saver > *:not(#wall):not(#topbar):not(#cover):not(#toast) { opacity: 0 !important; pointer-events: none; transition: opacity 900ms ease; }
 #stage.saver #wall { display: block; }
 #stage.saver #wall::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.22); z-index: 1; transition: background 4s ease; }
 #stage.saver.saver-deep #wall::before { background: rgba(0,0,0,.72); }
@@ -529,38 +529,3 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 .pin-key { height: 84px; line-height: 84px; border-radius: 20px; background: rgba(255,255,255,.1); font-size: 34px; font-weight: 500; transition: background 120ms ease, transform 120ms ease; }
 .pin-key.wide { font-size: 22px; }
 .pin-key.focus { background: #fff; color: #000; transform: scale(1.05); }
-
-/* ---------- what's playing: a quiet line near the clock ---------- */
-#now { display: none; }
-#now.on {
-  display: flex; align-items: center; gap: 12px; position: absolute; z-index: 5; max-width: 460px;
-  right: 114px; top: 144px; flex-direction: row-reverse; text-align: right;
-}
-#stage.has-wx #now.on { top: 186px; }
-#now img, #now .now-ic { width: 46px; height: 46px; border-radius: 8px; flex: 0 0 auto; object-fit: cover; }
-#now .now-ic { background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; }
-#now .now-ic svg { width: 24px; height: 24px; opacity: .9; }
-#now .now-t { min-width: 0; }
-#now .now-1, #now .now-2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#now .now-1 { font-size: 21px; font-weight: 600; line-height: 1.2; }
-#now .now-2 { font-size: 18px; opacity: .7; line-height: 1.25; }
-/* per layout: wherever the clock leaves room */
-#stage.layout-traka #now.on, #stage.layout-konzola #now.on { right: 96px; top: 112px; }
-#stage.layout-traka.has-wx #now.on, #stage.layout-konzola.has-wx #now.on { top: 152px; }
-#stage.layout-sidebar #now.on, #stage.layout-ambient #now.on { right: 96px; top: 56px; }
-#stage.layout-carousel #now.on { right: auto; left: 50%; transform: translateX(-50%); top: 108px; flex-direction: row; text-align: left; }
-#stage.layout-carousel.has-wx #now.on { top: 148px; }
-#stage.layout-carousel #now img, #stage.layout-carousel #now .now-ic { width: 40px; height: 40px; }
-#stage.layout-bento #now.on, #stage.layout-harmonika #now.on { right: auto; left: 50%; transform: translateX(-50%); top: 52px; flex-direction: row; text-align: left; }
-#stage.layout-ambient.zone-shelf #now.on { opacity: 0; }
-/* screensaver: under the wandering clock, larger */
-#stage.saver #now.on {
-  left: var(--sv-x, 120px) !important; right: auto !important; top: calc(var(--sv-y, 120px) + 232px) !important; transform: none !important;
-  flex-direction: row !important; text-align: left !important; max-width: 700px; opacity: 1 !important; z-index: 30;
-  transition: left 2400ms ease-in-out, top 2400ms ease-in-out;
-}
-#stage.saver.has-wx #now.on { top: calc(var(--sv-y, 120px) + 296px) !important; }
-#stage.saver #now img, #stage.saver #now .now-ic { width: 72px !important; height: 72px !important; border-radius: 10px; }
-#stage.saver #now .now-1 { font-size: 30px; }
-#stage.saver #now .now-2 { font-size: 24px; }
-#stage.saver.saver-deep #now.on { opacity: .55 !important; }
