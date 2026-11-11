@@ -71,11 +71,14 @@
     return '<path d="' + d + '" fill="' + c + '"/>';
   }
   // two-tone faceted peak: dark body, lit side with a jagged edge down the middle
+  // (the lit face runs along the very same outer edge as the body, so no dark sliver shows beside it)
   function peak(r, px, py, hw, base, dark, light, litRight) {
     var s = litRight ? 1 : -1, sh = (base - py);
-    var body = 'M' + f(px - hw * (1 + r() * 0.25)) + ' ' + f(base) + 'L' + f(px - hw * 0.45) + ' ' + f(py + sh * (0.42 + r() * 0.1)) + 'L' + f(px) + ' ' + f(py) +
-               'L' + f(px + hw * 0.5) + ' ' + f(py + sh * (0.46 + r() * 0.1)) + 'L' + f(px + hw * (1 + r() * 0.25)) + ' ' + f(base) + 'Z';
-    var lit = 'M' + f(px) + ' ' + f(py) + 'L' + f(px + s * hw * 0.5) + ' ' + f(py + sh * 0.5) + 'L' + f(px + s * hw * 1.05) + ' ' + f(base) + 'L' + f(px + s * hw * 0.12) + ' ' + f(base), steps = 5;
+    var l0 = [px - hw * (1 + r() * 0.25), base], l1 = [px - hw * 0.45, py + sh * (0.42 + r() * 0.1)],
+        r1 = [px + hw * 0.5, py + sh * (0.46 + r() * 0.1)], r0 = [px + hw * (1 + r() * 0.25), base];
+    var body = 'M' + f(l0[0]) + ' ' + f(l0[1]) + 'L' + f(l1[0]) + ' ' + f(l1[1]) + 'L' + f(px) + ' ' + f(py) + 'L' + f(r1[0]) + ' ' + f(r1[1]) + 'L' + f(r0[0]) + ' ' + f(r0[1]) + 'Z';
+    var o1 = litRight ? r1 : l1, o0 = litRight ? r0 : l0, steps = 5;
+    var lit = 'M' + f(px) + ' ' + f(py) + 'L' + f(o1[0]) + ' ' + f(o1[1]) + 'L' + f(o0[0]) + ' ' + f(o0[1]) + 'L' + f(px + s * hw * 0.12) + ' ' + f(base);
     for (var i = steps - 1; i >= 1; i--) {
       var t = i / steps;
       lit += 'L' + f(px + s * hw * (i % 2 ? 0.13 : 0.01) * t * 1.4) + ' ' + f(py + sh * t);
