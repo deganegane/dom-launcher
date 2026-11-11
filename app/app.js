@@ -1518,7 +1518,10 @@
     })).then(function () { setTimeout(runLoad, 800); });
   }
   function runRows() {
-    var rows = [{ note: RUN.busy ? 'Učitavam…' : (RUN.list.length ? 'OK zatvara aplikaciju i oslobađa memoriju.' : 'Nijedna aplikacija nije otvorena u pozadini.') }];
+    var rows = [];
+    quickRows(rows, true);
+    rows.push({ h: 'Otvorene aplikacije' });
+    rows.push({ note: RUN.busy ? 'Učitavam…' : (RUN.list.length ? 'OK zatvara aplikaciju i oslobađa memoriju.' : 'Nijedna aplikacija nije otvorena u pozadini.') });
     RUN.list.forEach(function (x) { rows.push({ type: 'btn', name: 'run-' + x.id, label: x.title, icon: x.icon, value: 'Zatvori', act: function () { runClose([x.id]); } }); });
     if (RUN.list.length > 1) rows.push({ type: 'btn', name: 'run-all', label: 'Zatvori sve', act: function () { runClose(RUN.list.map(function (x) { return x.id; })); } });
     return rows;
@@ -1527,15 +1530,14 @@
   function openRun() {
     S.zone = 'settings';
     SET.only = 'run'; SET.pos = 0; SET.rows = [];
-    $('#settings h1').textContent = 'Otvorene aplikacije';
     runLoad();
     renderSettings();
     $('#settings').classList.remove('hidden');
     applyFocus();
   }
-  function quickRows(rows) {
+  function quickRows(rows, inRun) {
     rows.push({ h: 'Brze radnje' });
-    rows.push({ type: 'btn', name: 'q-run', label: 'Otvorene aplikacije', value: (RUN.at ? RUN.list.length : '') + '  ›', act: openRun });
+    if (!inRun) rows.push({ type: 'btn', name: 'q-run', label: 'Otvorene aplikacije', value: (RUN.at ? RUN.list.length : '') + '  ›', act: openRun });
     rows.push({ type: 'btn', name: 'q-screen', label: 'Ugasi ekran (zvuk ostaje)', act: screenOff });
     rows.push({ type: 'btn', name: 'q-sleep', label: 'Tajmer za spavanje', value: (S.sleepMins ? S.sleepMins + ' min' : 'Isključen') + '  ›', act: sleepSet });
   }
@@ -1685,118 +1687,163 @@
       rows.push({ note: 'Fotografije se izmjenjuju u pozadini umjesto snimki iz aplikacija.' });
     }
   }
+  // Settings in two levels: quick actions and six groups first, a group's own rows after OK
+  var SET_GROUPS = [
+    { key: 'theme', name: 'Tema', sum: function () { return L().name; } },
+    { key: 'wall', name: 'Pozadine', sum: function () { return S.wall.on ? WALL_SRC[S.wall.src] : 'Isključeno'; } },
+    { key: 'apps', name: 'Aplikacije', sum: function () {
+      var h = S.apps.filter(function (a) { return S.hidden.indexOf(a.key) >= 0; }).length;
+      return (S.apps.length - h) + ' prikazano' + (h ? ', ' + h + ' skriveno' : '');
+    } },
+    { key: 'acct', name: 'Računi i prognoza', sum: function () { return [S.authKey ? 'Stremio' : '', WX.place ? String(WX.place.name || '').split(',')[0] : ''].filter(Boolean).join(', ') || 'Nije postavljeno'; } },
+    { key: 'tune', name: 'Čišćenje i ubrzanje', sum: function () { return S.tune ? TUNE_GROUPS.filter(function (g) { return S.tune[g.key]; }).length + ' od ' + TUNE_GROUPS.length + ' uključeno' : ''; } },
+    { key: 'sys', name: 'Sustav', sum: function () { return S.version ? 'verzija ' + S.version : ''; } },
+    { key: 'adv', name: 'Napredno', parent: 'sys' }
+  ];
+  function setGroup(key) { for (var i = 0; i < SET_GROUPS.length; i++) if (SET_GROUPS[i].key === key) return SET_GROUPS[i]; return null; }
+  function openGroup(key) { SET.only = key; SET.pos = 0; SET.rows = []; renderSettings(); }
+  function leaveGroup() {   // back to the level above, on the row we came from
+    var from = SET.only, g = setGroup(from);
+    SET.only = (g && g.parent) || ''; SET.rows = [];
+    renderSettings();
+    SET.focusables.forEach(function (ri, pos) { if (SET.rows[ri].name === 'grp-' + from) SET.pos = pos; });
+    settingsFocus(false);
+  }
   function settingsRows() {
     if (SET.only === 'run') return runRows();
-    var rows = [];
-    quickRows(rows);
-    if (S.wall.on) wallRows(rows);   // near the top while in use, so keeping a picture is a few presses away
-    rows.push({ h: 'Stremio' });
-    if (S.authKey) {
-      rows.push({ type: 'info', label: 'Prijavljen', value: S.stremioUser || 'da' });
-      rows.push({ type: 'btn', label: 'Osvježi "Nastavi gledati"', value: S.cw.length + ' stavki', act: function () { refreshStremio(true).then(function () { toast('Osvježeno'); renderSettings(); }); } });
-      rows.push({ type: 'btn', label: 'Odjavi se', act: function () {
-        S.authKey = ''; S.stremioUser = ''; S.cw = []; store.set('authKey', ''); store.set('stremioUser', ''); store.set('cw', []);
-        renderCards(); updateShelf(true); renderSettings();
-      } });
-    } else {
-      rows.push({ note: 'Prijavi se svojim Stremio računom da launcher prikazuje što si zadnje gledao.' });
-      rows.push({ type: 'input', name: 'email', label: 'Email', inputType: 'email' });
-      rows.push({ type: 'input', name: 'password', label: 'Lozinka', inputType: 'password' });
-      rows.push({ type: 'btn', label: SET.busy ? 'Prijavljujem…' : 'Prijavi se', act: doLogin });
+    var rows = [], g = SET.only;
+    if (!g) {
+      quickRows(rows);
+      rows.push({ h: 'Postavke' });
+      SET_GROUPS.forEach(function (grp) {
+        if (grp.parent) return;
+        var sum = grp.sum();
+        rows.push({ type: 'btn', name: 'grp-' + grp.key, label: grp.name, value: (sum ? sum + '  ' : '') + '›', act: function () { openGroup(grp.key); } });
+      });
+      return rows;
     }
-    rows.push({ h: 'Izgled' });
-    rows.push({ type: 'btn', name: 'layout', label: 'Izgled početnog zaslona', value: L().name + '  ›', act: function () {
-      S.layout = LAYOUT_ORDER[(LAYOUT_ORDER.indexOf(S.layout) + 1) % LAYOUT_ORDER.length];
-      store.set('layout', S.layout);
-      applyLayout();
-      renderSettings();
-    } });
-    rows.push({ type: 'btn', name: 'saver', label: 'Čuvar zaslona', value: (S.saverMins ? 'nakon ' + S.saverMins + ' min' : 'Isključen') + '  ›', act: function () {
-      var steps = [0, 2, 5, 10];
-      S.saverMins = steps[(steps.indexOf(S.saverMins) + 1) % steps.length];
-      store.set('saverMins', S.saverMins); saverSync(); renderSettings();
-    } });
-    rows.push({ type: 'toggle', name: 'autoorder', label: 'Najčešće korištene aplikacije naprijed', value: S.autoOrder ? 'Uključeno' : 'Isključeno', off: !S.autoOrder, act: function () {
-      S.autoOrder = !S.autoOrder; store.set('autoOrder', S.autoOrder);
-      buildList(); renderGrid(); renderSettings();
-    } });
-    rows.push({ type: 'toggle', name: 'crt', label: 'Gašenje kao na starom TV-u', value: S.crt ? 'Uključeno' : 'Isključeno', off: !S.crt, act: function () {
-      S.crt = !S.crt; store.set('crt', S.crt); renderSettings();
-    } });
-    rows.push({ type: 'btn', name: 'crt-test', label: 'Isprobaj efekt gašenja', act: function () { closeSettings(); setTimeout(function () { crtOff(true); }, 350); } });
-    if (!S.wall.on) wallRows(rows);
-    wxRows(rows);
-    rows.push({ h: 'Aplikacije' });
-    rows.push({ note: 'Dugi pritisak na OK na ikoni pokreće premještanje. Ovdje možeš sakriti aplikacije.' });
-    S.apps.forEach(function (a) {
-      var hidden = S.hidden.indexOf(a.key) >= 0;
-      rows.push({ type: 'toggle', app: a, label: a.title, value: hidden ? 'Skriveno' : 'Prikazano', off: hidden, act: function () {
-        var i = S.hidden.indexOf(a.key);
-        if (i >= 0) S.hidden.splice(i, 1); else S.hidden.push(a.key);
-        store.set('hidden', S.hidden);
+    if (g === 'acct') {
+      rows.push({ h: 'Stremio' });
+      if (S.authKey) {
+        rows.push({ type: 'info', label: 'Prijavljen', value: S.stremioUser || 'da' });
+        rows.push({ type: 'btn', label: 'Osvježi "Nastavi gledati"', value: S.cw.length + ' stavki', act: function () { refreshStremio(true).then(function () { toast('Osvježeno'); renderSettings(); }); } });
+        rows.push({ type: 'btn', label: 'Odjavi se', act: function () {
+          S.authKey = ''; S.stremioUser = ''; S.cw = []; store.set('authKey', ''); store.set('stremioUser', ''); store.set('cw', []);
+          renderCards(); updateShelf(true); renderSettings();
+        } });
+      } else {
+        rows.push({ note: 'Prijavi se svojim Stremio računom da launcher prikazuje što si zadnje gledao.' });
+        rows.push({ type: 'input', name: 'email', label: 'Email', inputType: 'email' });
+        rows.push({ type: 'input', name: 'password', label: 'Lozinka', inputType: 'password' });
+        rows.push({ type: 'btn', label: SET.busy ? 'Prijavljujem…' : 'Prijavi se', act: doLogin });
+      }
+      wxRows(rows);
+    }
+    if (g === 'theme') {
+      rows.push({ type: 'btn', name: 'layout', label: 'Izgled početnog zaslona', value: L().name + '  ›', act: function () {
+        S.layout = LAYOUT_ORDER[(LAYOUT_ORDER.indexOf(S.layout) + 1) % LAYOUT_ORDER.length];
+        store.set('layout', S.layout);
+        applyLayout();
+        renderSettings();
+      } });
+      rows.push({ type: 'btn', name: 'saver', label: 'Čuvar zaslona', value: (S.saverMins ? 'nakon ' + S.saverMins + ' min' : 'Isključen') + '  ›', act: function () {
+        var steps = [0, 2, 5, 10];
+        S.saverMins = steps[(steps.indexOf(S.saverMins) + 1) % steps.length];
+        store.set('saverMins', S.saverMins); saverSync(); renderSettings();
+      } });
+      rows.push({ type: 'toggle', name: 'autoorder', label: 'Najčešće korištene aplikacije naprijed', value: S.autoOrder ? 'Uključeno' : 'Isključeno', off: !S.autoOrder, act: function () {
+        S.autoOrder = !S.autoOrder; store.set('autoOrder', S.autoOrder);
         buildList(); renderGrid(); renderSettings();
       } });
-    });
-    rows.push({ h: 'Čišćenje i ubrzanje' });
-    if (!S.tune) {
-      rows.push({ note: S.tuneMissing ? 'Nije instalirano. Ponovi instalaciju Doma pa otvori Postavke opet.' : 'Učitavam…' });
-    } else {
-      rows.push({ note: 'Slobodno memorije: ' + S.tune.mem + ' MB' + (S.tune.stopped ? ' · ugašeno servisa: ' + S.tune.stopped : '') +
-        '. Ništa se ne briše: isključivanjem prekidača ili restartom TV-a sve se vraća.' +
-        (S.tune.safe ? ' TV se dvaput zaredom ubrzo restartao pa je čišćenje pauzirano; uključi neki prekidač da ga vratiš.' : '') });
-      TUNE_GROUPS.forEach(function (g) {
-        var on = !!S.tune[g.key], busy = S.tuneBusy === g.key;
-        rows.push({ type: 'toggle', name: 'tune-' + g.key, label: g.label, value: busy ? '…' : (on ? 'Uključeno' : 'Isključeno'), off: !on, act: function () {
-          if (S.tuneBusy) return;
-          if (!on && g.warn) toast(g.warn);
-          tuneSet(g.key, !on);
+      rows.push({ type: 'toggle', name: 'crt', label: 'Gašenje kao na starom TV-u', value: S.crt ? 'Uključeno' : 'Isključeno', off: !S.crt, act: function () {
+        S.crt = !S.crt; store.set('crt', S.crt); renderSettings();
+      } });
+    }
+    if (g === 'wall') wallRows(rows);
+    if (g === 'apps') {
+      rows.push({ note: 'Dugi pritisak na OK na ikoni pokreće premještanje. Ovdje možeš sakriti aplikacije.' });
+      S.apps.forEach(function (a) {
+        var hidden = S.hidden.indexOf(a.key) >= 0;
+        rows.push({ type: 'toggle', app: a, label: a.title, value: hidden ? 'Skriveno' : 'Prikazano', off: hidden, act: function () {
+          var i = S.hidden.indexOf(a.key);
+          if (i >= 0) S.hidden.splice(i, 1); else S.hidden.push(a.key);
+          store.set('hidden', S.hidden);
+          buildList(); renderGrid(); renderSettings();
         } });
       });
     }
-    rows.push({ h: 'Sustav' });
-    rows.push({ type: 'btn', name: 'update', label: 'Nadogradi Dom', value: S.version ? 'verzija ' + S.version : '', act: domUpdate });
-    rows.push({ type: 'toggle', name: 'pin', label: 'PIN za Postavke', value: S.pin ? 'Uključen' : 'Isključen', off: !S.pin, act: function () {
-      if (S.pin) { S.pin = ''; store.set('pin', ''); toast('PIN je uklonjen'); renderSettings(); return; }
-      pinAsk('Novi PIN (4 znamenke)', function (a) {
-        pinAsk('Ponovi PIN', function (b) {
-          if (a !== b) return false;
-          S.pin = a; store.set('pin', a); pinClose(); toast('PIN je postavljen'); renderSettings(); return true;
+    if (g === 'tune') {
+      if (!S.tune) {
+        rows.push({ note: S.tuneMissing ? 'Nije instalirano. Ponovi instalaciju Doma pa otvori Postavke opet.' : 'Učitavam…' });
+      } else {
+        rows.push({ note: 'Slobodno memorije: ' + S.tune.mem + ' MB' + (S.tune.stopped ? ' · ugašeno servisa: ' + S.tune.stopped : '') +
+          '. Ništa se ne briše: isključivanjem prekidača ili restartom TV-a sve se vraća.' +
+          (S.tune.safe ? ' TV se dvaput zaredom ubrzo restartao pa je čišćenje pauzirano; uključi neki prekidač da ga vratiš.' : '') });
+        TUNE_GROUPS.forEach(function (g) {
+          var on = !!S.tune[g.key], busy = S.tuneBusy === g.key;
+          rows.push({ type: 'toggle', name: 'tune-' + g.key, label: g.label, value: busy ? '…' : (on ? 'Uključeno' : 'Isključeno'), off: !on, act: function () {
+            if (S.tuneBusy) return;
+            if (!on && g.warn) toast(g.warn);
+            tuneSet(g.key, !on);
+          } });
         });
-        return true;
-      });
-    } });
-    rows.push({ type: 'btn', name: 'backup', label: 'Spremi sigurnosnu kopiju', act: domBackup });
-    rows.push({ type: 'btn', name: 'restore', label: 'Vrati iz sigurnosne kopije', act: domRestore });
-    rows.push({ type: 'btn', name: 'domOnOff', label: 'Dom kao početni zaslon', value: S.disabled ? 'Isključeno' : 'Uključeno', act: function () {
-      var off = !S.disabled;
-      var done = function () {
-        S.disabled = off;
-        toast(off ? 'Dom je isključen: Home tipka otvara LG Home. Dom ostaje u popisu aplikacija.' : 'Dom je ponovno početni zaslon');
-        renderSettings();
-      };
-      if (DEMO) done(); else exec('/home/root/dom-ctl.sh ' + (off ? 'off' : 'on'), 20000).then(done, function () { toast('Nije uspjelo — ponovi instalaciju'); });
-    } });
-    rows.push({ type: 'btn', label: 'Otvori originalni LG Home', act: function () {
-      closeSettings();
-      if (DEMO) { toast('Pokrećem: LG Home'); return; }
-      // stay dark underneath: LG Home is a see-through overlay
-      stage.classList.remove('instant'); stage.classList.add('leaving'); stage.classList.add('out');
-      exec('/home/root/dom-ctl.sh lghome', 20000).catch(function () { fadeIn(true); toast('Ne mogu otvoriti LG Home'); });
-    } });
-    rows.push({ type: 'btn', label: 'Poništi redoslijed aplikacija', act: function () {
-      S.order = []; store.set('order', []); buildList(); renderGrid(); toast('Redoslijed poništen'); renderSettings();
-    } });
-    rows.push({ type: 'btn', label: 'Obriši snimke pozadina', act: function () {
-      var done = function () { S.apps.forEach(function (a) { a.shot = ''; }); reloadApps().then(function () { updateShelf(true); toast('Snimke obrisane'); }); };
-      if (DEMO) done(); else exec('rm -f /home/root/dom-shots/*').then(done, done);
-    } });
-    rows.push({ type: 'btn', label: 'Ponovno učitaj aplikacije', act: function () { reloadApps().then(function () { toast('Učitano'); renderSettings(); }); } });
+      }
+    }
+    if (g === 'sys') {
+      rows.push({ type: 'btn', name: 'update', label: 'Nadogradi Dom', value: S.version ? 'verzija ' + S.version : '', act: domUpdate });
+      rows.push({ type: 'toggle', name: 'pin', label: 'PIN za Postavke', value: S.pin ? 'Uključen' : 'Isključen', off: !S.pin, act: function () {
+        if (S.pin) { S.pin = ''; store.set('pin', ''); toast('PIN je uklonjen'); renderSettings(); return; }
+        pinAsk('Novi PIN (4 znamenke)', function (a) {
+          pinAsk('Ponovi PIN', function (b) {
+            if (a !== b) return false;
+            S.pin = a; store.set('pin', a); pinClose(); toast('PIN je postavljen'); renderSettings(); return true;
+          });
+          return true;
+        });
+      } });
+      rows.push({ type: 'btn', name: 'backup', label: 'Spremi sigurnosnu kopiju', act: domBackup });
+      rows.push({ type: 'btn', name: 'restore', label: 'Vrati iz sigurnosne kopije', act: domRestore });
+      rows.push({ type: 'btn', name: 'domOnOff', label: 'Dom kao početni zaslon', value: S.disabled ? 'Isključeno' : 'Uključeno', act: function () {
+        var off = !S.disabled;
+        var done = function () {
+          S.disabled = off;
+          toast(off ? 'Dom je isključen: Home tipka otvara LG Home. Dom ostaje u popisu aplikacija.' : 'Dom je ponovno početni zaslon');
+          renderSettings();
+        };
+        if (DEMO) done(); else exec('/home/root/dom-ctl.sh ' + (off ? 'off' : 'on'), 20000).then(done, function () { toast('Nije uspjelo — ponovi instalaciju'); });
+      } });
+      rows.push({ type: 'btn', label: 'Otvori originalni LG Home', act: function () {
+        closeSettings();
+        if (DEMO) { toast('Pokrećem: LG Home'); return; }
+        // stay dark underneath: LG Home is a see-through overlay
+        stage.classList.remove('instant'); stage.classList.add('leaving'); stage.classList.add('out');
+        exec('/home/root/dom-ctl.sh lghome', 20000).catch(function () { fadeIn(true); toast('Ne mogu otvoriti LG Home'); });
+      } });
+      rows.push({ type: 'btn', name: 'grp-adv', label: 'Napredno', value: '›', act: function () { openGroup('adv'); } });
+    }
+    if (g === 'adv') {
+      rows.push({ type: 'btn', name: 'crt-test', label: 'Isprobaj efekt gašenja', act: function () { closeSettings(); setTimeout(function () { crtOff(true); }, 350); } });
+      rows.push({ type: 'btn', label: 'Poništi redoslijed aplikacija', act: function () {
+        S.order = []; store.set('order', []); buildList(); renderGrid(); toast('Redoslijed poništen'); renderSettings();
+      } });
+      rows.push({ type: 'btn', label: 'Obriši snimke pozadina', act: function () {
+        var done = function () { S.apps.forEach(function (a) { a.shot = ''; }); reloadApps().then(function () { updateShelf(true); toast('Snimke obrisane'); }); };
+        if (DEMO) done(); else exec('rm -f /home/root/dom-shots/*').then(done, done);
+      } });
+      rows.push({ type: 'btn', label: 'Ponovno učitaj aplikacije', act: function () { reloadApps().then(function () { toast('Učitano'); renderSettings(); }); } });
+    }
+    if (rows[0] && rows[0].h && g !== 'acct') rows.shift();   // a group with one section needs no heading under its own title
     return rows;
   }
+  function settingsTitle() { var g = setGroup(SET.only); return SET.only === 'run' ? 'Brzi izbornik' : (g ? g.name : 'Postavke'); }
   function renderSettings() {
     var rowId = function (r) { return r ? (r.app ? 'app:' + r.app.key : (r.name ? 'in:' + r.name : '')) : ''; };
     var prevName = rowId(SET.rows[(SET.focusables || [])[SET.pos]]);
     SET.rows = settingsRows();
+    var grp = setGroup(SET.only), up = grp ? (grp.parent ? setGroup(grp.parent).name : 'Postavke') : '';
+    $('#settings h1').textContent = settingsTitle();
+    $('#settings-crumb').textContent = up ? '‹ ' + up : '';
+    $('.settings-foot').textContent = up ? 'Natrag vraća na ' + (grp.parent ? setGroup(grp.parent).name : 'Postavke') : 'Natrag za zatvaranje';
     var html = '<div id="settings-scroll">';
     var focusables = [];
     SET.rows.forEach(function (r, i) {
@@ -1863,7 +1910,7 @@
       if (inInput) { document.activeElement.blur(); if (SET.pos < SET.focusables.length - 1) SET.pos++; settingsFocus(false); }
       else settingsOk();
     } else if (k === KEY.BACK || k === KEY.ESC || (k === KEY.BKSP && !inInput)) {
-      if (inInput) document.activeElement.blur(); else closeSettings();
+      if (inInput) document.activeElement.blur(); else if (setGroup(SET.only)) leaveGroup(); else closeSettings();
     } else return;
     e.preventDefault();
   }
@@ -1886,7 +1933,6 @@
     }
     S.zone = 'settings';
     SET.only = ''; SET.pos = 0; SET.rows = [];
-    $('#settings h1').textContent = 'Postavke';
     loadTune();
     runLoad();
     renderSettings();

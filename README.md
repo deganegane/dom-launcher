@@ -142,3 +142,9 @@ Postavke → Vremenska prognoza → upiši grad. Ispod sata se prikazuje trenutn
 - **Nadogradi Dom** (Postavke → Sustav) skida i instalira najnoviju verziju bez SSH-a.
 - **Spremi sigurnosnu kopiju** sprema postavke, ikone, pozadine i uparivanje u `/home/root/dom-backup`; **Vrati** ih učitava natrag.
 - **Ugasi Telnet** (Čišćenje i ubrzanje): radi samo ako je SSH uključen i pokrenut.
+
+## Postavke
+
+Prva razina: brze radnje na vrhu, ispod grupe Tema, Pozadine, Aplikacije, Računi i prognoza, Čišćenje i ubrzanje i Sustav. OK otvara grupu, Natrag vraća razinu više. Rijetko korištene radnje su u Sustav → Napredno.
+
+Brzi izbornik (dugo Natrag ili crvena tipka) ima gašenje ekrana, tajmer za spavanje i popis otvorenih aplikacija, i ne traži PIN.

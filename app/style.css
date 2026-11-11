@@ -203,6 +203,7 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 }
 #settings.hidden #settings-panel { transform: translateX(100%); }
 #settings-panel h1 { font-size: 48px; font-weight: 700; margin-bottom: 20px; }
+#settings-crumb { position: absolute; left: 66px; top: 32px; font-size: 22px; opacity: .6; }
 #settings-body { flex: 1; overflow: hidden; position: relative; }
 #settings-scroll { transition: transform 250ms ease; }
 .settings-foot { font-size: 20px; opacity: .5; padding-top: 16px; }
