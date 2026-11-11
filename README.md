@@ -104,3 +104,15 @@ Uz to: uključi "Block system updates" u Homebrew Channelu i isključi automatsk
 ```sh
 curl -fsSL https://raw.githubusercontent.com/deganegane/dom-launcher/main/scripts/uninstall.sh | sh
 ```
+
+## Čišćenje i ubrzanje (dom-tune)
+
+`scripts/dom-tune.sh` gasi LG-ove servise za praćenje i reklame, blokira njihove domene u hosts datoteci i smanjuje sistemsko logiranje. Sve je privremeno (runtime): prekidači su u Postavkama Doma, a restart TV-a bez hooka `07-dom-tune` vraća izvorno stanje.
+
+```sh
+/home/root/dom-tune.sh status        # izvještaj
+/home/root/dom-tune.sh set voice 1   # grupe: track logs voice iot cast tv
+/home/root/dom-tune.sh off           # vrati sve odmah
+```
+
+Ako se TV dvaput zaredom restarta unutar 10 minuta od primjene, čišćenje se samo pauzira (sigurnosni način).

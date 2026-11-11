@@ -114,6 +114,23 @@ EOF
 chmod +x "$INITD/06-dom-blank-home"
 /home/root/dom-blank-home.sh on || true
 
+echo "==> Čišćenje i ubrzanje"
+get_tool dom-tune.sh /home/root/dom-tune.sh
+chmod +x /home/root/dom-tune.sh
+cat > "$INITD/07-dom-tune" <<'EOF'
+#!/bin/sh
+# Dom: debloat + speed, applied 90 s after boot (runtime only).
+# Undo: delete this file and restart the TV.
+[ -x /home/root/dom-tune.sh ] || exit 0
+( sleep 90; /home/root/dom-tune.sh boot ) >/dev/null 2>&1 &
+EOF
+chmod +x "$INITD/07-dom-tune"
+MEM0=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo)
+/home/root/dom-tune.sh apply >/dev/null 2>&1 || true
+sleep 3
+echo "   slobodno memorije: $MEM0 MB -> $(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo) MB"
+echo "   $(/home/root/dom-tune.sh get 2>/dev/null)"
+
 echo "==> Autostart pri paljenju TV-a"
 mkdir -p "$INITD"
 cat > "$INITD/90-dom-launcher" <<EOF

@@ -1028,6 +1028,37 @@
     updateShelf(true);
   }
 
+  /* ================= tune (debloat + speed) ================= */
+  var TUNE_GROUPS = [
+    { key: 'track', label: 'Blokiraj praćenje i reklame' },
+    { key: 'logs',  label: 'Manje sistemskih zapisa' },
+    { key: 'voice', label: 'Ugasi glasovno upravljanje', warn: 'Mikrofon na daljinskom ne radi dok je ovo uključeno' },
+    { key: 'iot',   label: 'Ugasi pametni dom i ThinQ', warn: 'ThinQ aplikacija i pametni uređaji ne vide TV dok je ovo uključeno' },
+    { key: 'cast',  label: 'Ugasi AirPlay i zrcaljenje zaslona', warn: 'AirPlay, Miracast i Chromecast ne rade dok je ovo uključeno' },
+    { key: 'tv',    label: 'Ugasi TV vodič (antena/kabel)', warn: 'Vodič i podsjetnici za TV kanale ne rade dok je ovo uključeno' }
+  ];
+  function parseTune(out) {
+    var m = /^track=\d.*$/m.exec(out || '');
+    if (!m) return false;
+    var t = {};
+    m[0].split(/\s+/).forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) t[kv.slice(0, i)] = parseInt(kv.slice(i + 1), 10) || 0; });
+    S.tune = t; S.tuneMissing = false;
+    return true;
+  }
+  function loadTune() {
+    if (DEMO) { if (!S.tune) S.tune = { track: 1, logs: 1, voice: 0, iot: 0, cast: 0, tv: 0, mem: 531, stopped: 5, safe: 0 }; return; }
+    exec('/home/root/dom-tune.sh get', 15000).then(function (out) {
+      if (!parseTune(out)) S.tuneMissing = true;
+    }, function () { S.tuneMissing = true; }).then(function () { if (S.zone === 'settings') renderSettings(); });
+  }
+  function tuneSet(key, on) {
+    if (DEMO) { S.tune[key] = on ? 1 : 0; S.tune.mem += on ? 20 : -20; renderSettings(); return; }
+    S.tuneBusy = key; renderSettings();
+    exec('/home/root/dom-tune.sh set ' + key + ' ' + (on ? 1 : 0), 90000).then(function (out) {
+      if (!parseTune(out)) toast('Nije uspjelo');
+    }, function () { toast('Nije uspjelo'); }).then(function () { S.tuneBusy = ''; if (S.zone === 'settings') renderSettings(); });
+  }
+
   /* ================= settings ================= */
   var SET = { rows: [], pos: 0, email: '', password: '', busy: false };
   function settingsRows() {
@@ -1064,6 +1095,22 @@
         buildList(); renderGrid(); renderSettings();
       } });
     });
+    rows.push({ h: 'Čišćenje i ubrzanje' });
+    if (!S.tune) {
+      rows.push({ note: S.tuneMissing ? 'Nije instalirano. Ponovi instalaciju Doma pa otvori Postavke opet.' : 'Učitavam…' });
+    } else {
+      rows.push({ note: 'Slobodno memorije: ' + S.tune.mem + ' MB' + (S.tune.stopped ? ' · ugašeno servisa: ' + S.tune.stopped : '') +
+        '. Ništa se ne briše: isključivanjem prekidača ili restartom TV-a sve se vraća.' +
+        (S.tune.safe ? ' TV se dvaput zaredom ubrzo restartao pa je čišćenje pauzirano; uključi neki prekidač da ga vratiš.' : '') });
+      TUNE_GROUPS.forEach(function (g) {
+        var on = !!S.tune[g.key], busy = S.tuneBusy === g.key;
+        rows.push({ type: 'toggle', name: 'tune-' + g.key, label: g.label, value: busy ? '…' : (on ? 'Uključeno' : 'Isključeno'), off: !on, act: function () {
+          if (S.tuneBusy) return;
+          if (!on && g.warn) toast(g.warn);
+          tuneSet(g.key, !on);
+        } });
+      });
+    }
     rows.push({ h: 'Sustav' });
     rows.push({ type: 'btn', name: 'domOnOff', label: 'Dom kao početni zaslon', value: S.disabled ? 'Isključeno' : 'Uključeno', act: function () {
       var off = !S.disabled;
@@ -1180,6 +1227,7 @@
   function openSettings() {
     S.zone = 'settings';
     SET.pos = 0; SET.rows = [];
+    loadTune();
     renderSettings();
     $('#settings').classList.remove('hidden');
     applyFocus();
