@@ -16,18 +16,20 @@ body {
   position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; background: #fff; opacity: 0;
   pointer-events: none; z-index: 99; box-shadow: 0 0 26px 8px rgba(255,255,255,.75); transform-origin: 50% 50%;
 }
-body.crt-off #tube { animation: crt-squash 430ms cubic-bezier(.6,0,.85,.35) forwards; }
-body.crt-off #crt-line { animation: crt-line 640ms ease-out forwards; }
+body.crt-off #tube { animation: crt-squash 400ms cubic-bezier(.6,0,.85,.35) forwards; }
+body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 @keyframes crt-squash {
-  0% { transform: scale(1, 1); }
-  58% { transform: scale(1, .006); }
-  100% { transform: scale(0, .006); }
+  0% { transform: scale(1, 1); opacity: 1; }
+  72% { transform: scale(1, .004); opacity: 1; }
+  100% { transform: scale(1, .004); opacity: 0; }
 }
 @keyframes crt-line {
-  0% { opacity: 0; transform: scaleX(1); }
-  30% { opacity: 1; transform: scaleX(1); }
-  62% { opacity: 1; transform: scaleX(.1); }
-  100% { opacity: 0; transform: scaleX(0); }
+  0% { opacity: 0; transform: scale(1, 1); }
+  26% { opacity: 1; transform: scale(1, 1); }
+  48% { opacity: 1; transform: scale(1, .3); }      /* the line gets thinner */
+  76% { opacity: 1; transform: scale(.005, .3); }   /* ... and pulls into the middle */
+  84% { opacity: 1; transform: scale(.005, 1.6); }  /* a dot */
+  100% { opacity: 0; transform: scale(.002, 1.6); }
 }
 
 /* ---------- background ---------- */
@@ -66,14 +68,14 @@ body.crt-off #crt-line { animation: crt-line 640ms ease-out forwards; }
 /* weather: hangs under the clock block in every layout, so it never disturbs how that block is laid out */
 #weather { display: none; }
 #weather.on {
-  display: flex; align-items: center; gap: 12px; position: absolute; top: 100%; right: 0; margin-top: 10px;
-  white-space: nowrap; font-size: 30px;
+  display: flex; align-items: center; gap: 10px; position: absolute; top: 100%; right: 0; margin-top: 8px;
+  white-space: nowrap; font-size: 22px;
 }
-#weather svg { width: 38px; height: 38px; flex: 0 0 auto; }
+#weather svg { width: 30px; height: 30px; flex: 0 0 auto; }
 #weather .wx-c { opacity: .8; }
-#weather .wx-t { font-weight: 600; }
+#weather .wx-t { font-size: 30px; font-weight: 600; }
 #weather .wx-d { opacity: .8; }
-#weather .wx-r { opacity: .6; font-size: .8em; margin-left: 4px; }
+#weather .wx-r { display: none; }
 
 /* ---------- top shelf ---------- */
 #shelf {
@@ -480,15 +482,16 @@ body.crt-off #crt-line { animation: crt-line 640ms ease-out forwards; }
 
 /* ---- weather position per layout ---- */
 #stage.layout-sidebar #weather.on, #stage.layout-ambient #weather.on { right: auto; left: 0; }
-#stage.layout-sidebar #weather.on { font-size: 22px; margin-top: 10px; gap: 8px; }
-#stage.layout-sidebar #weather svg { width: 28px; height: 28px; }
-#stage.layout-sidebar #weather .wx-r { display: none; }
-#stage.layout-ambient.has-wx #topbar { bottom: 346px; }
-#stage.layout-ambient #weather.on { font-size: 34px; margin-top: 18px; gap: 14px; }
-#stage.layout-ambient #weather svg { width: 44px; height: 44px; }
-#stage.layout-carousel #weather.on { right: auto; left: 50%; transform: translateX(-50%); }
-#stage.layout-bento #weather.on { font-size: 22px; margin-top: 4px; gap: 8px; }
-#stage.layout-bento #weather svg { width: 26px; height: 26px; }
-#stage.layout-harmonika #weather.on { font-size: 26px; margin-top: 4px; }
-#stage.layout-harmonika #weather svg { width: 32px; height: 32px; }
+#stage.layout-sidebar #weather.on { margin-top: 10px; gap: 8px; }
+#stage.layout-sidebar #weather .wx-t { font-size: 26px; }
 #stage.layout-sidebar #weather .wx-d { display: none; }
+#stage.layout-ambient.has-wx #topbar { bottom: 346px; }
+#stage.layout-ambient #weather.on { font-size: 30px; margin-top: 18px; gap: 14px; }
+#stage.layout-ambient #weather svg { width: 42px; height: 42px; }
+#stage.layout-ambient #weather .wx-t { font-size: 42px; }
+#stage.layout-carousel #weather.on { right: auto; left: 50%; transform: translateX(-50%); }
+#stage.layout-bento #weather.on { margin-top: 2px; gap: 8px; }
+#stage.layout-bento #weather svg { width: 26px; height: 26px; }
+#stage.layout-bento #weather .wx-t { font-size: 26px; }
+#stage.layout-harmonika #weather.on { margin-top: 2px; }
+#stage.layout-harmonika #weather .wx-t { font-size: 28px; }
