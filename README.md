@@ -178,7 +178,9 @@ Pozadine → **Vrijeme preko pozadine** (isključeni, statični ili animirani): 
 - **magla** i **oblačno**: mekani slojevi koji polako plove,
 - **sunčano** (danju): topli sjaj i zrake iz gornjeg kuta.
 
-Teksture se iscrtaju jednom na TV-u, animacija samo pomiče gotove slojeve. U laganom načinu efekti su statični. **Isprobaj efekt** pokaže svaki redom na 30 sekundi.
+I sama slika se mijenja kao što bi je kamera vidjela: po kiši i oluji tamnija i bljeđa, po magli mutnija, po snijegu hladnija, po suncu toplija. Kiša ima tri sloja dubine (mutne kapi blizu objektiva), izmaglicu pri dnu i kapi na staklu s lomom svjetla; oluja razgranate munje, svaki put na drugom mjestu; snijeg mutne pahulje ispred objektiva; magla i oblaci su fraktalni šum; sunce ima zrake i odbljeske objektiva.
+
+Teksture se iscrtaju jednom na TV-u, animacija samo pomiče gotove slojeve. U laganom načinu efekti su statični i slika se ne mijenja. **Isprobaj efekt** pokaže svaki redom na 30 sekundi.
 
 ## Konzole, obavijesti, pametni dom
 

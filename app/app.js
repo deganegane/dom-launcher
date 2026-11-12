@@ -1561,71 +1561,135 @@
     var u = '';
     try {
       var c = document.createElement('canvas'); c.width = w; c.height = h;
-      draw(c.getContext('2d'), w, h);
+      draw(c.getContext('2d'), w, h, c);
       u = c.toDataURL('image/png');
     } catch (e) {}
     WXFX.tex[key] = u;
     return u;
   }
-  // everything is drawn three times across each edge so the tile repeats without a seam
+  function rngFx(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  // everything is drawn again across each edge so the tile repeats without a seam
   function wrapDraw(w, h, x, y, fn) { for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) fn(x + dx * w, y + dy * h); }
-  function rainTex(seed, n, minL, maxL, maxA, width) {
-    return tex('rain' + seed, 512, 512, function (g, w, h) {
+  // a soft blur where the canvas supports it (out-of-focus drops and flakes close to the lens)
+  function soft(g, px) { try { g.filter = px ? 'blur(' + px + 'px)' : 'none'; } catch (e) {} }
+
+  // rain: thin streaks fading in from the top, as a moving drop looks on a photo (motion blur)
+  function rainTex(seed, size, n, minL, maxL, minA, maxA, minW, maxW, blur) {
+    return tex('rain' + seed, size, size, function (g, w, h) {
       var r = rngFx(seed);
+      soft(g, blur);
       for (var i = 0; i < n; i++) {
-        var x = r() * w, y = r() * h, len = minL + r() * (maxL - minL), a = 0.12 + r() * maxA, lw = 0.8 + r() * width;
+        var x = r() * w, y = r() * h, len = minL + r() * (maxL - minL), a = minA + r() * (maxA - minA), lw = minW + r() * (maxW - minW);
         wrapDraw(w, h, x, y, function (px, py) {
           var gr = g.createLinearGradient(px, py, px, py + len);
-          gr.addColorStop(0, 'rgba(220,230,245,0)'); gr.addColorStop(1, 'rgba(220,230,245,' + a.toFixed(2) + ')');
+          gr.addColorStop(0, 'rgba(210,222,240,0)'); gr.addColorStop(0.7, 'rgba(225,234,248,' + (a * 0.8).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(240,246,255,' + a.toFixed(3) + ')');
           g.strokeStyle = gr; g.lineWidth = lw; g.lineCap = 'round';
           g.beginPath(); g.moveTo(px, py); g.lineTo(px, py + len); g.stroke();
         });
       }
     });
   }
-  function snowTex(seed, n, minR, maxR) {
-    return tex('snow' + seed, 512, 512, function (g, w, h) {
+  // snow: round flakes, a bright core and a soft edge; the near ones out of focus
+  function snowTex(seed, size, n, minR, maxR, blur, maxA) {
+    return tex('snow' + seed, size, size, function (g, w, h) {
       var r = rngFx(seed);
+      soft(g, blur);
       for (var i = 0; i < n; i++) {
-        var x = r() * w, y = r() * h, rad = minR + r() * r() * (maxR - minR), a = 0.5 + r() * 0.5;
+        var x = r() * w, y = r() * h, rad = minR + r() * r() * (maxR - minR), a = (0.45 + r() * 0.55) * (maxA || 1);
         wrapDraw(w, h, x, y, function (px, py) {
           var gr = g.createRadialGradient(px, py, 0, px, py, rad);
-          gr.addColorStop(0, 'rgba(255,255,255,' + a.toFixed(2) + ')'); gr.addColorStop(0.45, 'rgba(255,255,255,' + (a * 0.7).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          gr.addColorStop(0, 'rgba(255,255,255,' + a.toFixed(2) + ')'); gr.addColorStop(0.55, 'rgba(250,252,255,' + (a * 0.75).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(240,245,255,0)');
           g.fillStyle = gr; g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
         });
       }
     });
   }
-  function fogTex(seed, n, tint) {
-    return tex('fog' + seed + tint, 1024, 512, function (g, w, h) {
-      var r = rngFx(seed);
-      for (var i = 0; i < n; i++) {
-        var x = r() * w, y = h * 0.25 + r() * h * 0.6, rad = 120 + r() * 260, a = (tint.charAt(0) === '2' ? 0.05 : 0.12) + r() * 0.14;
-        wrapDraw(w, h, x, y, function (px, py) {
-          var gr = g.createRadialGradient(px, py, 0, px, py, rad);
-          gr.addColorStop(0, 'rgba(' + tint + ',' + a.toFixed(3) + ')'); gr.addColorStop(1, 'rgba(' + tint + ',0)');
-          g.fillStyle = gr; g.fillRect(px - rad, py - rad, rad * 2, rad * 2);
-        });
+  // fog and clouds: tileable fractal noise (five octaves of smooth value noise), shaped by a vertical profile
+  function noiseTex(seed, w, h, rgb, gain, bias, profile) {
+    return tex('noise' + seed + rgb, w, h, function (g) {
+      var r = rngFx(seed), oct = [], o, x, y;
+      for (o = 0; o < 5; o++) {
+        var cw = 4 << o, ch = Math.max(2, (4 << o) >> 1), grid = [];
+        for (var i = 0; i < cw * ch; i++) grid.push(r());
+        oct.push({ cw: cw, ch: ch, g: grid, amp: Math.pow(0.55, o) });
       }
+      var img = g.createImageData(w, h), d = img.data, c = rgb.split(',').map(Number), norm = 0;
+      oct.forEach(function (q) { norm += q.amp; });
+      var sm = function (t) { return t * t * (3 - 2 * t); };
+      for (y = 0; y < h; y++) {
+        var prof = profile(y / h);
+        for (x = 0; x < w; x++) {
+          var v = 0;
+          for (o = 0; o < oct.length; o++) {
+            var q = oct[o], fx = x / w * q.cw, fy = y / h * q.ch, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = sm(fx - x0), ty = sm(fy - y0);
+            var x1 = (x0 + 1) % q.cw, y1 = (y0 + 1) % q.ch;   // wraps: the tile repeats seamlessly
+            var a00 = q.g[y0 * q.cw + x0], a10 = q.g[y0 * q.cw + x1], a01 = q.g[y1 * q.cw + x0], a11 = q.g[y1 * q.cw + x1];
+            v += q.amp * ((a00 + (a10 - a00) * tx) + ((a01 + (a11 - a01) * tx) - (a00 + (a10 - a00) * tx)) * ty);
+          }
+          v = v / norm;
+          var al = Math.max(0, Math.min(1, (v - bias) * gain)) * prof;
+          var k = (y * w + x) * 4;
+          d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = Math.round(al * 255);
+        }
+      }
+      g.putImageData(img, 0, 0);
     });
   }
-  function glassTex() {   // drops sitting on a window: a dark rim, a lighter body, a small highlight
-    return tex('glass', 512, 512, function (g, w, h) {
+  // drops on a window: each one shows the light upside down (dark rim at the top, a bright crescent below) and a highlight
+  function glassTex() {
+    return tex('glass2', 768, 768, function (g, w, h) {
       var r = rngFx(77);
-      for (var i = 0; i < 70; i++) {
-        var x = r() * w, y = r() * h, rad = 2 + r() * r() * 11, tall = 1 + r() * 0.4;
+      for (var i = 0; i < 120; i++) {
+        var x = r() * w, y = r() * h, rad = 1.5 + Math.pow(r(), 2.2) * 13, tall = 1 + r() * 0.35, run = r() < 0.12;
         wrapDraw(w, h, x, y, function (px, py) {
-          g.save(); g.translate(px, py); g.scale(1, tall);
-          var gr = g.createRadialGradient(-rad * 0.25, -rad * 0.3, rad * 0.1, 0, 0, rad);
-          gr.addColorStop(0, 'rgba(255,255,255,.28)'); gr.addColorStop(0.7, 'rgba(200,215,230,.10)'); gr.addColorStop(0.92, 'rgba(10,15,25,.28)'); gr.addColorStop(1, 'rgba(10,15,25,0)');
-          g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rad, 0, Math.PI * 2); g.fill();
-          g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.arc(-rad * 0.35, -rad * 0.4, Math.max(0.6, rad * 0.16), 0, Math.PI * 2); g.fill();
+          g.save(); g.translate(px, py);
+          if (run) {   // a drop that has run down and left a thin wet trail
+            var tr = g.createLinearGradient(0, -rad * 9, 0, 0);
+            tr.addColorStop(0, 'rgba(220,230,240,0)'); tr.addColorStop(1, 'rgba(220,230,240,.12)');
+            g.fillStyle = tr; g.fillRect(-rad * 0.35, -rad * 9, rad * 0.7, rad * 9);
+          }
+          g.scale(1, tall);
+          var body = g.createLinearGradient(0, -rad, 0, rad);
+          body.addColorStop(0, 'rgba(8,12,20,.42)'); body.addColorStop(0.45, 'rgba(60,70,85,.12)'); body.addColorStop(0.8, 'rgba(235,240,248,.30)'); body.addColorStop(1, 'rgba(255,255,255,.45)');
+          g.fillStyle = body; g.beginPath(); g.arc(0, 0, rad, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = 'rgba(5,8,14,.35)'; g.lineWidth = Math.max(0.6, rad * 0.12); g.beginPath(); g.arc(0, 0, rad * 0.94, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+          g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(-rad * 0.32, -rad * 0.42, Math.max(0.5, rad * 0.2), Math.max(0.4, rad * 0.13), -0.6, 0, Math.PI * 2); g.fill();
           g.restore();
         });
       }
     });
   }
-  function rngFx(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  // lightning: a jagged main channel with branches, a white core in a blue glow
+  function boltTex(seed) {
+    return tex('bolt' + seed, 520, 900, function (g, w, h) {
+      var r = rngFx(seed);
+      function path(x, y, ang, len, width, depth) {
+        var pts = [[x, y]], seg = 14 + Math.floor(r() * 8);
+        for (var i = 0; i < seg; i++) {
+          ang += (r() - 0.5) * 0.9;
+          x += Math.sin(ang) * len / seg; y += Math.cos(ang) * len / seg;
+          pts.push([x, y]);
+          if (depth < 2 && r() < 0.16) path(x, y, ang + (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.6), len * (0.25 + r() * 0.3), width * 0.5, depth + 1);
+        }
+        [[width * 9, 'rgba(150,175,255,.18)', 18], [width * 3.5, 'rgba(190,210,255,.55)', 8], [width, 'rgba(255,255,255,1)', 0]].forEach(function (p) {
+          g.save(); g.shadowColor = 'rgba(160,185,255,.9)'; g.shadowBlur = p[2];
+          g.strokeStyle = p[1]; g.lineWidth = p[0]; g.lineJoin = 'round'; g.lineCap = 'round';
+          g.beginPath(); pts.forEach(function (pt, i) { if (i) g.lineTo(pt[0], pt[1]); else g.moveTo(pt[0], pt[1]); }); g.stroke();
+          g.restore();
+        });
+      }
+      path(w * (0.35 + r() * 0.3), 0, (r() - 0.5) * 0.4, h * 0.95, 2.4, 0);
+    });
+  }
+  var BOLT_N = 0;
+  function boltMove() {   // a new bolt somewhere else for every flash
+    var el = $('#wxfx .wf-bolt');
+    if (!el) return;
+    BOLT_N = (BOLT_N + 1) % 4;
+    el.style.backgroundImage = 'url("' + boltTex(901 + BOLT_N) + '")';
+    el.style.left = Math.round(8 + Math.random() * 70) + '%';
+    el.style.transform = 'scale(' + (0.75 + Math.random() * 0.5).toFixed(2) + ') scaleX(' + (Math.random() < 0.5 ? -1 : 1) + ')';
+  }
   function wxfxApply() {
     var mode = S.wxfx === 'anim' && S.lite ? 'static' : S.wxfx;
     var k = mode === 'off' || S.layout === 'teletekst' || S.layout === 'novine' ? '' : wxfxKind();
@@ -1635,20 +1699,31 @@
     if (!k || k === WXFX.kind) { WXFX.kind = k; return; }
     WXFX.kind = k;
     var set = function (sel, u) { var el = $(sel); if (el) el.style.backgroundImage = u ? 'url("' + u + '")' : ''; };
-    var heavy = k === 'storm';
+    var heavy = k === 'storm', light = k === 'drizzle';
+    ['.wf-a', '.wf-b', '.wf-c', '.wf-mist', '.wf-glass', '.wf-bolt'].forEach(function (c) { set('#wxfx ' + c, ''); });
     if (k === 'rain' || k === 'drizzle' || k === 'storm') {
-      set('#wxfx .wf-a', rainTex(11 + (heavy ? 1 : 0), k === 'drizzle' ? 70 : (heavy ? 260 : 170), 26, k === 'drizzle' ? 50 : 90, heavy ? 0.4 : 0.32, 1.1));
-      set('#wxfx .wf-b', k === 'drizzle' ? '' : rainTex(21, heavy ? 90 : 55, 60, 150, 0.35, 1.8));
+      // far: many fine faint streaks; middle; near: few thick, out-of-focus ones
+      set('#wxfx .wf-a', rainTex(11, 512, light ? 90 : (heavy ? 340 : 230), 20, light ? 45 : 70, 0.06, light ? 0.22 : 0.3, 0.6, 1.2, 0));
+      set('#wxfx .wf-b', light ? '' : rainTex(21, 768, heavy ? 120 : 70, 70, 170, 0.12, 0.4, 1.2, 2.2, 0.4));
+      set('#wxfx .wf-c', light ? '' : rainTex(31, 1024, heavy ? 26 : 14, 180, 380, 0.1, 0.28, 3, 6, 2.5));
+      set('#wxfx .wf-mist', noiseTex(41, 512, 256, '200,210,222', 2.6, 0.38, function (t) { return Math.pow(t, 1.6); }));
       set('#wxfx .wf-glass', glassTex());
+      if (heavy) boltMove();
     } else if (k === 'snow') {
-      set('#wxfx .wf-a', snowTex(31, 300, 1.4, 4.2));
-      set('#wxfx .wf-b', snowTex(41, 80, 3.5, 11));
-    } else if (k === 'fog' || k === 'cloud') {
-      set('#wxfx .wf-a', fogTex(51, k === 'fog' ? 70 : 40, k === 'fog' ? '235,238,242' : '90,96,108'));
-      set('#wxfx .wf-b', fogTex(61, k === 'fog' ? 45 : 26, k === 'fog' ? '245,247,250' : '70,76,88'));
+      set('#wxfx .wf-a', snowTex(51, 512, 420, 0.8, 2.6, 0, 0.85));
+      set('#wxfx .wf-b', snowTex(61, 768, 110, 2.2, 6, 0.6, 1));
+      set('#wxfx .wf-c', snowTex(71, 1024, 16, 9, 22, 5, 0.7));
+      set('#wxfx .wf-mist', noiseTex(81, 512, 256, '235,240,246', 2.2, 0.42, function (t) { return 0.35 + 0.65 * t; }));
+    } else if (k === 'fog') {
+      set('#wxfx .wf-a', noiseTex(91, 512, 256, '236,239,243', 2.4, 0.3, function (t) { return Math.min(1, t * 1.6); }));
+      set('#wxfx .wf-b', noiseTex(101, 512, 256, '246,248,250', 2.8, 0.42, function (t) { return Math.min(1, t * 1.3); }));
+    } else if (k === 'cloud') {
+      set('#wxfx .wf-a', noiseTex(111, 512, 256, '70,76,88', 2.6, 0.34, function (t) { return Math.max(0, 1 - t * 1.15); }));
+      set('#wxfx .wf-b', noiseTex(121, 512, 256, '120,126,138', 3, 0.46, function (t) { return Math.max(0, 1 - t * 1.4); }));
     }
   }
   setInterval(function () { if (WXFX.preview && Date.now() > WXFX.until) { WXFX.preview = ''; wxfxApply(); } }, 5000);
+  document.addEventListener('animationiteration', function (e) { if (e.animationName === 'wf-flash') boltMove(); }, true);
   var WXFX_TRY = ['rain', 'storm', 'snow', 'fog', 'cloud', 'sun', 'drizzle'];
   function wxfxTry() {
     var i = WXFX_TRY.indexOf(WXFX.preview);
