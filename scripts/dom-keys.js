@@ -4,6 +4,7 @@
 //   node dom-keys.js pair            first-time pairing (accept the prompt on the TV)
 //   node dom-keys.js keys 0 DOWN OK  wait 0 ms, then press the buttons
 //   node dom-keys.js off             switch the TV off (same call phone remotes use)
+//   node dom-keys.js text <text> [enter]  type into the field that has focus on the TV (phone page)
 //   node dom-keys.js play <index>    open Stremio's Continue Watching item <index>
 //                                    using the template in /home/root/dom-stremio-keys.txt
 //
@@ -58,6 +59,8 @@ if (mode === 'keys') {
     else if (p) buttons.push(p.toUpperCase());
   });
   log('template "' + tpl + '" index ' + index + ' ->', buttons.join(' ') || '(none)');
+} else if (mode === 'text') {
+  var typed = process.argv[3] || '', typedEnter = process.argv[4] === 'enter';
 } else if (mode !== 'pair' && mode !== 'off') {
   die('unknown mode ' + mode);
 }
@@ -186,6 +189,12 @@ function attempt(i) {
       if (mode === 'off') {
         ws.send(JSON.stringify({ type: 'request', id: 'off', uri: 'ssap://system/turnOff' }));
         setTimeout(function () { process.exit(0); }, 1500);
+        return;
+      }
+      if (mode === 'text') {
+        if (typed) ws.send(JSON.stringify({ type: 'request', id: 'text', uri: 'ssap://com.webos.service.ime/insertText', payload: { text: typed, replace: 0 } }));
+        if (typedEnter) setTimeout(function () { ws.send(JSON.stringify({ type: 'request', id: 'enter', uri: 'ssap://com.webos.service.ime/sendEnterKey' })); }, typed ? 300 : 0);
+        setTimeout(function () { ws.close(); process.exit(0); }, 1200);
         return;
       }
       ws.send(JSON.stringify({ type: 'request', id: 'ptr', uri: 'ssap://com.webos.service.networkinput/getPointerInputSocket' }));

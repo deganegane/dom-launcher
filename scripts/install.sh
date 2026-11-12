@@ -2,7 +2,9 @@
 # Dom launcher — instalacija na rootani LG webOS TV.
 # Pokreni na TV-u (SSH kao root):
 #   curl -fsSL "https://raw.githubusercontent.com/deganegane/dom-launcher/main/scripts/install.sh?$(date +%s)" | sh
+# /home/root/dom-install.sh rollback   vraća prethodnu verziju (Postavke › Sustav › Stanje sustava)
 set -e
+MODE="${1:-install}"
 NOCACHE="?$(date +%s)"   # raw.githubusercontent caches files for ~5 min
 
 REPO="deganegane/dom-launcher"
@@ -38,27 +40,63 @@ fetch() {  # fetch <url> <file>
   return 1
 }
 
+# install_ipk <file>: hand a package to the TV's installer and wait for the answer
+install_ipk() {
+  rm -f "$LOG"
+  luna-send-pub -w 60000 -i 'luna://com.webos.appInstallService/dev/install' \
+    "{\"id\":\"com.ares.defaultName\",\"ipkUrl\":\"$1\",\"subscribe\":true}" > "$LOG" 2>&1 &
+  i_pid=$!
+  i_ok=0; i=0
+  while [ $i -lt 60 ]; do
+    sleep 1
+    i=$((i + 1))
+    if grep -q '"installed"' "$LOG" 2>/dev/null; then i_ok=1; break; fi
+    if grep -qi '"failed"\|errorText' "$LOG" 2>/dev/null; then break; fi
+  done
+  kill $i_pid 2>/dev/null || true
+  [ $i_ok -eq 1 ]
+}
+installed_ver() {
+  for d in /media/developer/apps/usr/palm/applications/$APPID /media/cryptofs/apps/usr/palm/applications/$APPID; do
+    [ -f "$d/appinfo.json" ] && sed -n 's/.*"version" *: *"\([^"]*\)".*/\1/p' "$d/appinfo.json" | head -1 && return 0
+  done
+  echo "?"
+}
+relaunch() {
+  # close the running copy so the new version is actually loaded
+  luna-send -n 1 luna://com.webos.service.applicationManager/closeByAppId "{\"id\":\"$APPID\"}" >/dev/null 2>&1 || true
+  sleep 1
+  rm -f /tmp/dom-alive
+  luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\"}" >/dev/null 2>&1 || true
+}
+# the last two packages are kept, so a version that does not start can be undone
+BK=/home/root/dom-backup
+mkdir -p "$BK"
+rollback() {
+  [ -s "$BK/previous.ipk" ] || { echo "!! Nema prethodne verzije"; return 1; }
+  echo "==> Vraćam verziju $(cat "$BK/previous.ver" 2>/dev/null)"
+  cp -f "$BK/previous.ipk" "/tmp/$APPID-prev.ipk"
+  install_ipk "/tmp/$APPID-prev.ipk" || { echo "!! Vraćanje nije uspjelo:"; cat "$LOG"; return 1; }
+  rm -f "/tmp/$APPID-prev.ipk"
+  # the version that did not work is dropped: "previous" becomes "current"
+  mv -f "$BK/previous.ipk" "$BK/current.ipk"; mv -f "$BK/previous.ver" "$BK/current.ver" 2>/dev/null || true
+  relaunch
+  echo "   vraćena verzija $(installed_ver)"
+}
+if [ "$MODE" = rollback ]; then rollback; exit $?; fi
+
 echo "==> Preuzimam $IPK_URL"
 fetch "$IPK_URL" "$IPK" || { echo "!! Preuzimanje nije uspjelo. Provjeri mrežu/DNS na TV-u (nslookup github.com)."; exit 1; }
 
 echo "==> Instaliram"
-rm -f "$LOG"
-luna-send-pub -w 60000 -i 'luna://com.webos.appInstallService/dev/install' \
-  "{\"id\":\"com.ares.defaultName\",\"ipkUrl\":\"$IPK\",\"subscribe\":true}" > "$LOG" 2>&1 &
-PID=$!
-OK=0
-i=0
-while [ $i -lt 60 ]; do
-  sleep 1
-  i=$((i + 1))
-  if grep -q '"installed"' "$LOG" 2>/dev/null; then OK=1; break; fi
-  if grep -qi '"failed"\|errorText' "$LOG" 2>/dev/null; then break; fi
-done
-kill $PID 2>/dev/null || true
-if [ $OK -ne 1 ]; then
-  echo "!! Instalacija nije uspjela:"; cat "$LOG"; exit 1
+install_ipk "$IPK" || { echo "!! Instalacija nije uspjela:"; cat "$LOG"; exit 1; }
+NEW_VER=$(installed_ver)
+if [ -s "$BK/current.ipk" ] && [ "$(cat "$BK/current.ver" 2>/dev/null)" != "$NEW_VER" ]; then
+  mv -f "$BK/current.ipk" "$BK/previous.ipk"; mv -f "$BK/current.ver" "$BK/previous.ver" 2>/dev/null || true
 fi
-rm -f "$IPK"
+mv -f "$IPK" "$BK/current.ipk"
+echo "$NEW_VER" > "$BK/current.ver"
+echo "   verzija $NEW_VER"
 
 # helper scripts ship inside the .ipk (raw.githubusercontent caches old copies)
 get_tool() {
@@ -80,6 +118,11 @@ pkill -f "getForegroundAppInfo" 2>/dev/null || true
 pkill -f "getPowerState" 2>/dev/null || true
 pkill -f "registerScreenSaverRequest" 2>/dev/null || true
 pkill -f "getAppLifeEvents" 2>/dev/null || true
+# the background helper is started again below, with the new code
+[ -f /tmp/dom-agent.pid ] && kill "$(cat /tmp/dom-agent.pid)" 2>/dev/null || true
+pkill -f "dom-agent.js" 2>/dev/null || true
+pkill -f "getAllInputStatus" 2>/dev/null || true
+rm -f /tmp/dom-agent.pid
 get_tool dom-ctl.sh /home/root/dom-ctl.sh
 chmod +x /home/root/dom-ctl.sh
 # a copy of this installer, for "Nadogradi Dom" in Settings
@@ -89,6 +132,16 @@ if [ -f /home/root/dom-disabled ]; then
 else
   nohup "$GUARD" >/dev/null 2>&1 &
 fi
+
+echo "==> Pozadinski pomoćnik (mobitel, obavijesti, konzole)"
+get_tool dom-agent.js /home/root/dom-agent.js
+get_tool dom-web.html /home/root/dom-web.html
+mkdir -p "$INITD"
+printf '%s\n' '#!/bin/sh' \
+  '# Dom: background helper (phone page, new-episode notices, consoles on HDMI). Undo: delete this file.' \
+  '( sleep 20; /home/root/dom-ctl.sh agent start ) >/dev/null 2>&1 &' > "$INITD/91-dom-agent"
+chmod +x "$INITD/91-dom-agent"
+/home/root/dom-ctl.sh agent start || true
 
 echo "==> Stremio: pomoćnik za tipke"
 get_tool dom-keys.js /home/root/dom-keys.js
@@ -180,10 +233,18 @@ EOF
 chmod +x "$INITD/90-dom-launcher"
 
 echo "==> Pokrećem Dom"
-# close the running copy so the new version is actually loaded
-luna-send -n 1 luna://com.webos.service.applicationManager/closeByAppId "{\"id\":\"$APPID\"}" >/dev/null 2>&1 || true
-sleep 1
-luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\"}" >/dev/null 2>&1 || true
+relaunch
+# a new version that does not start (no sign of life in 45 s) is undone at once
+if [ -s "$BK/previous.ipk" ] && [ -z "$DOM_NO_CHECK" ]; then
+  i=0
+  while [ $i -lt 45 ] && [ ! -f /tmp/dom-alive ]; do sleep 1; i=$((i + 1)); done
+  if [ -f /tmp/dom-alive ]; then
+    echo "   Dom $NEW_VER radi"
+  else
+    echo "!! Dom $NEW_VER se ne pokreće, vraćam prethodnu verziju"
+    if rollback; then installed_ver > /home/root/dom-rolled-back; fi
+  fi
+fi
 
 echo
 echo "Gotovo. Home tipka sada otvara Dom (keybind u LG Input Hooku možeš maknuti)."

@@ -5,6 +5,8 @@
 #    creates /tmp/dom-allow-home first.
 #  - while another app is in front, grab a frame of the screen every ~20s so
 #    Dom can show "what you were just watching" as that app's background.
+#  - keep a log of what is on screen (Statistika gledanja), end the time of the
+#    kids' profile, and keep the background helper (dom-agent.js) running.
 APPID="com.deganegane.dom"
 HOME_ID="com.webos.app.home"
 FLAG="/tmp/dom-allow-home"
@@ -52,9 +54,24 @@ skip_capture() {
   return 1
 }
 
+USAGE="/home/root/dom-usage.log"
+# one line per change of what is on screen: "<unix time> <app id>", "OFF" when the TV goes off
+usage() {
+  echo "$(date +%s) $1" >> "$USAGE"
+  if [ "$(wc -l < "$USAGE")" -gt 6000 ]; then tail -n 4000 "$USAGE" > "$USAGE.tmp" && mv "$USAGE.tmp" "$USAGE"; fi
+}
+KIDS="/tmp/dom-kids-deadline"
+AGENT="/home/root/dom-agent.js"
+start_agent() {
+  [ -f /tmp/dom-agent.pid ] && kill -0 "$(cat /tmp/dom-agent.pid)" 2>/dev/null && return 0
+  N=$(command -v node || ls /usr/bin/node /usr/local/bin/node 2>/dev/null | head -1)
+  [ -n "$N" ] && [ -f "$AGENT" ] && nohup "$N" "$AGENT" >/dev/null 2>&1 &
+}
+
 log "start"
 FG="/tmp/dom-fg"
 : > "$FG"
+start_agent
 
 # --- frames of what is being watched: first one ~8s after an app opens, then every ~20s
 (
@@ -65,6 +82,13 @@ FG="/tmp/dom-fg"
     if [ "$fg" != "$lastfg" ]; then lastfg="$fg"; n=0; fi
     n=$((n + 1))
     if ! skip_capture "$fg" && [ $((n % 5)) -eq 2 ]; then capture "$fg"; fi
+    # kids' profile: when the day's time is up, Dom comes back over whatever is playing
+    if [ -f "$KIDS" ] && [ "$(date +%s)" -ge "$(cat "$KIDS" 2>/dev/null || echo 9999999999)" ] && [ "$fg" != "$APPID" ]; then
+      rm -f "$KIDS"; log "kids: time is up"
+      luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\",\"params\":{\"dom\":\"kidslimit\"}}" >/dev/null 2>&1
+    fi
+    # the background helper died: start it again (once a minute at most)
+    [ $((n % 15)) -eq 0 ] && start_agent
   done
 ) &
 
@@ -107,8 +131,13 @@ FG="/tmp/dom-fg"
     while read -r line; do
       case "$line" in
         *'"Request Power Off"'*)
+          usage OFF
           [ "$(cat "$FG" 2>/dev/null)" = "$APPID" ] &&
             luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\",\"params\":{\"dom\":\"poweroff\"}}" >/dev/null 2>&1
+          ;;
+        *'"state"'*'"Active"'*)
+          # back on: what is on screen counts again from now
+          case "$line" in *processing*) ;; *) f=$(cat "$FG" 2>/dev/null); [ -n "$f" ] && usage "$f" ;; esac
           ;;
       esac
     done
@@ -124,6 +153,7 @@ while true; do
     app=$(echo "$line" | sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p')
     [ "$app" = "$(cat "$FG" 2>/dev/null)" ] && continue
     echo "$app" > "$FG"
+    usage "${app:-?}"
     log "foreground: ${app:-?}"
     if [ "$app" = "$HOME_ID" ]; then
       if [ -f "$FLAG" ]; then
