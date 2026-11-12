@@ -31,12 +31,20 @@
     // light: warm white, dark type, the picture in a rounded frame
     svjetla:  { name: 'Svjetla', mode: 'dock', scale: 0.56, view: 3086, enter: 'up', cardAxis: 'h', cardView: 1064, boxed: true },
     // a slim rail of icons on the left, the rest of the screen for the picture
-    fokus:    { name: 'Fokus', mode: 'list', enter: 'right', cardAxis: 'h', cardView: 1560, listView: 860 }
+    fokus:    { name: 'Fokus', mode: 'list', enter: 'right', cardAxis: 'h', cardView: 1560, listView: 860 },
+    // the apps stand on the rim of a big wheel that turns; the focused one at the top
+    orbita:   { name: 'Orbita', mode: 'arc', enter: 'up', cardAxis: 'h', cardView: 1728 },
+    // a dashboard: clock, five-day forecast, time in front of the screen today, what to continue, all the apps
+    widgeti:  { name: 'Widgeti', cols: 4, noScroll: true, enter: 'left', cardAxis: 'v', boxed: true, allCards: true, widgets: true },
+    // posters under a marquee; going into the posters closes the screen to a letterbox
+    kino:     { name: 'Kino', mode: 'dock', scale: 0.5, view: 3456, enter: 'up', cardAxis: 'h', cardView: 1728, allCards: true, posters: true },
+    // a newspaper: masthead, the apps as sections, a headline, articles
+    novine:   { name: 'Novine', mode: 'dock', scale: 1, view: 1776, enter: 'down', cardAxis: 'h', cardView: 1776, boxed: true, allCards: true }
   };
   LAYOUTS.bento.boxed = true;
-  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst', 'minimal', 'kartice', 'svjetla', 'fokus'];
+  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst', 'minimal', 'kartice', 'svjetla', 'fokus', 'orbita', 'widgeti', 'kino', 'novine'];
   function L() { return LAYOUTS[S.layout] || LAYOUTS.classic; }
-  function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : 5); }
+  function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : (L().cols || 5)); }
   var ROW_H = 180 + 92;
   var SETTINGS_KEY = '__settings';
   var RENAME = { 'YouTube AdFree': 'YouTube', 'PS5 Game Console': 'PlayStation' };   // shown name instead of the app's own
@@ -784,7 +792,7 @@
       el.innerHTML = '<div class="card-title">' + esc(item.name) + (item.season ? ' · S' + item.season + 'E' + item.episode : '') + '</div>' +
         '<div class="card-bar"><div style="width:' + pct + '%"></div></div>' +
         (ia && ia.icon ? '<img class="card-app" src="' + esc(ia.icon) + '" alt="">' : '');
-      setImage(el, [item.thumb, item.thumbFallback, item.poster]);
+      setImage(el, L().posters ? [item.poster, item.kind === 'app' ? item.thumb : '', item.thumbFallback] : [item.thumb, item.thumbFallback, item.poster]);
       el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings' && !S.moving) { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
       // look the item up at click time: launch parameters are refreshed in the background
       el.addEventListener('click', function () { if (S.zone !== 'settings' && !S.moving) activateItem(shelfItems(S.list[S.idx])[i]); });
@@ -981,6 +989,20 @@
         art.style.setProperty('--ry', d === 0 ? '0deg' : (d > 0 ? '-30deg' : '30deg'));
       }
       grid.style.transform = 'none';
+    } else if (lay.mode === 'arc') {
+      // positions on a circle whose top is the focused app; the wheel turns as the focus moves
+      var RAD = 1500, STEP = 10.5, CX = 960, CY = 790 + RAD;
+      for (var q = 0; q < tiles.length; q++) {
+        var dq = q - S.idx, ang = dq * STEP * Math.PI / 180, far = Math.abs(dq);
+        tiles[q].style.left = Math.round(CX + RAD * Math.sin(ang) - 150) + 'px';
+        tiles[q].style.top = Math.round(CY - RAD * Math.cos(ang) - 90) + 'px';
+        tiles[q].style.opacity = far > 4 ? 0 : (1 - far * 0.17).toFixed(2);
+        tiles[q].style.zIndex = 20 - far;
+        var aq = tiles[q].querySelector('.tile-art');
+        aq.style.setProperty('--s', dq === 0 ? 1.25 : Math.max(0.6, 0.9 - far * 0.07).toFixed(2));
+        tiles[q].style.transform = 'rotate(' + (dq * STEP).toFixed(1) + 'deg)';
+      }
+      grid.style.transform = 'none';
     } else if (lay.mode === 'accordion') {
       // the focused app is a wide panel, the others are narrow strips; the art sits under the panel
       var ASTEP = 168, AWIDE = 888, AVIEW = 1728;
@@ -995,10 +1017,10 @@
       var gmax = Math.max(0, tiles.length * step - gap - lay.view);
       grid.style.transform = 'translateX(' + (-Math.min(gmax, Math.max(0, S.idx - (vis - 1)) * step)) + 'px)';
     } else {
-      var y = (S.zone === 'shelf' || r === 0) ? 0 : (430 - 640 - r * ROW_H);
+      var y = (S.zone === 'shelf' || r === 0 || lay.noScroll) ? 0 : (430 - 640 - r * ROW_H);
       grid.style.transform = 'translateY(' + y + 'px)';
     }
-    stage.classList.toggle('scrolled', !lay.mode && S.zone !== 'shelf' && r > 0);
+    stage.classList.toggle('scrolled', !lay.mode && !lay.noScroll && S.zone !== 'shelf' && r > 0);
     stage.classList.toggle('zone-shelf', S.zone === 'shelf');
     var osd = $('#osd'), cur = S.list[S.idx];
     if (osd) osd.textContent = cur && cur.key !== SETTINGS_KEY ? (S.layout === 'teletekst' ? 'P' + (100 + S.idx + 1) : 'P' + ('0' + (S.idx + 1)).slice(-2)) : '';
@@ -1134,9 +1156,9 @@
     }
     if (S.zone === 'grid') {
       var COLS = cols(), col = S.idx % COLS;
-      var ek = { up: KEY.UP, down: KEY.DOWN, right: KEY.RIGHT }[L().enter || 'up'];
+      var ek = { up: KEY.UP, down: KEY.DOWN, right: KEY.RIGHT, left: KEY.LEFT }[L().enter || 'up'];
       if (L().tabs && k === KEY.UP) { S.zone = 'tabs'; S.tab = 0; applyFocus(); e.preventDefault(); return; }
-      if (k === ek && (ek !== KEY.UP || rowOf(S.idx) === 0) && shelfItems(S.list[S.idx]).length) {
+      if (k === ek && (ek !== KEY.UP || rowOf(S.idx) === 0) && (ek !== KEY.LEFT || col === 0) && shelfItems(S.list[S.idx]).length) {
         S.zone = 'shelf'; S.card = 0; applyFocus(); updateShelf(); e.preventDefault(); return;
       }
       if (k === KEY.LEFT && col > 0) setIdx(S.idx - 1, 'left');
@@ -1156,7 +1178,7 @@
     }
     if (S.zone === 'shelf') {
       var n = shelfItems(S.list[S.idx]).length, c = S.card, ax = L().cardAxis || 'h', out = false, to = c;
-      var exitKey = { up: KEY.DOWN, down: KEY.UP, right: KEY.LEFT }[L().enter || 'up'];
+      var exitKey = { up: KEY.DOWN, down: KEY.UP, right: KEY.LEFT, left: KEY.RIGHT }[L().enter || 'up'];
       if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) out = true;
       else if (ax === 'h') {
         // a row entered from the left (Fokus): Left on the first card goes back to the apps
@@ -1166,7 +1188,7 @@
       } else if (ax === 'v') {
         if (k === KEY.UP) to = c - 1;
         else if (k === KEY.DOWN) { if (c < n - 1) to = c + 1; else out = true; }
-        else if (k === KEY.LEFT) out = true; else return;
+        else if (k === (exitKey === KEY.RIGHT ? KEY.RIGHT : KEY.LEFT)) out = true; else return;
       } else {   // grid of 3 columns
         if (k === KEY.LEFT) { if (c % 3) to = c - 1; else out = true; }
         else if (k === KEY.RIGHT) { if (c % 3 < 2) to = c + 1; }
@@ -1255,6 +1277,8 @@
     stage.style.setProperty('--acc', main.join(','));
     stage.style.setProperty('--acc-l', pale.join(','));
   }
+  function widgetsRefresh() { if (L().widgets) { statsLoad(false); widgetsRender(); } }
+  setInterval(function () { if (!document.hidden) widgetsRefresh(); }, 10 * 60000);
   function themeApply() {
     stage.classList.toggle('accent', !!S.accent);
     stage.classList.toggle('surf-black', S.surface === 'black');
@@ -1262,6 +1286,7 @@
     stage.classList.toggle('kb', !!S.kenburns && !S.lite);
     stage.classList.toggle('lite', !!S.lite);
     seasonApply();
+    widgetsRefresh();
     accentKey = ''; accentFrom(S.list[S.idx]);
   }
   var SURFACES = { std: 'Standardne', black: 'OLED crne', glass: 'Staklo' };
@@ -1947,6 +1972,7 @@
       });
       STATS.day = day; STATS.week = week; STATS.at = Date.now(); STATS.busy = false;
       if (S.zone === 'settings') renderSettings();
+      widgetsRender();
     };
     if (DEMO) { done('D demo.0 5400\nD demo.2 1900\nW demo.0 32000\nW demo.2 15000\nW demo.1 9000\nW demo.9 4000'); return; }
     STATS.busy = true;
@@ -2069,18 +2095,45 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + WX_ICON[k[0]] + '</svg>' +
       '<span class="wx-t">' + Math.round(d.temp) + '°</span>' + (k[1] ? '<span class="wx-d">' + esc(k[1]) + '</span>' : '') +
       (d.max != null ? '<span class="wx-r">' + Math.round(d.max) + '° / ' + Math.round(d.min) + '°</span>' : '');
+    widgetsRender();
+  }
+  // Widgeti: the five-day forecast and today's time in front of the screen
+  var DAYS = ['ned', 'pon', 'uto', 'sri', 'čet', 'pet', 'sub'];
+  function widgetsRender() {
+    if (!L().widgets) return;
+    var d = WX.place && WX.data, fc = $('#w-forecast');
+    if (d && d.days && d.days.length) {
+      fc.innerHTML = '<div class="w-h">' + esc(String(WX.place.name || '').split(',')[0]) + '</div>' + d.days.map(function (x, i) {
+        var k = wxKind(x.code, 1), dt = new Date(x.t + 'T12:00:00');
+        return '<div class="w-day"><span class="w-dn">' + (i ? DAYS[dt.getDay()] : 'danas') + '</span>' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + WX_ICON[k[0]] + '</svg>' +
+          '<span class="w-hi">' + Math.round(x.max) + '°</span><span class="w-lo">' + Math.round(x.min) + '°</span></div>';
+      }).join('');
+    } else fc.innerHTML = '<div class="w-h">Prognoza</div><div class="w-empty">Postavi grad u Postavkama (Računi i prognoza).</div>';
+    var st = $('#w-stats');
+    if (STATS.day) {
+      var tot = statsSum(STATS.day), top = Object.keys(STATS.day).sort(function (a, b) { return STATS.day[b] - STATS.day[a]; })[0];
+      st.innerHTML = '<div class="w-h">Danas pred ekranom</div><div class="w-big">' + (tot >= 60 ? fmtDur(tot) : 'još ništa') + '</div>' +
+        (top && STATS.day[top] >= 60 ? '<div class="w-sub">najviše ' + esc(appName(top)) + ' · ' + fmtDur(STATS.day[top]) + '</div>' : '');
+    } else st.innerHTML = '<div class="w-h">Danas pred ekranom</div><div class="w-big">…</div>';
   }
   function wxRefresh(force) {
     if (!WX.place || WX.busy) return;
     if (!force && Date.now() - WX.at < 30 * 60000) return;
-    if (DEMO) { WX.data = { temp: 9, code: 2, day: 0, max: 13, min: 5 }; WX.at = Date.now(); wxRender(); return; }
+    if (DEMO) {
+      WX.data = { temp: 9, code: 2, day: 0, max: 13, min: 5, days: [[13, 5, 2], [11, 4, 61], [8, 2, 3], [10, 3, 0], [12, 6, 1]].map(function (x, i) {
+        return { t: new Date(Date.now() + i * 86400000).toISOString().slice(0, 10), max: x[0], min: x[1], code: x[2] };
+      }) };
+      WX.at = Date.now(); wxRender(); return;
+    }
     WX.busy = true;
     getJSON('https://api.open-meteo.com/v1/forecast?latitude=' + WX.place.lat + '&longitude=' + WX.place.lon +
-      '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1').then(function (r) {
+      '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=5').then(function (r) {
       var c = r && r.current, dl = (r && r.daily) || {};
       if (!c || typeof c.temperature_2m !== 'number') return;
       WX.data = { temp: c.temperature_2m, code: c.weather_code, day: c.is_day ? 1 : 0,
-                  max: dl.temperature_2m_max ? dl.temperature_2m_max[0] : null, min: dl.temperature_2m_min ? dl.temperature_2m_min[0] : null };
+                  max: dl.temperature_2m_max ? dl.temperature_2m_max[0] : null, min: dl.temperature_2m_min ? dl.temperature_2m_min[0] : null,
+                  days: (dl.time || []).map(function (t, i) { return { t: t, max: dl.temperature_2m_max[i], min: dl.temperature_2m_min[i], code: (dl.weather_code || [])[i] }; }) };
       WX.at = Date.now();
       store.set('wxData', WX.data); store.set('wxAt', WX.at);
     }).catch(function () {}).then(function () { WX.busy = false; wxRender(); if (S.zone === 'settings') renderSettings(); });
@@ -2580,6 +2633,7 @@
       for (var i = 0; i < S.list.length; i++) if (S.list[i].key === cur) S.idx = i;
       if (tileSig(S.list) !== gridSig) renderGrid(); else applyFocus();
       updateShelf();
+      widgetsRender();   // app names in the dashboard
     }).catch(function (e) {
       reloading = null;
       if (!S.apps.length) toast('Ne mogu učitati aplikacije: ' + e.message);
@@ -2619,6 +2673,7 @@
   function refreshSoon() {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(function () {
+      widgetsRefresh();
       if (!DEMO) exec('rm -f /tmp/dom-allow-home; [ -f /var/lib/webosbrew/init.d/06-dom-blank-home ] && [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh on').catch(function () {});
       reloadApps();
       refreshStremio(false);
