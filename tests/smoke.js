@@ -36,7 +36,7 @@ function fail(msg) { failures.push(msg); console.log('  FAIL ' + msg); }
   });
   if (bad.length) fail('broken landscapes: ' + bad.join(', '));
 
-  var layouts = await page.evaluate(function () { return ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst', 'minimal', 'kartice', 'svjetla', 'fokus', 'orbita', 'widgeti', 'kino', 'novine']; });
+  var layouts = await page.evaluate(function () { return ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst', 'minimal', 'kartice', 'orbita', 'widgeti', 'kino', 'novine']; });
   for (var li = 0; li < layouts.length; li++) {
     var lay = layouts[li];
     console.log('layout ' + lay);

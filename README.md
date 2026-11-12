@@ -46,6 +46,12 @@ Postavke → "Izgled početnog zaslona" mijenja između:
 - **Police**: sve što gledaš, iz svih aplikacija, u jednom redu (s ikonom aplikacije na kartici), ispod mali red aplikacija.
 - **Retro TV**: popis kanala starog televizora sa zelenim brojevima, linijama slike i zaobljenim ekranom.
 - **Teletekst**: stranica 100 kao na teletekstu, bez slika, s brojevima 101, 102… i crvenom i zelenom trakom.
+- **Minimal**: puno prostora, jedan red ikona; strelica gore zamijeni ikone karticama "Nastavi gledati".
+- **Kartice**: velika zaobljena istaknuta kartica, ispod nje "Nastavi gledati" i mali red aplikacija.
+- **Orbita**: aplikacije na luku kotača koji se okreće; fokusirana gore u sredini.
+- **Widgeti**: nadzorna ploča: sat, prognoza za 5 dana, današnje vrijeme pred ekranom, "Nastavi gledati" i sve aplikacije (strelica lijevo prelazi na kartice).
+- **Kino**: plakati ispod natpisa "KINO DOM" sa žaruljicama; ulaskom u plakate spuste se crne trake kao na platnu.
+- **Novine**: zaglavlje, aplikacije kao rubrike, veliki naslov uz crno-bijelu fotografiju i članci ispod.
 
 **Tipke 1–9** na daljinskom u svakom izgledu odmah pokreću prvih devet aplikacija, kao kanale. Zelena tipka otvara Postavke.
 

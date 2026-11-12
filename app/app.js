@@ -28,10 +28,6 @@
     minimal:  { name: 'Minimal', mode: 'dock', scale: 0.62, view: 2787, enter: 'up', cardAxis: 'h', cardView: 1728 },
     // a big rounded hero card, what to continue under it, small apps at the bottom
     kartice:  { name: 'Kartice', mode: 'dock', scale: 0.56, view: 3086, enter: 'up', cardAxis: 'h', cardView: 1728, boxed: true },
-    // light: warm white, dark type, the picture in a rounded frame
-    svjetla:  { name: 'Svjetla', mode: 'dock', scale: 0.56, view: 3086, enter: 'up', cardAxis: 'h', cardView: 1064, boxed: true },
-    // a slim rail of icons on the left, the rest of the screen for the picture
-    fokus:    { name: 'Fokus', mode: 'list', enter: 'right', cardAxis: 'h', cardView: 1560, listView: 860 },
     // the apps stand on the rim of a big wheel that turns; the focused one at the top
     orbita:   { name: 'Orbita', mode: 'arc', enter: 'up', cardAxis: 'h', cardView: 1728 },
     // a dashboard: clock, five-day forecast, time in front of the screen today, what to continue, all the apps
@@ -42,7 +38,7 @@
     novine:   { name: 'Novine', mode: 'dock', scale: 1, view: 1776, enter: 'down', cardAxis: 'h', cardView: 1776, boxed: true, allCards: true }
   };
   LAYOUTS.bento.boxed = true;
-  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst', 'minimal', 'kartice', 'svjetla', 'fokus', 'orbita', 'widgeti', 'kino', 'novine'];
+  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst', 'minimal', 'kartice', 'orbita', 'widgeti', 'kino', 'novine'];
   function L() { return LAYOUTS[S.layout] || LAYOUTS.classic; }
   function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : (L().cols || 5)); }
   var ROW_H = 180 + 92;
@@ -1181,7 +1177,7 @@
       var exitKey = { up: KEY.DOWN, down: KEY.UP, right: KEY.LEFT, left: KEY.RIGHT }[L().enter || 'up'];
       if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) out = true;
       else if (ax === 'h') {
-        // a row entered from the left (Fokus): Left on the first card goes back to the apps
+        // a row entered from the left: Left on the first card goes back to the apps
         if (k === KEY.LEFT) { if (c === 0 && exitKey === KEY.LEFT) out = true; else to = c - 1; }
         else if (k === KEY.RIGHT) to = c + 1;
         else if (k === exitKey) out = true; else return;
