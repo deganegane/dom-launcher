@@ -1538,7 +1538,9 @@
     if (DEMO) { toast('Demo: nadogradnja se ne pokreće'); return; }
     var run = function (note) {
       toast(note);
-      exec('/home/root/dom-ctl.sh update', 15000).catch(function () { toast('Nadogradnja nije krenula. Ponovi instalaciju preko SSH-a.'); });
+      exec('/home/root/dom-ctl.sh update', 20000).then(function (out) {
+        if (!/STARTED/.test(out || '')) toast('Nadogradnja nije krenula' + (/NOINSTALLER/.test(out || '') ? ': nema /home/root/dom-install.sh, ponovi instalaciju preko SSH-a.' : '.'));
+      }, function () { toast('Nadogradnja nije krenula. Ponovi instalaciju preko SSH-a.'); });
     };
     getJSON(REPO_API).then(function (r) {
       var latest = String((r && r.name) || '').replace(/^Dom\s*/, '');
@@ -1862,7 +1864,7 @@
     if (v.prev) rows.push({ type: 'btn', name: 'h-rollback', label: 'Vrati prethodnu verziju', value: v.prev, act: function () {
       if (DEMO) { toast('Demo'); return; }
       toast('Vraćam verziju ' + v.prev + '. Dom će se sam ponovno pokrenuti.');
-      exec('/home/root/dom-ctl.sh rollback', 15000).catch(function () { toast('Nije uspjelo'); });
+      exec('/home/root/dom-ctl.sh rollback', 20000).catch(function () { toast('Nije uspjelo'); });
     } });
     if (v.log.length) { rows.push({ h: 'Zadnje u zapisniku' }); v.log.forEach(function (l) { rows.push({ note: l }); }); }
   }
@@ -2650,9 +2652,11 @@
   if (!DEMO) {
     consoleSync(); notifySync();
     // tell an update in progress that this version starts; and say so if the last update was undone
-    exec('date +%s > /tmp/dom-alive; [ -f /home/root/dom-rolled-back ] && cat /home/root/dom-rolled-back && rm -f /home/root/dom-rolled-back').then(function (out) {
-      var v = String(out || '').trim();
-      if (v) toast('Nova verzija se nije pokrenula, vraćena je prethodna (' + v + ').', 6000);
+    exec('date +%s > /tmp/dom-alive; [ -f /home/root/dom-rolled-back ] && echo "ROLLED $(cat /home/root/dom-rolled-back)" && rm -f /home/root/dom-rolled-back; ' +
+         'if [ -f /tmp/dom-update.log ]; then grep "^!!" /tmp/dom-update.log | head -1 | sed "s/^/FAIL /"; mv -f /tmp/dom-update.log /tmp/dom-update.log.old; fi').then(function (out) {
+      var rb = /^ROLLED (.*)$/m.exec(out || ''), fl = /^FAIL !!\s*(.*)$/m.exec(out || '');
+      if (rb) toast('Nova verzija se nije pokrenula, vraćena je prethodna (' + rb[1].trim() + ').', 7000);
+      else if (fl) toast('Nadogradnja nije uspjela: ' + fl[1].trim() + ' (zapis: /tmp/dom-update.log.old)', 8000);
     }, function () {});
   }
   preloadCW(S.cw);

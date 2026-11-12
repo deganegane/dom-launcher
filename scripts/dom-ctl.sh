@@ -33,6 +33,25 @@ start_agent() {
   [ -n "$N" ] && [ -f /home/root/dom-agent.js ] && nohup "$N" /home/root/dom-agent.js >/dev/null 2>&1 &
   return 0
 }
+# Updates are not run from here directly: Dom calls this script through Homebrew Channel's root
+# service, and whatever that service starts can be stopped with it a little later (mid-install).
+# The home guard, which runs on its own, picks up the request; without it, start detached ourselves.
+REQ=/tmp/dom-update-request
+run_install() {   # run_install [rollback]
+  rm -f "$REQ"
+  if command -v setsid >/dev/null 2>&1; then
+    setsid nohup /home/root/dom-install.sh $1 </dev/null > /tmp/dom-update.log 2>&1 &
+  else
+    nohup /home/root/dom-install.sh $1 </dev/null > /tmp/dom-update.log 2>&1 &
+  fi
+}
+request_install() {
+  echo "${1:-install}" > "$REQ"
+  i=0
+  while [ $i -lt 6 ] && [ -f "$REQ" ]; do sleep 1; i=$((i + 1)); done
+  if [ -f "$REQ" ]; then [ "$1" = rollback ] && run_install rollback || run_install; fi
+  echo STARTED
+}
 launch_home() { luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$HOME_ID\"}" >/dev/null 2>&1; }
 case "$1" in
   off)
@@ -81,8 +100,11 @@ case "$1" in
     echo "PIN se briše kad sljedeći put otvoriš Dom."
     ;;
   update)
-    [ -x /home/root/dom-install.sh ] || exit 1
-    nohup /home/root/dom-install.sh > /tmp/dom-update.log 2>&1 &
+    [ -x /home/root/dom-install.sh ] || { echo "NOINSTALLER"; exit 1; }
+    request_install
+    ;;
+  run-install)   # used by the home guard
+    [ "$2" = rollback ] && run_install rollback || run_install
     ;;
   backup)
     B=/home/root/dom-backup
@@ -127,7 +149,7 @@ case "$1" in
     echo "uptime=$(cut -d. -f1 /proc/uptime)"
     [ -s /home/root/dom-backup/previous.ipk ] && echo "prev=$(cat /home/root/dom-backup/previous.ver 2>/dev/null || echo '?')"
     tail -n 5 /tmp/dom-homeguard.log 2>/dev/null | sed 's/^/LOG /'
-    grep '^!!' /tmp/dom-update.log 2>/dev/null | tail -n 2 | sed 's/^/LOG nadogradnja: /'
+    cat /tmp/dom-update.log.old /tmp/dom-update.log 2>/dev/null | grep '^!!' | tail -n 2 | sed 's/^/LOG nadogradnja: /'
     tail -n 2 /tmp/dom-agent.log 2>/dev/null | sed 's/^/LOG pomoćnik: /'
     ;;
   restart)
@@ -135,7 +157,7 @@ case "$1" in
     ;;
   rollback)
     [ -x /home/root/dom-install.sh ] && [ -s /home/root/dom-backup/previous.ipk ] || exit 1
-    nohup /home/root/dom-install.sh rollback > /tmp/dom-update.log 2>&1 &
+    request_install rollback
     ;;
   web)
     case "$2" in

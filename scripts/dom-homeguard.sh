@@ -87,6 +87,11 @@ start_agent
       rm -f "$KIDS"; log "kids: time is up"
       luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\",\"params\":{\"dom\":\"kidslimit\"}}" >/dev/null 2>&1
     fi
+    # "Nadogradi Dom" in Settings: started from here, outside Homebrew Channel's service (see dom-ctl.sh)
+    if [ -f /tmp/dom-update-request ]; then
+      what=$(cat /tmp/dom-update-request 2>/dev/null); log "update requested ($what)"
+      /home/root/dom-ctl.sh run-install "$what"
+    fi
     # the background helper died: start it again (once a minute at most)
     [ $((n % 15)) -eq 0 ] && start_agent
   done
