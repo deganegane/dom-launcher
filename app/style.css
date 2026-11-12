@@ -517,6 +517,21 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 #stage.saver #weather .wx-d { display: inline !important; }
 #stage.saver #weather svg { width: 36px !important; height: 36px !important; }
 
+/* ---------- night: a warm dark veil over the pictures (not over the text) ---------- */
+#night { position: absolute; inset: 0; pointer-events: none; background: rgba(18,8,0,.42); opacity: 0; transition: opacity 3s ease; }
+#stage.night #night { opacity: 1; }
+#stage.night #topbar, #stage.night #shelf-info, #stage.night .tile-label { opacity: .82; }
+#stage.saver.night #wall::before { background: rgba(18,8,0,.5); }
+
+/* ---------- OLED care: when nobody touches the remote for a while, everything dims ---------- */
+#dim { position: absolute; inset: 0; pointer-events: none; z-index: 19; background: #000; opacity: 0; transition: opacity 600ms ease; }
+#stage.idle-dim #dim { opacity: .5; transition: opacity 6s ease; }
+#stage.saver #dim { opacity: 0 !important; }
+
+/* ---------- QR code for the phone page ---------- */
+.s-qr { margin: 8px 6px 16px; }
+.s-qr svg { display: block; width: 300px; height: 300px; border-radius: 18px; }
+
 /* ---------- PIN pad ---------- */
 #pinpad { position: absolute; inset: 0; background: rgba(0,0,0,.72); z-index: 40; display: flex; align-items: center; justify-content: center; transition: opacity 200ms ease; }
 #pinpad.hidden { opacity: 0; pointer-events: none; }
