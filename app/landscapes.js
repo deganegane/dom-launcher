@@ -302,16 +302,24 @@
     return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><defs>' + defs + '</defs>' + body + '</svg>');
   }
   function pick(r, a) { return a[Math.floor(r() * a.length)]; }
+  // a palette for the time of day when one is asked for (still one random draw, so a seed stays the same picture)
+  var MOOD = '';
+  function pickPal(r, a) {
+    var x = r(), fit = MOOD ? a.filter(function (p) { return (' ' + p.mood + ' ').indexOf(' ' + MOOD + ' ') >= 0; }) : [];
+    if (!fit.length) fit = a;
+    return fit[Math.floor(x * fit.length)];
+  }
 
   /* ---------------- 1: a lake under the moon ---------------- */
   var LAKE = [
-    { name: 'Jezero · noć', sky: ['#020b33', '#0a2f9c', '#3f8fea'], orb: '#f2f7ff', glow: '#8fd0ff', far: ['#1f55c9', '#123c9e', '#0b2b78', '#081f57'], near: '#040f2e', water: ['#8fb5ff', '#3f79e6', '#0a3fae'], star: '#ffffff', stars: 90 },
-    { name: 'Jezero · sumrak', sky: ['#1b1040', '#6a2a7e', '#f0877a'], orb: '#ffe6c2', glow: '#ffb38a', far: ['#9a4f95', '#733a86', '#4f2a70', '#35205a'], near: '#160b2c', water: ['#f6b6a2', '#b0689f', '#3b2468'], star: '#fff3e6', stars: 50 },
-    { name: 'Jezero · svitanje', sky: ['#103a52', '#2f8f9b', '#f5d6a8'], orb: '#fff7de', glow: '#ffe2a6', far: ['#4fa3a5', '#34858d', '#236a76', '#184f5d'], near: '#082a33', water: ['#f7e0b4', '#6fb7b3', '#16586a'], star: '#ffffff', stars: 14 },
-    { name: 'Jezero · zalazak', sky: ['#2a0f3d', '#b83b5e', '#ffb35c'], orb: '#fff1c9', glow: '#ff9d5c', far: ['#c9566a', '#9c3f63', '#6f2d58', '#4a2049'], near: '#1c0b22', water: ['#ffc98a', '#d1607a', '#4b1f52'], star: '#ffe9d0', stars: 30 }
+    { name: 'Jezero · noć', mood: 'night', sky: ['#020b33', '#0a2f9c', '#3f8fea'], orb: '#f2f7ff', glow: '#8fd0ff', far: ['#1f55c9', '#123c9e', '#0b2b78', '#081f57'], near: '#040f2e', water: ['#8fb5ff', '#3f79e6', '#0a3fae'], star: '#ffffff', stars: 90 },
+    { name: 'Jezero · sumrak', mood: 'dusk', sky: ['#1b1040', '#6a2a7e', '#f0877a'], orb: '#ffe6c2', glow: '#ffb38a', far: ['#9a4f95', '#733a86', '#4f2a70', '#35205a'], near: '#160b2c', water: ['#f6b6a2', '#b0689f', '#3b2468'], star: '#fff3e6', stars: 50 },
+    { name: 'Jezero · svitanje', mood: 'dawn', sky: ['#103a52', '#2f8f9b', '#f5d6a8'], orb: '#fff7de', glow: '#ffe2a6', far: ['#4fa3a5', '#34858d', '#236a76', '#184f5d'], near: '#082a33', water: ['#f7e0b4', '#6fb7b3', '#16586a'], star: '#ffffff', stars: 14 },
+    { name: 'Jezero · zalazak', mood: 'sunset', sky: ['#2a0f3d', '#b83b5e', '#ffb35c'], orb: '#fff1c9', glow: '#ff9d5c', far: ['#c9566a', '#9c3f63', '#6f2d58', '#4a2049'], near: '#1c0b22', water: ['#ffc98a', '#d1607a', '#4b1f52'], star: '#ffe9d0', stars: 30 },
+    { name: 'Jezero · dan', mood: 'day', sky: ['#1f6fc9', '#5fb0ec', '#d6eefb'], orb: '#fffdf2', glow: '#fff6d8', far: ['#86b8cf', '#5f9c95', '#3f7f6c', '#2a6452'], near: '#123828', water: ['#c6e6f8', '#5aa6d8', '#1a5a8f'], star: '#ffffff', stars: 0 }
   ];
   function lake(r) {
-    var p = pick(r, LAKE), WL = 690 + r() * 40, i, defs = grad('sky', p.sky) + glowDef('glow', p.glow, 0.85) + grad('wat', p.water), b = '';
+    var p = pickPal(r, LAKE), WL = 690 + r() * 40, i, defs = grad('sky', p.sky) + glowDef('glow', p.glow, 0.85) + grad('wat', p.water), b = '';
     b += '<rect width="' + W + '" height="' + f(WL + 4) + '" fill="url(#sky)"/>' + stars(r, p.stars, WL - 180, p.star);
     var ox = 520 + r() * 880, oy = 190 + r() * 150, or = 60 + r() * 34;
     b += '<circle cx="' + f(ox) + '" cy="' + f(oy) + '" r="' + f(or * 5) + '" fill="url(#glow)"/><circle cx="' + f(ox) + '" cy="' + f(oy) + '" r="' + f(or) + '" fill="' + p.orb + '"/>';
@@ -366,16 +374,18 @@
 
   /* ---------------- 2: a valley at sunset, poster style ---------------- */
   var VALLEY = [
-    { name: 'Dolina · zalazak', sky: ['#2b1055', '#c2356b', '#ff8a3d'], cloud: '#ffb36b', sun: '#ffe08a', peakD: '#3a1747', peakL: '#ff6f4f', backD: '#7a2a63', backL: '#ff9a5c', glow: ['#ffbf2e', '#ff7a1f'], forest: ['#11897a', '#0c5f66', '#0a3f52'], river: ['#ffd36b', '#ff6f6f'], fg: '#1a0b2a', bird: '#3a1747' },
-    { name: 'Dolina · sumrak', sky: ['#12104a', '#5b2a9c', '#ff5fa2'], cloud: '#ff9ac4', sun: '#ffe0d0', peakD: '#1d1560', peakL: '#a45fe0', backD: '#4a2c9a', backL: '#d98af0', glow: ['#ff7ab8', '#c04fc0'], forest: ['#2f52c9', '#2038a0', '#141f6e'], river: ['#ffc2dc', '#8f6cff'], fg: '#0c0830', bird: '#1d1560' },
-    { name: 'Dolina · jutro', sky: ['#0f6fb8', '#39b8c8', '#ffe07a'], cloud: '#fff3c4', sun: '#fff6c9', peakD: '#1f5f8f', peakL: '#ffd08a', backD: '#3f8fb0', backL: '#ffe2a8', glow: ['#ffd84f', '#ffa53a'], forest: ['#1fae7a', '#128a68', '#0b5f52'], river: ['#fff2b0', '#5fd6d0'], fg: '#06323a', bird: '#1f5f8f' }
+    { name: 'Dolina · zalazak', mood: 'sunset', sky: ['#2b1055', '#c2356b', '#ff8a3d'], cloud: '#ffb36b', sun: '#ffe08a', peakD: '#3a1747', peakL: '#ff6f4f', backD: '#7a2a63', backL: '#ff9a5c', glow: ['#ffbf2e', '#ff7a1f'], forest: ['#11897a', '#0c5f66', '#0a3f52'], river: ['#ffd36b', '#ff6f6f'], fg: '#1a0b2a', bird: '#3a1747' },
+    { name: 'Dolina · sumrak', mood: 'dusk', sky: ['#12104a', '#5b2a9c', '#ff5fa2'], cloud: '#ff9ac4', sun: '#ffe0d0', peakD: '#1d1560', peakL: '#a45fe0', backD: '#4a2c9a', backL: '#d98af0', glow: ['#ff7ab8', '#c04fc0'], forest: ['#2f52c9', '#2038a0', '#141f6e'], river: ['#ffc2dc', '#8f6cff'], fg: '#0c0830', bird: '#1d1560' },
+    { name: 'Dolina · jutro', mood: 'dawn day', sky: ['#0f6fb8', '#39b8c8', '#ffe07a'], cloud: '#fff3c4', sun: '#fff6c9', peakD: '#1f5f8f', peakL: '#ffd08a', backD: '#3f8fb0', backL: '#ffe2a8', glow: ['#ffd84f', '#ffa53a'], forest: ['#1fae7a', '#128a68', '#0b5f52'], river: ['#fff2b0', '#5fd6d0'], fg: '#06323a', bird: '#1f5f8f' },
+    { name: 'Dolina · noć', mood: 'night', sky: ['#020618', '#0a1a48', '#22407e'], cloud: '#34558c', sun: '#eef3ff', sunR: 0.55, peakD: '#0a1230', peakL: '#4a68a6', backD: '#14224c', backL: '#6c8cc6', glow: ['#36598f', '#1c3566'], forest: ['#113856', '#0b2842', '#071a2e'], river: ['#d4e2ff', '#4a6fb2'], fg: '#030816', bird: '#0a1230', star: '#ffffff', stars: 80 }
   ];
   function valleyScene(r) {
-    var p = pick(r, VALLEY), i, defs = grad('sky', p.sky) + grad('glw', p.glow) + grad('riv', p.river), b = '<rect width="' + W + '" height="' + H + '" fill="url(#sky)"/>';
+    var p = pickPal(r, VALLEY), i, defs = grad('sky', p.sky) + grad('glw', p.glow) + grad('riv', p.river), b = '<rect width="' + W + '" height="' + H + '" fill="url(#sky)"/>';
+    if (p.stars) b += stars(r, p.stars, 520, p.star);
     var cf = pick(r, EL.cloud);
     for (i = 0; i < 6; i++) b += cloudAt(r, cf, r() * W, 110 + i * 62 + r() * 40, p.cloud, f((cf.code === 'O1' ? 0.3 : 0.5) + r() * 0.3));
     var sx = 760 + r() * 400, sy = 600 + r() * 50, lit = sx < W / 2;
-    b += '<circle cx="' + f(sx) + '" cy="' + f(sy) + '" r="' + f(150 + r() * 50) + '" fill="' + p.sun + '"/>';
+    b += '<circle cx="' + f(sx) + '" cy="' + f(sy - (p.sunR ? 120 : 0)) + '" r="' + f((150 + r() * 50) * (p.sunR || 1)) + '" fill="' + p.sun + '"/>';
     // back range, then the big front peaks to the sides of the sun
     for (i = 0; i < 5; i++) { var bx = 120 + i * 430 + (r() - 0.5) * 200; if (Math.abs(bx - sx) > 220) b += peak(r, bx, 330 + r() * 130, 210 + r() * 120, 760, p.backD, p.backL, bx < sx); }
     b += peak(r, sx - 520 - r() * 240, 250 + r() * 90, 360 + r() * 120, 800, p.peakD, p.peakL, true);
@@ -409,12 +419,13 @@
 
   /* ---------------- 3: a coast with a lighthouse ---------------- */
   var COAST = [
-    { name: 'Obala · sumrak', sky: ['#0d2a52', '#5b3a72', '#f0617a', '#ff8a6b'], band: ['#3f2f66', '#a14a7a', '#ff7f8f'], sun: '#ffe9b8', sea: ['#ff7fa6', '#8a4f8f', '#12224f'], far: ['#b0507f', '#7a3f78', '#4b2f66'], rock: ['#0f3b66', '#0a2a4f', '#061c3a'], lamp: '#7ff5ee', streak: '#ffb3c7' },
-    { name: 'Obala · zlatni sat', sky: ['#274060', '#b0607a', '#ffa65c', '#ffd27a'], band: ['#5f4a78', '#d9777a', '#ffc27a'], sun: '#fff3c9', sea: ['#ffc97f', '#c9706f', '#22304f'], far: ['#c98a6a', '#9a5f66', '#63405c'], rock: ['#2f2a45', '#211d36', '#141226'], lamp: '#fff2a8', streak: '#ffe2a8' },
-    { name: 'Obala · plavi sat', sky: ['#081a3a', '#143f78', '#4f8fd0', '#bfe0f0'], band: ['#103060', '#2f67a8', '#8fc1e8'], sun: '#f4fbff', sea: ['#bfe0f5', '#3f7fc0', '#0a2552'], far: ['#4f86c0', '#2f5f9c', '#1c3f78'], rock: ['#0b2242', '#07172f', '#040e20'], lamp: '#ffe98a', streak: '#e6f4ff' }
+    { name: 'Obala · sumrak', mood: 'dusk', sky: ['#0d2a52', '#5b3a72', '#f0617a', '#ff8a6b'], band: ['#3f2f66', '#a14a7a', '#ff7f8f'], sun: '#ffe9b8', sea: ['#ff7fa6', '#8a4f8f', '#12224f'], far: ['#b0507f', '#7a3f78', '#4b2f66'], rock: ['#0f3b66', '#0a2a4f', '#061c3a'], lamp: '#7ff5ee', streak: '#ffb3c7' },
+    { name: 'Obala · zlatni sat', mood: 'sunset', sky: ['#274060', '#b0607a', '#ffa65c', '#ffd27a'], band: ['#5f4a78', '#d9777a', '#ffc27a'], sun: '#fff3c9', sea: ['#ffc97f', '#c9706f', '#22304f'], far: ['#c98a6a', '#9a5f66', '#63405c'], rock: ['#2f2a45', '#211d36', '#141226'], lamp: '#fff2a8', streak: '#ffe2a8' },
+    { name: 'Obala · plavi sat', mood: 'night dawn', sky: ['#081a3a', '#143f78', '#4f8fd0', '#bfe0f0'], band: ['#103060', '#2f67a8', '#8fc1e8'], sun: '#f4fbff', sea: ['#bfe0f5', '#3f7fc0', '#0a2552'], far: ['#4f86c0', '#2f5f9c', '#1c3f78'], rock: ['#0b2242', '#07172f', '#040e20'], lamp: '#ffe98a', streak: '#e6f4ff' },
+    { name: 'Obala · dan', mood: 'day', sky: ['#1a6cc4', '#4aa2e6', '#9fd3f4', '#e2f4fc'], band: ['#d2e9f8', '#eaf5fc', '#ffffff'], sun: '#fffbea', sea: ['#86d4ea', '#2b8cc0', '#0a4677'], far: ['#86b4cb', '#6496b2', '#4a7b98'], rock: ['#3e5a48', '#2b4536', '#1b3025'], lamp: '#fff2a8', streak: '#ffffff' }
   ];
   function coast(r) {
-    var p = pick(r, COAST), HZ = 640 + r() * 40, i, defs = grad('sky', p.sky) + grad('sea', p.sea), b = '<rect width="' + W + '" height="' + f(HZ + 2) + '" fill="url(#sky)"/>';
+    var p = pickPal(r, COAST), HZ = 640 + r() * 40, i, defs = grad('sky', p.sky) + grad('sea', p.sea), b = '<rect width="' + W + '" height="' + f(HZ + 2) + '" fill="url(#sky)"/>';
     // clouds of one kind, in the colours of the sky at their height
     var cf = pick(r, EL.cloud);
     for (i = 0; i < 7; i++) b += cloudAt(r, cf, r() * W, 90 + i * 70 + r() * 40, p.band[Math.min(2, Math.floor(i / 2.4))], f((cf.code === 'O1' ? 0.35 : 0.5) + r() * 0.3));
@@ -464,11 +475,56 @@
     return { d: defs, b: b, name: p.name };
   }
 
+  /* ---------------- weather over any scene: overcast, rain, storm, fog, snow ---------------- */
+  var WEATHER = { cloud: 'oblačno', rain: 'kiša', storm: 'grmljavina', fog: 'magla', snow: 'snijeg' };
+  function weather(r, kind, defs) {
+    var o = '', i, x, y, len;
+    // grey the colours down a little (overcast light) and darken the sky from the top
+    var grey = { cloud: 0.55, rain: 0.45, storm: 0.3, fog: 0.5, snow: 0.6 }[kind];
+    defs.push('<filter id="wxg" x="0" y="0" width="1" height="1"><feColorMatrix type="saturate" values="' + grey + '"/></filter>');
+    var veil = { cloud: ['#5a6472', 0.28], rain: ['#3c4654', 0.38], storm: ['#1c2230', 0.55], fog: ['#c8ced6', 0.2], snow: ['#dfe6ee', 0.18] }[kind];
+    defs.push(grad('wxv', [veil[0], veil[0]]));
+    o += '<rect width="' + W + '" height="' + H + '" fill="' + veil[0] + '" opacity="' + veil[1] + '"/>';
+    if (kind === 'cloud' || kind === 'rain' || kind === 'storm') {   // a low deck of cloud
+      var cc = kind === 'storm' ? '#2a3140' : '#7d8794', fn = EL.cloud[0];
+      for (i = 0; i < 9; i++) o += fn(r() * W, 60 + i * 38 + r() * 30, 900 + r() * 900, cc, f(0.35 + r() * 0.3), r);
+    }
+    if (kind === 'rain' || kind === 'storm') {
+      var d = '';
+      for (i = 0; i < (kind === 'storm' ? 420 : 300); i++) {
+        x = r() * (W + 200) - 100; y = r() * H; len = 30 + r() * 60;
+        d += 'M' + f(x) + ' ' + f(y) + 'l' + f(-len * 0.22) + ' ' + f(len);
+      }
+      o += '<path d="' + d + '" stroke="#dfe8f5" stroke-width="2" stroke-linecap="round" opacity=".32"/>';
+    }
+    if (kind === 'fog') {
+      defs.push('<linearGradient id="wxf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef1f4" stop-opacity="0"/><stop offset=".5" stop-color="#eef1f4" stop-opacity=".75"/><stop offset="1" stop-color="#eef1f4" stop-opacity="0"/></linearGradient>');
+      for (i = 0; i < 6; i++) { y = 420 + i * 100 + r() * 60; o += '<rect x="-100" y="' + f(y) + '" width="' + (W + 200) + '" height="' + f(90 + r() * 120) + '" fill="url(#wxf)" opacity="' + f(0.4 + r() * 0.35) + '"/>'; }
+    }
+    if (kind === 'snow') {
+      for (i = 0; i < 360; i++) o += '<circle cx="' + f(r() * W) + '" cy="' + f(r() * H) + '" r="' + f(1.5 + r() * r() * 5) + '" fill="#ffffff" opacity="' + f(0.45 + r() * 0.5) + '"/>';
+    }
+    return o;
+  }
+
   var KINDS = [lake, valleyScene, coast];
-  window.DOM_LANDSCAPE = function (seed, kind) {
+  // opts.mood: night | dawn | day | sunset | dusk; opts.weather: cloud | rain | storm | fog | snow
+  window.DOM_LANDSCAPE = function (seed, kind, opts) {
+    opts = opts || {};
+    MOOD = opts.mood || '';
     var r = rng(seed), k = kind == null ? Math.floor(r() * KINDS.length) : kind, s = KINDS[k](r);
-    return { url: svg(s.d, s.b), title: s.name, credit: '', seed: seed, gen: 'vector' };
+    MOOD = '';
+    var defs = s.d, body = s.b, name = s.name;
+    if (WEATHER[opts.weather]) {
+      var extra = [], over = weather(rng(seed ^ 0x5bd1e995), opts.weather, extra);
+      defs += extra.join('');
+      body = '<g filter="url(#wxg)">' + body + '</g>' + over;
+      name += ' · ' + WEATHER[opts.weather];
+    }
+    return { url: svg(defs, body), title: name, credit: '', seed: seed, gen: 'vector' };
   };
+  window.DOM_LANDSCAPE.moods = ['night', 'dawn', 'day', 'sunset', 'dusk'];
+  window.DOM_LANDSCAPE.weathers = Object.keys(WEATHER);
   window.DOM_LANDSCAPE.kinds = KINDS.length;
   window.DOM_LANDSCAPE.elements = EL;
 })();
