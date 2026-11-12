@@ -134,17 +134,65 @@ Postavke → Vremenska prognoza → upiši grad. Ispod sata se prikazuje trenutn
 - **Čuvar zaslona** (Postavke → Izgled): nakon 2, 5 ili 10 minuta mirovanja ostaju samo pozadina, sat i prognoza; sat se svake minute pomakne, a nakon 20 minuta slika se dodatno zatamni. Dok je uključen, LG-ev čuvar zaslona se preko Doma ne pali.
 - **Brze radnje** (vrh Postavki): gašenje ekrana uz zvuk i tajmer za spavanje (15/30/60/90 min).
 - **Otvorene aplikacije** (dugo držanje tipke Natrag, crvena tipka na daljinskom, dugi OK na pločici Postavke ili Postavke → Brze radnje; kod dugog Natrag sustav prvo zatvori Dom pa ga home guard odmah vrati s otvorenim popisom): popis aplikacija koje rade u pozadini; OK zatvara jednu, "Zatvori sve" sve odjednom.
-- **Najčešće korištene aplikacije naprijed**: redoslijed se slaže sam prema broju pokretanja.
+- **Redoslijed aplikacija** (Tema): ručno, najčešće korištene naprijed, ili **po dobu dana** (ujutro naprijed ono što otvaraš ujutro, navečer ono što otvaraš navečer).
+- **Način slike i zvuk** (brzi izbornik): Filmmaker, Kino, Standardno, Igre…; zvuk na TV zvučnike, soundbar (ARC), Bluetooth ili slušalice. Način slike vrijedi za aplikacije (HDMI ulazi imaju svoj).
 - **PIN za Postavke**: četiri znamenke; bez njega se Postavke (i skrivene aplikacije) ne otvaraju. Zaboravljen PIN: preko SSH-a `/home/root/dom-ctl.sh pinreset`.
+
+## OLED zaštita i noćni način (Tema)
+
+- **Zaštita OLED ekrana** (uključena): cijela slika se svake 3 minute pomakne za nekoliko piksela, a nakon 4 minute bez daljinskog Dom se zatamni. Bilo koja tipka vraća sve.
+- **Noćni način**: od 22 do 6 h ili od zalaska do izlaska sunca pozadina je tamnija i toplija.
+- **Tajmer kad nešto pokreneš kasno**: između 22 i 4 h pokretanje aplikacije sam uključi tajmer za spavanje od 90 min.
+
+## Živi krajolik
+
+Pozadine → Izvor slika → **Živi krajolik**: krajolik (jezero, dolina, obala) crta se na samom TV-u i prati
+pravo doba dana (noć, svitanje, dan, zalazak, sumrak, prema izlasku i zalasku sunca za tvoj grad), a uz postavljenu
+prognozu i vrijeme (oblačno, kiša, magla, snijeg, grmljavina). Kad se doba dana ili vrijeme promijeni, slika se odmah zamijeni.
+Čuvar zaslona koristi iste krajolike.
+
+## Upravljanje s mobitela
+
+Postavke → Sustav → **Upravljanje s mobitela**: skeniraj QR kod mobitelom u istoj Wi-Fi mreži. Stranica (port 8090, zaštićena kodom) ima:
+- **tipkovnicu** (tekst ide u polje označeno na TV-u, u bilo kojoj aplikaciji) i **daljinski**,
+- **aplikacije**: redoslijed, skrivanje, pokretanje, vlastita pozadina i ikona za svaku (slika s mobitela),
+- **izgled, pozadine, ekran**, **Stremio prijavu**, **grad za prognozu** i **Home Assistant**.
+
+Promjene postavki na trenutak otvore Dom na TV-u; tipkovnica i daljinski ne. Isključivanjem se server gasi.
+Stranicu poslužuje `/home/root/dom-agent.js` (log: `/tmp/dom-agent.log`).
+
+## Konzole, obavijesti, pametni dom
+
+- **Kad se upali konzola** (Aplikacije): dok je Dom na ekranu i upali se PlayStation, Xbox ili Switch na HDMI-ju, Dom pita (OK prebacuje) ili odmah prebaci. Ono što se gleda nikad ne prekida. Pokusno: ako ne reagira, pošalji `/tmp/dom-inputs.log`.
+- **Obavijest o novoj epizodi** (Računi i prognoza → Stremio): pomoćnik svakih pola sata pita Stremio i pokaže obavijest na TV-u, i dok gledaš drugu aplikaciju.
+- **Pametni dom**: Home Assistant adresa, token i scena (ili skripta, automatizacija) kad pokreneš nešto za gledanje i kad se vratiš u Dom (npr. prigušena svjetla pa normalna). Lakše za upisati s mobitela.
+
+## Dječji profil
+
+Postavke → **Dječji profil**: odaberi aplikacije za dijete i po želji dnevno ograničenje (30 min do 3 h).
+Uključuje se iz brzog izbornika (crvena tipka) ili Postavki, a **isključuje samo PIN-om** (zato prvo treba postaviti PIN).
+Dok je uključen vide se samo odabrane aplikacije, bez "Nastavi gledati". Kad dnevno vrijeme istekne, home guard vrati Dom preko
+bilo čega što se gleda i nove aplikacije se ne pokreću do sutra (ili dok roditelj ne doda 30 min).
+
+## Statistika gledanja
+
+Postavke → **Statistika gledanja**: koliko je danas i zadnjih 7 dana koja aplikacija (i HDMI ulaz) bila na ekranu.
+Home guard bilježi samo promjene (`/home/root/dom-usage.log`), ništa ne napušta TV.
 
 ## Nadogradnja i sigurnosna kopija
 
 - **Nadogradi Dom** (Postavke → Sustav) skida i instalira najnoviju verziju bez SSH-a.
+- **Automatski povratak**: instalacija čuva zadnja dva paketa (`/home/root/dom-backup`). Ako se nova verzija ne javi u 45 s nakon pokretanja, odmah se vraća prethodna (Dom to javi pri sljedećem pokretanju). Ručno: Sustav → Stanje sustava → **Vrati prethodnu verziju**, ili `/home/root/dom-install.sh rollback`.
+- **Stanje sustava** (Sustav): radi li home guard, pomoćnik, autostart, prazni LG Home, blokada ažuriranja, uparivanje; slobodna memorija i mjesto; zadnje iz zapisnika; ponovno pokretanje servisa.
 - **Spremi sigurnosnu kopiju** sprema postavke, ikone, pozadine i uparivanje u `/home/root/dom-backup`; **Vrati** ih učitava natrag.
 - **Ugasi Telnet** (Čišćenje i ubrzanje): radi samo ako je SSH uključen i pokrenut.
 
 ## Postavke
 
-Prva razina: brze radnje na vrhu, ispod grupe Tema, Pozadine, Aplikacije, Računi i prognoza, Čišćenje i ubrzanje i Sustav. OK otvara grupu, Natrag vraća razinu više. Rijetko korištene radnje su u Sustav → Napredno.
+Prva razina: brze radnje na vrhu, ispod grupe Tema, Pozadine, Aplikacije, Računi i prognoza, Pametni dom, Dječji profil, Statistika gledanja, Čišćenje i ubrzanje i Sustav (sa Stanjem sustava, Upravljanjem s mobitela i Naprednim). OK otvara grupu, Natrag vraća razinu više.
 
-Brzi izbornik (dugo Natrag ili crvena tipka) ima gašenje ekrana, tajmer za spavanje i popis otvorenih aplikacija, i ne traži PIN.
+Brzi izbornik (dugo Natrag ili crvena tipka) ima gašenje ekrana, tajmer za spavanje, način slike, zvuk, dječji profil i popis otvorenih aplikacija, i ne traži PIN (osim za izlaz iz dječjeg profila).
+
+## Razvoj
+
+`node tests/smoke.js` (treba Playwright s Chromiumom) otvara launcher u pregledniku (demo način, bez TV-a), prolazi sve izglede i sve stranice Postavki, provjerava generator krajolika i QR kod. GitHub Actions ga pokreće prije svakog builda i na pull requestovima; build ne kreće ako test padne, a nijedan korak ne može visjeti dulje od 15 minuta.
