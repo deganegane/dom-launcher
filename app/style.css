@@ -711,3 +711,133 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 #stage.layout-teletekst.zone-shelf .card.focus .card-title { color: #000; }
 #stage.layout-teletekst #settings-panel { background: #000; box-shadow: 0 0 0 4px #0000ff; }
 #stage.layout-teletekst .s-row { border-radius: 0; }
+
+/* ================= Minimal: room to breathe, one row at a time ================= */
+#stage.layout-minimal #bg-shade {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.1) 50%, rgba(0,0,0,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 45%, rgba(0,0,0,.85) 82%, #000 100%);
+}
+#stage.layout-minimal #topbar { left: 96px; right: auto; top: 64px; text-align: left; display: flex; gap: 16px; align-items: baseline; }
+#stage.layout-minimal #clock { font-size: 30px; font-weight: 500; }
+#stage.layout-minimal #date { font-size: 22px; opacity: .6; margin: 0; }
+#stage.layout-minimal #weather.on { left: auto; right: auto; top: 0; margin: 0 0 0 8px; position: static; font-size: 22px; opacity: .8; }
+#stage.layout-minimal #weather .wx-c { display: none; }
+#stage.layout-minimal #weather svg { width: 24px; height: 24px; }
+#stage.layout-minimal #weather .wx-t { font-size: 24px; font-weight: 500; }
+#stage.layout-minimal #shelf { left: 96px; top: 0; width: 1728px; height: 1080px; }
+#stage.layout-minimal #shelf-info, #stage.layout-minimal #shelf.has-cards #shelf-info { top: auto; bottom: 330px; width: 960px; }
+#stage.layout-minimal #shelf-kicker { font-size: 18px; letter-spacing: .22em; opacity: .6; margin-bottom: 12px; }
+#stage.layout-minimal #shelf-title { font-size: 66px; font-weight: 600; letter-spacing: -2px; line-height: 1.02; text-shadow: none; }
+#stage.layout-minimal #shelf-sub { font-size: 24px; opacity: .7; text-shadow: none; }
+#stage.layout-minimal #shelf-progress { width: 280px; height: 4px; }
+#stage.layout-minimal #shelf-hint { display: none; }
+#stage.layout-minimal #cards, #stage.layout-minimal #shelf.has-cards #cards { top: 838px; gap: 22px; opacity: 0; transform: translateY(24px); pointer-events: none; }
+#stage.layout-minimal.zone-shelf #shelf.has-cards #cards { opacity: 1; transform: none; pointer-events: auto; }
+#stage.layout-minimal .card { width: 300px; height: 169px; border-radius: 20px; box-shadow: none; opacity: .7; }
+#stage.layout-minimal.zone-shelf .card.focus { transform: scale(1.08); opacity: 1; box-shadow: 0 18px 40px rgba(0,0,0,.6); }
+#stage.layout-minimal #grid-wrap { left: 96px; top: 838px; transition: opacity 300ms ease, transform 300ms ease; }
+#stage.layout-minimal.zone-shelf #grid-wrap { opacity: 0; transform: scale(var(--dock-scale, 1)) translateY(30px); }
+#stage.layout-minimal .tile-art { border-radius: 34px; box-shadow: none; }
+#stage.layout-minimal .tile.focus .tile-art { --s: 1.14; box-shadow: 0 24px 50px rgba(0,0,0,.6); }
+#stage.layout-minimal .tile-gloss { display: none; }
+#stage.layout-minimal .tile-label { font-size: 34px; font-weight: 500; top: 206px; }
+
+/* ================= Kartice: a rounded hero card, cards under it, apps at the bottom ================= */
+#stage.layout-kartice { background: #0e0f12; }
+#stage.layout-kartice #greet { display: block; position: absolute; left: 96px; top: 52px; font-size: 32px; font-weight: 600; }
+#stage.layout-kartice #topbar { right: 96px; top: 56px; display: flex; gap: 16px; align-items: baseline; }
+#stage.layout-kartice #clock { font-size: 30px; font-weight: 600; }
+#stage.layout-kartice #date { font-size: 22px; opacity: .65; margin: 0; }
+#stage.layout-kartice #bg { inset: auto; left: 96px; top: 128px; width: 1728px; height: 540px; border-radius: 36px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.45); }
+#stage.layout-kartice .bg-img { background-position: center 30%; }
+#stage.layout-kartice #bg-shade { background: linear-gradient(90deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.35) 42%, rgba(0,0,0,0) 65%), linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%); }
+#stage.layout-kartice #shelf { left: 96px; top: 0; width: 1728px; height: 1080px; }
+#stage.layout-kartice #shelf-info, #stage.layout-kartice #shelf.has-cards #shelf-info { left: 72px; top: auto; bottom: 476px; width: 900px; }
+#stage.layout-kartice #shelf-kicker { font-size: 18px; letter-spacing: .18em; }
+#stage.layout-kartice #shelf-title { font-size: 72px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+#stage.layout-kartice #cards { top: 708px; gap: 24px; }
+#stage.layout-kartice .card { width: 316px; height: 178px; border-radius: 22px; opacity: .92; }
+#stage.layout-kartice.zone-shelf .card.focus { transform: scale(1.06); box-shadow: 0 0 0 4px #fff, 0 20px 40px rgba(0,0,0,.6); }
+#stage.layout-kartice #grid-wrap { left: 96px; top: 922px; }
+#stage.layout-kartice #grid { column-gap: 40px; }
+#stage.layout-kartice .tile-art { border-radius: 30px; }
+#stage.layout-kartice .tile-label { display: none; }
+#stage.layout-kartice .tile.focus .tile-art { --s: 1.08; box-shadow: 0 0 0 7px #fff, 0 20px 40px rgba(0,0,0,.6); }
+#stage.layout-kartice.zone-shelf #grid-wrap { opacity: .55; transition: opacity 300ms ease; }
+#stage.layout-kartice.wall-on #wall::after { background: rgba(0,0,0,.6); }
+
+/* ================= Svjetla: warm white, dark type, the picture in a frame ================= */
+#stage.layout-svjetla { background: #f2efe9; color: #17171b; }
+#stage.layout-svjetla #wall, #stage.layout-svjetla #bgblur, #stage.layout-svjetla #night { display: none !important; }
+#stage.layout-svjetla #bg { inset: auto; left: 736px; top: 96px; width: 1088px; height: 612px; border-radius: 34px; overflow: hidden; box-shadow: 0 30px 70px rgba(60,45,20,.22); }
+#stage.layout-svjetla .bg-img { background-position: center center; }
+#stage.layout-svjetla #bg-shade { background: none; }
+#stage.layout-svjetla #topbar { left: 96px; right: auto; top: 86px; text-align: left; display: flex; flex-direction: column-reverse; }
+#stage.layout-svjetla #clock { font-size: 104px; font-weight: 300; letter-spacing: -4px; line-height: .95; }
+#stage.layout-svjetla #date { font-size: 26px; font-weight: 500; opacity: .55; margin-top: 10px; }
+#stage.layout-svjetla #weather.on { left: 0; right: auto; color: #17171b; }
+#stage.layout-svjetla #weather .wx-c, #stage.layout-svjetla #weather .wx-d { opacity: .6; }
+#stage.layout-svjetla #shelf { left: 96px; top: 0; width: 1728px; height: 1080px; overflow: hidden; }
+#stage.layout-svjetla #shelf-info, #stage.layout-svjetla #shelf.has-cards #shelf-info { top: 390px; width: 580px; }
+#stage.layout-svjetla #shelf-kicker { color: #9a8a74; opacity: 1; font-size: 18px; letter-spacing: .18em; }
+#stage.layout-svjetla #shelf-title { font-size: 52px; font-weight: 700; letter-spacing: -1px; line-height: 1.05; text-shadow: none; color: #17171b; }
+#stage.layout-svjetla #shelf-sub { font-size: 24px; opacity: .6; text-shadow: none; }
+#stage.layout-svjetla #shelf-progress { background: rgba(23,23,27,.12); width: 300px; }
+#stage.layout-svjetla #shelf-progress > div { background: #17171b; }
+#stage.layout-svjetla #cards { left: 640px; top: 744px; gap: 20px; }
+#stage.layout-svjetla .card { width: 252px; height: 142px; border-radius: 18px; opacity: 1; box-shadow: 0 10px 24px rgba(60,45,20,.18); }
+#stage.layout-svjetla .card .card-bar { background: rgba(255,255,255,.35); }
+#stage.layout-svjetla.zone-shelf .card { opacity: .85; }
+#stage.layout-svjetla.zone-shelf .card.focus { transform: scale(1.07); box-shadow: 0 0 0 4px #17171b, 0 18px 36px rgba(60,45,20,.28); }
+#stage.layout-svjetla #grid-wrap { left: 96px; top: 920px; }
+#stage.layout-svjetla #grid { column-gap: 40px; }
+#stage.layout-svjetla .tile-art { border-radius: 30px; box-shadow: 0 10px 24px rgba(60,45,20,.18); }
+#stage.layout-svjetla .tile-gloss { display: none; }
+#stage.layout-svjetla .tile.focus .tile-art { --s: 1.1; box-shadow: 0 0 0 7px #17171b, 0 22px 44px rgba(60,45,20,.3); }
+#stage.layout-svjetla .tile-label { display: none; }
+#stage.layout-svjetla .tile-settings .tile-art { background: linear-gradient(160deg, #3a3a40, #1c1c20); }
+#stage.layout-svjetla.zone-shelf #grid-wrap { opacity: .5; transition: opacity 300ms ease; }
+#stage.layout-svjetla #settings { background: rgba(242,239,233,.55); }
+#stage.layout-svjetla #settings-panel { background: #faf8f4; color: #17171b; box-shadow: -30px 0 80px rgba(60,45,20,.18); }
+#stage.layout-svjetla .s-row { background: rgba(23,23,27,.05); }
+#stage.layout-svjetla .s-row.focus, #stage.layout-svjetla.accent .s-row.focus { background: #17171b; color: #fff; }
+#stage.layout-svjetla .s-input input { background: rgba(23,23,27,.07); color: #17171b; }
+#stage.layout-svjetla #toast { background: #17171b; color: #fff; }
+#stage.layout-svjetla #pinpad { background: rgba(242,239,233,.8); }
+#stage.layout-svjetla #pin-box { background: #faf8f4; color: #17171b; }
+#stage.layout-svjetla .pin-key { background: rgba(23,23,27,.06); }
+#stage.layout-svjetla #pin-dots i { border-color: rgba(23,23,27,.4); }
+#stage.layout-svjetla #pin-dots i.on { background: #17171b; border-color: #17171b; }
+#stage.layout-svjetla #dim { background: #f2efe9; }
+
+/* ================= Fokus: a slim rail of icons, the rest of the screen for the picture ================= */
+#stage.layout-fokus #dockbar {
+  display: block; position: absolute; left: 0; top: 0; bottom: 0; width: 168px; z-index: 1;
+  background: rgba(12,12,16,.62); -webkit-backdrop-filter: blur(28px); backdrop-filter: blur(28px); box-shadow: 1px 0 0 rgba(255,255,255,.08);
+}
+#stage.lite.layout-fokus #dockbar { background: rgba(12,12,16,.92); -webkit-backdrop-filter: none; backdrop-filter: none; }
+#stage.layout-fokus #bg-shade {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.7) 0%, rgba(0,0,0,.3) 40%, rgba(0,0,0,0) 65%),
+    linear-gradient(180deg, rgba(0,0,0,.3) 0%, rgba(0,0,0,0) 20%, rgba(0,0,0,0) 50%, rgba(0,0,0,.85) 100%);
+}
+#stage.layout-fokus #topbar { right: 96px; top: 56px; display: flex; gap: 16px; align-items: baseline; }
+#stage.layout-fokus #clock { font-size: 32px; font-weight: 600; }
+#stage.layout-fokus #date { font-size: 22px; opacity: .7; margin: 0; }
+#stage.layout-fokus #grid-wrap { left: 24px; top: 110px; width: 120px; height: 860px; overflow: hidden; z-index: 2; padding: 12px 0; }
+#stage.layout-fokus #grid { grid-template-columns: 120px; row-gap: 22px; }
+#stage.layout-fokus .tile { width: 120px; height: 72px; }
+#stage.layout-fokus .tile-art { inset: auto; left: 0; top: 0; width: 300px; height: 180px; transform-origin: 0 0; border-radius: 44px; box-shadow: none; }
+#stage.layout-fokus .tile .tile-art { --s: .4; }
+#stage.layout-fokus .tile.focus .tile-art { --s: .4; box-shadow: 0 0 0 10px #fff; }
+#stage.layout-fokus.zone-shelf .tile.focus .tile-art { box-shadow: 0 0 0 10px rgba(255,255,255,.35); }
+#stage.layout-fokus .tile-label, #stage.layout-fokus .tile-sheen, #stage.layout-fokus .tile-gloss { display: none; }
+#stage.layout-fokus #shelf { left: 264px; top: 0; width: 1560px; height: 1080px; }
+#stage.layout-fokus #shelf-info, #stage.layout-fokus #shelf.has-cards #shelf-info { top: 230px; width: 1100px; }
+#stage.layout-fokus #shelf-kicker { font-size: 20px; letter-spacing: .2em; }
+#stage.layout-fokus #shelf-title { font-size: 112px; font-weight: 800; letter-spacing: -4px; line-height: .95; }
+#stage.layout-fokus #shelf-sub { font-size: 28px; }
+#stage.layout-fokus #cards { top: 748px; gap: 26px; }
+#stage.layout-fokus .card { width: 356px; height: 200px; border-radius: 22px; }
+#stage.layout-fokus.zone-shelf .card.focus { transform: scale(1.06); box-shadow: 0 0 0 4px #fff, 0 20px 40px rgba(0,0,0,.6); }

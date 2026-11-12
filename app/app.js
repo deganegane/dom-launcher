@@ -23,10 +23,18 @@
     // an old set's channel list: numbers, scan lines, the picture of the focused channel
     retro:    { name: 'Retro TV', mode: 'list', enter: 'right', cardAxis: 'v', listView: 700 },
     // page 100 of the teletext: no pictures, blocky colours, channel numbers
-    teletekst: { name: 'Teletekst', mode: 'list', enter: 'right', cardAxis: 'v', listView: 620 }
+    teletekst: { name: 'Teletekst', mode: 'list', enter: 'right', cardAxis: 'v', listView: 620 },
+    // clean, modern: lots of room, one row at a time (the cards take the apps' place)
+    minimal:  { name: 'Minimal', mode: 'dock', scale: 0.62, view: 2787, enter: 'up', cardAxis: 'h', cardView: 1728 },
+    // a big rounded hero card, what to continue under it, small apps at the bottom
+    kartice:  { name: 'Kartice', mode: 'dock', scale: 0.56, view: 3086, enter: 'up', cardAxis: 'h', cardView: 1728, boxed: true },
+    // light: warm white, dark type, the picture in a rounded frame
+    svjetla:  { name: 'Svjetla', mode: 'dock', scale: 0.56, view: 3086, enter: 'up', cardAxis: 'h', cardView: 1064, boxed: true },
+    // a slim rail of icons on the left, the rest of the screen for the picture
+    fokus:    { name: 'Fokus', mode: 'list', enter: 'right', cardAxis: 'h', cardView: 1560, listView: 860 }
   };
   LAYOUTS.bento.boxed = true;
-  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst'];
+  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst', 'minimal', 'kartice', 'svjetla', 'fokus'];
   function L() { return LAYOUTS[S.layout] || LAYOUTS.classic; }
   function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : 5); }
   var ROW_H = 180 + 92;
@@ -1151,7 +1159,9 @@
       var exitKey = { up: KEY.DOWN, down: KEY.UP, right: KEY.LEFT }[L().enter || 'up'];
       if (k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP) out = true;
       else if (ax === 'h') {
-        if (k === KEY.LEFT) to = c - 1; else if (k === KEY.RIGHT) to = c + 1;
+        // a row entered from the left (Fokus): Left on the first card goes back to the apps
+        if (k === KEY.LEFT) { if (c === 0 && exitKey === KEY.LEFT) out = true; else to = c - 1; }
+        else if (k === KEY.RIGHT) to = c + 1;
         else if (k === exitKey) out = true; else return;
       } else if (ax === 'v') {
         if (k === KEY.UP) to = c - 1;
