@@ -1,5 +1,5 @@
 // Dom smoke test: loads the launcher in a browser (demo mode: no TV services), goes through every
-// layout and every Settings page, checks the landscape generator and the QR encoder.
+// layout and every Settings page, checks the landscape generator.
 //   node tests/smoke.js            (needs the playwright package and its Chromium)
 //   SHOTS=dir node tests/smoke.js  also saves screenshots
 'use strict';
@@ -35,13 +35,6 @@ function fail(msg) { failures.push(msg); console.log('  FAIL ' + msg); }
     return out;
   });
   if (bad.length) fail('broken landscapes: ' + bad.join(', '));
-
-  console.log('qr');
-  var qr = await page.evaluate(function () {
-    var m = window.DOM_QR('http://192.168.1.50:8090/#k=ab12cd34');
-    return m ? m.length : 0;
-  });
-  if (qr !== 29) fail('qr size ' + qr);
 
   var layouts = await page.evaluate(function () { return ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika']; });
   for (var li = 0; li < layouts.length; li++) {
@@ -98,17 +91,12 @@ function fail(msg) { failures.push(msg); console.log('  FAIL ' + msg); }
     if (!n) fail('empty settings page ' + t1);
     await shot('settings-' + t1.replace(/\W+/g, '_'));
     if (t1 === 'Sustav') {
-      var subs = ['Stanje sustava', 'Upravljanje s mobitela', 'Napredno'];
+      var subs = ['Stanje sustava', 'Napredno'];
       for (var si = 0; si < subs.length; si++) {
         if (!await clickRow(subs[si])) { fail('cannot open ' + subs[si]); continue; }
         await page.waitForTimeout(300);
         var st = await title();
         if (st !== subs[si]) fail('opened ' + st + ' instead of ' + subs[si]);
-        if (st === 'Upravljanje s mobitela') {   // switch it on: the QR code appears
-          await clickRow('Upravljanje s mobitela');
-          await page.waitForTimeout(300);
-          if (!await page.evaluate(function () { return !!document.querySelector('.s-qr svg'); })) fail('no QR code on the phone page');
-        }
         console.log('    ' + st);
         await shot('settings-' + st.replace(/\W+/g, '_'));
         await key('Escape');
@@ -144,13 +132,6 @@ function fail(msg) { failures.push(msg); console.log('  FAIL ' + msg); }
   var quick = await page.evaluate(function () { return document.querySelector('#settings h1').textContent; });
   if (quick !== 'Brzi izbornik') fail('red button opened ' + quick);
 
-  // the phone page sends commands as a relaunch
-  await page.evaluate(function () {
-    document.dispatchEvent(new CustomEvent('webOSRelaunch', { detail: { dom: 'remote', cmd: { t: 'layout', v: 'traka' } } }));
-  });
-  await page.waitForTimeout(300);
-  var lay2 = await page.evaluate(function () { return document.getElementById('stage').className; });
-  if (!/layout-traka/.test(lay2)) fail('remote layout change did not apply');
   await page.evaluate(function () {
     document.dispatchEvent(new CustomEvent('webOSRelaunch', { detail: { dom: 'console', appId: 'com.webos.app.hdmi2', label: 'PS5 Game Console' } }));
   });

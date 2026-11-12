@@ -133,12 +133,13 @@ else
   nohup "$GUARD" >/dev/null 2>&1 &
 fi
 
-echo "==> Pozadinski pomoćnik (mobitel, obavijesti, konzole)"
+echo "==> Pozadinski pomoćnik (obavijesti, konzole)"
 get_tool dom-agent.js /home/root/dom-agent.js
-get_tool dom-web.html /home/root/dom-web.html
+# the phone page is gone: its files and its switch
+rm -f /home/root/dom-web.html /home/root/dom-web-on /home/root/dom-web-token /tmp/dom-web.json /tmp/dom-state.json
 mkdir -p "$INITD"
 printf '%s\n' '#!/bin/sh' \
-  '# Dom: background helper (phone page, new-episode notices, consoles on HDMI). Undo: delete this file.' \
+  '# Dom: background helper (new-episode notices, consoles on HDMI). Undo: delete this file.' \
   '( sleep 20; /home/root/dom-ctl.sh agent start ) >/dev/null 2>&1 &' > "$INITD/91-dom-agent"
 chmod +x "$INITD/91-dom-agent"
 /home/root/dom-ctl.sh agent start || true

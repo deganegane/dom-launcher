@@ -151,21 +151,11 @@ pravo doba dana (noć, svitanje, dan, zalazak, sumrak, prema izlasku i zalasku s
 prognozu i vrijeme (oblačno, kiša, magla, snijeg, grmljavina). Kad se doba dana ili vrijeme promijeni, slika se odmah zamijeni.
 Čuvar zaslona koristi iste krajolike.
 
-## Upravljanje s mobitela
-
-Postavke → Sustav → **Upravljanje s mobitela**: skeniraj QR kod mobitelom u istoj Wi-Fi mreži. Stranica (port 8090, zaštićena kodom) ima:
-- **tipkovnicu** (tekst ide u polje označeno na TV-u, u bilo kojoj aplikaciji) i **daljinski**,
-- **aplikacije**: redoslijed, skrivanje, pokretanje, vlastita pozadina i ikona za svaku (slika s mobitela),
-- **izgled, pozadine, ekran**, **Stremio prijavu**, **grad za prognozu** i **Home Assistant**.
-
-Promjene postavki na trenutak otvore Dom na TV-u; tipkovnica i daljinski ne. Isključivanjem se server gasi.
-Stranicu poslužuje `/home/root/dom-agent.js` (log: `/tmp/dom-agent.log`).
-
 ## Konzole, obavijesti, pametni dom
 
 - **Kad se upali konzola** (Aplikacije): dok je Dom na ekranu i upali se PlayStation, Xbox ili Switch na HDMI-ju, Dom pita (OK prebacuje) ili odmah prebaci. Ono što se gleda nikad ne prekida. Pokusno: ako ne reagira, pošalji `/tmp/dom-inputs.log`.
 - **Obavijest o novoj epizodi** (Računi i prognoza → Stremio): pomoćnik svakih pola sata pita Stremio i pokaže obavijest na TV-u, i dok gledaš drugu aplikaciju.
-- **Pametni dom**: Home Assistant adresa, token i scena (ili skripta, automatizacija) kad pokreneš nešto za gledanje i kad se vratiš u Dom (npr. prigušena svjetla pa normalna). Lakše za upisati s mobitela.
+- **Pametni dom**: Home Assistant adresa, token i scena (ili skripta, automatizacija) kad pokreneš nešto za gledanje i kad se vratiš u Dom (npr. prigušena svjetla pa normalna).
 
 ## Dječji profil
 
@@ -189,10 +179,10 @@ Home guard bilježi samo promjene (`/home/root/dom-usage.log`), ništa ne napuš
 
 ## Postavke
 
-Prva razina: brze radnje na vrhu, ispod grupe Tema, Pozadine, Aplikacije, Računi i prognoza, Pametni dom, Dječji profil, Statistika gledanja, Čišćenje i ubrzanje i Sustav (sa Stanjem sustava, Upravljanjem s mobitela i Naprednim). OK otvara grupu, Natrag vraća razinu više.
+Prva razina: brze radnje na vrhu, ispod grupe Tema, Pozadine, Aplikacije, Računi i prognoza, Pametni dom, Dječji profil, Statistika gledanja, Čišćenje i ubrzanje i Sustav (sa Stanjem sustava i Naprednim). OK otvara grupu, Natrag vraća razinu više.
 
 Brzi izbornik (dugo Natrag ili crvena tipka) ima gašenje ekrana, tajmer za spavanje, način slike, zvuk, dječji profil i popis otvorenih aplikacija, i ne traži PIN (osim za izlaz iz dječjeg profila).
 
 ## Razvoj
 
-`node tests/smoke.js` (treba Playwright s Chromiumom) otvara launcher u pregledniku (demo način, bez TV-a), prolazi sve izglede i sve stranice Postavki, provjerava generator krajolika i QR kod. GitHub Actions ga pokreće prije svakog builda i na pull requestovima; build ne kreće ako test padne, a nijedan korak ne može visjeti dulje od 15 minuta.
+`node tests/smoke.js` (treba Playwright s Chromiumom) otvara launcher u pregledniku (demo način, bez TV-a), prolazi sve izglede i sve stranice Postavki i provjerava generator krajolika. GitHub Actions ga pokreće prije svakog builda i na pull requestovima; build ne kreće ako test padne, a nijedan korak ne može visjeti dulje od 15 minuta.

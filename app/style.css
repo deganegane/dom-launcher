@@ -528,10 +528,6 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 #stage.idle-dim #dim { opacity: .5; transition: opacity 6s ease; }
 #stage.saver #dim { opacity: 0 !important; }
 
-/* ---------- QR code for the phone page ---------- */
-.s-qr { margin: 8px 6px 16px; }
-.s-qr svg { display: block; width: 300px; height: 300px; border-radius: 18px; }
-
 /* ---------- PIN pad ---------- */
 #pinpad { position: absolute; inset: 0; background: rgba(0,0,0,.72); z-index: 40; display: flex; align-items: center; justify-content: center; transition: opacity 200ms ease; }
 #pinpad.hidden { opacity: 0; pointer-events: none; }

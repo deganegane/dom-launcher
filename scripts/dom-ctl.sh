@@ -13,8 +13,7 @@
 #   dom-ctl.sh health             one line per check, for Settings > Sustav > Stanje sustava
 #   dom-ctl.sh restart            start the home guard and the helper again
 #   dom-ctl.sh rollback           put the previous version of Dom back
-#   dom-ctl.sh web on|off|status  the phone page (served by dom-agent.js)
-#   dom-ctl.sh agent start|stop   the background helper (phone page, new-episode notices, consoles)
+#   dom-ctl.sh agent start|stop   the background helper (new-episode notices, consoles)
 FLAG=/home/root/dom-disabled
 ALLOW=/tmp/dom-allow-home
 HOME_ID=com.webos.app.home
@@ -112,7 +111,7 @@ case "$1" in
     echo "$2" | base64 -d > "$B/settings.json" 2>/dev/null || exit 1
     cd /home/root || exit 1
     list=""
-    for f in dom-icons dom-backgrounds dom-ssap-key dom-ssap-endpoint dom-stremio-keys.txt dom-capture-method dom-tune.conf dom-home/level dom-web-token dom-usage.log; do [ -e "$f" ] && list="$list $f"; done
+    for f in dom-icons dom-backgrounds dom-ssap-key dom-ssap-endpoint dom-stremio-keys.txt dom-capture-method dom-tune.conf dom-home/level dom-usage.log; do [ -e "$f" ] && list="$list $f"; done
     # shellcheck disable=SC2086
     tar czf "$B/dom-files.tar.gz" $list 2>/dev/null
     echo OK
@@ -142,7 +141,6 @@ case "$1" in
     echo "block=$(flag01 grep -q ' /usr/sbin/update ' /proc/mounts)"
     echo "node=$(flag01 sh -c 'command -v node || test -x /usr/bin/node')"
     echo "paired=$(flag01 test -s /home/root/dom-ssap-key)"
-    echo "web=$(flag01 test -f /home/root/dom-web-on)"
     echo "notify=$(flag01 test -f /home/root/dom-notify-on)"
     echo "mem=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo)"
     echo "disk=$(df -k /home/root 2>/dev/null | tail -1 | awk '{print int($(NF-2)/1024)}')"
@@ -158,17 +156,6 @@ case "$1" in
   rollback)
     [ -x /home/root/dom-install.sh ] && [ -s /home/root/dom-backup/previous.ipk ] || exit 1
     request_install rollback
-    ;;
-  web)
-    case "$2" in
-      on) touch /home/root/dom-web-on; start_agent ;;
-      off) rm -f /home/root/dom-web-on ;;
-      *)
-        if [ -f /home/root/dom-web-on ] && alive /tmp/dom-agent.pid && [ -s /tmp/dom-web.json ]; then cat /tmp/dom-web.json
-        elif [ -f /home/root/dom-web-on ]; then echo '{"on":true,"url":""}'
-        else echo '{"on":false}'; fi
-        ;;
-    esac
     ;;
   agent)
     case "$2" in

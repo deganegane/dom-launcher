@@ -1712,7 +1712,7 @@
 
   /* ================= kids' profile: only chosen apps, an optional daily limit ================= */
   var KIDS_LIMITS = [0, 30, 60, 90, 120, 180];
-  function kidsSave() { store.set('kids', S.kids); stateSync(); }
+  function kidsSave() { store.set('kids', S.kids); }
   function kidsToday() {
     var d = new Date().toDateString();
     if (S.kids.used.d !== d) { S.kids.used = { d: d, s: 0 }; }
@@ -1782,7 +1782,7 @@
     for (var k in o) if (o.hasOwnProperty(k) && typeof o[k] === typeof S.ha[k]) S.ha[k] = o[k];
     S.ha.url = String(S.ha.url || '').trim();
     if (S.ha.url && !/^https?:\/\//.test(S.ha.url)) S.ha.url = 'http://' + S.ha.url;
-    store.set('ha', S.ha); stateSync();
+    store.set('ha', S.ha);
   }
 
   /* ================= what has been on screen: from the home guard's log ================= */
@@ -1867,91 +1867,6 @@
       exec('/home/root/dom-ctl.sh rollback', 20000).catch(function () { toast('Nije uspjelo'); });
     } });
     if (v.log.length) { rows.push({ h: 'Zadnje u zapisniku' }); v.log.forEach(function (l) { rows.push({ note: l }); }); }
-  }
-
-  /* ================= phone remote: dom-agent.js serves a page on the local network ================= */
-  var WEB = { on: false, url: '', busy: false };
-  function webLoad(tries) {
-    if (DEMO) { WEB.url = WEB.on ? 'http://192.168.1.50:8090/#k=demo1234' : ''; return; }
-    exec('/home/root/dom-ctl.sh web status', 8000).then(function (out) {
-      var j = null; try { j = JSON.parse(String(out).trim()); } catch (e) {}
-      WEB.on = !!(j && j.on); WEB.url = j && j.url || '';
-      if (WEB.on && !WEB.url && (tries || 0) < 6) setTimeout(function () { webLoad((tries || 0) + 1); }, 1200);
-      if (S.zone === 'settings') renderSettings();
-    }, function () {});
-  }
-  function webToggle() {
-    WEB.on = !WEB.on; WEB.url = '';
-    if (DEMO) { webLoad(); renderSettings(); return; }
-    renderSettings();
-    exec('/home/root/dom-ctl.sh web ' + (WEB.on ? 'on' : 'off'), 15000).then(function () { stateSync(true); setTimeout(webLoad, 1500); }, function () { toast('Nije uspjelo'); });
-  }
-
-  // what the phone page shows: kept in /tmp/dom-state.json, written whenever something changes
-  var stateTimer;
-  function stateSync(now) {
-    if (DEMO) return;
-    clearTimeout(stateTimer);
-    stateTimer = setTimeout(function () {
-      var st = {
-        version: S.version, layout: S.layout, layouts: LAYOUT_ORDER.map(function (k) { return [k, LAYOUTS[k].name]; }),
-        wall: { on: S.wall.on, src: S.wall.src }, wallSrcs: WALL_SRC_ORDER.map(function (k) { return [k, WALL_SRC[k]]; }),
-        saverMins: S.saverMins, oled: S.oled, night: S.night, nightSleep: S.nightSleep, autoOrder: S.autoOrder || false, crt: S.crt,
-        stremio: S.authKey ? (S.stremioUser || 'da') : '', city: WX.place ? WX.place.name : '', notify: S.notify,
-        ha: { on: S.ha.on, url: S.ha.url, token: !!S.ha.token, play: S.ha.play, back: S.ha.back },
-        kids: S.kids.on, consoleMode: CONSOLE.mode,
-        apps: S.apps.map(function (a) { return { key: a.key, id: a.id, title: a.title, hidden: S.hidden.indexOf(a.key) >= 0, icon: /^cache\//.test(a.icon || '') ? a.icon.replace(/\?.*$/, '') : '' }; }),
-        order: S.list.filter(function (a) { return a.key !== SETTINGS_KEY; }).map(function (a) { return a.key; })
-      };
-      exec('echo ' + shq(b64(JSON.stringify(st))) + ' | base64 -d > /tmp/dom-state.json.new && mv /tmp/dom-state.json.new /tmp/dom-state.json').catch(function () {});
-    }, now ? 50 : 1500);
-  }
-  // commands from the phone page arrive as a relaunch with { dom: 'remote', cmd: {...} }
-  function remoteCmd(c) {
-    if (!c || typeof c !== 'object') return;
-    var redraw = function () { buildList(); renderGrid(); updateShelf(true); };
-    switch (c.t) {
-      case 'layout': if (LAYOUTS[c.v]) { S.layout = c.v; store.set('layout', S.layout); applyLayout(); } break;
-      case 'wall':
-        if (typeof c.on === 'boolean') S.wall.on = c.on;
-        if (WALL_SRC[c.src] && c.src !== S.wall.src) { S.wall.src = c.src; WALL.shownAt = 0; }
-        wallSave(); wallApply(); break;
-      case 'wallnext': if (S.wall.on) wallNext(true); break;
-      case 'set':
-        if (c.k === 'saverMins' && [0, 2, 5, 10].indexOf(c.v) >= 0) { S.saverMins = c.v; store.set('saverMins', c.v); saverSync(); }
-        else if (c.k === 'oled' || c.k === 'nightSleep' || c.k === 'crt') { S[c.k] = !!c.v; store.set(c.k, S[c.k]); if (c.k === 'oled') oledShift(); }
-        else if (c.k === 'night' && NIGHT_NAMES[c.v]) { S.night = c.v; store.set('night', c.v); nightApply(); }
-        else if (c.k === 'autoOrder' && (c.v === false || c.v === 'uses' || c.v === 'time')) { S.autoOrder = c.v; store.set('autoOrder', c.v); redraw(); }
-        else if (c.k === 'consoleMode' && CONSOLE_MODES[c.v]) { CONSOLE.mode = c.v; store.set('consoleMode', c.v); consoleSync(); }
-        break;
-      case 'hide':
-        var hi = S.hidden.indexOf(c.key);
-        if (c.v && hi < 0) S.hidden.push(c.key); else if (!c.v && hi >= 0) S.hidden.splice(hi, 1);
-        store.set('hidden', S.hidden); redraw(); break;
-      case 'order':
-        if (Object.prototype.toString.call(c.keys) === '[object Array]') {
-          S.order = c.keys.filter(function (k) { return typeof k === 'string'; }); store.set('order', S.order);
-          if (S.autoOrder) { S.autoOrder = false; store.set('autoOrder', false); }
-          redraw();
-        }
-        break;
-      case 'login':
-        stremioLogin(String(c.email || ''), String(c.password || '')).then(function () { toast('Prijavljen u Stremio'); notifySync(); stateSync(); renderCards(); updateShelf(true); },
-          function (e) { toast(e.message || 'Prijava nije uspjela'); });
-        return;
-      case 'city': wxSetCity(String(c.name || '')); break;
-      case 'ha':
-        haSave({ on: !!c.on, url: String(c.url || ''), play: String(c.play || ''), back: String(c.back || '') });
-        if (typeof c.token === 'string' && c.token) haSave({ token: c.token });
-        break;
-      case 'hatest': haCall(S.ha.play, 'test'); break;
-      case 'notify': notifySet(!!c.v); break;
-      case 'reload': reloadApps().then(function () { updateShelf(true); }); break;
-      case 'launch': for (var i = 0; i < S.apps.length; i++) if (S.apps[i].key === c.key) { launch(S.apps[i]); return; } break;
-      default: return;
-    }
-    toast('Promijenjeno s mobitela');
-    stateSync();
   }
 
   /* ================= new-episode notices, also while another app is on screen ================= */
@@ -2126,7 +2041,6 @@
     { key: 'tune', name: 'Čišćenje i ubrzanje', sum: function () { return S.tune ? TUNE_GROUPS.filter(function (g) { return S.tune[g.key]; }).length + ' od ' + TUNE_GROUPS.length + ' uključeno' : ''; } },
     { key: 'sys', name: 'Sustav', sum: function () { return S.version ? 'verzija ' + S.version : ''; } },
     { key: 'health', name: 'Stanje sustava', parent: 'sys' },
-    { key: 'phone', name: 'Upravljanje s mobitela', parent: 'sys' },
     { key: 'adv', name: 'Napredno', parent: 'sys' }
   ];
   function setGroup(key) { for (var i = 0; i < SET_GROUPS.length; i++) if (SET_GROUPS[i].key === key) return SET_GROUPS[i]; return null; }
@@ -2134,7 +2048,6 @@
     SET.only = key; SET.pos = 0; SET.rows = [];
     if (key === 'stats') statsLoad(true);
     if (key === 'health') { HEALTH.v = null; healthLoad(); }
-    if (key === 'phone') webLoad();
     if (key === 'ha') { SET.haUrl = S.ha.url; SET.haPlay = S.ha.play; SET.haBack = S.ha.back; SET.haToken = ''; }
     renderSettings();
   }
@@ -2164,12 +2077,12 @@
         rows.push({ type: 'info', label: 'Prijavljen', value: S.stremioUser || 'da' });
         rows.push({ type: 'btn', label: 'Osvježi "Nastavi gledati"', value: S.cw.length + ' stavki', act: function () { refreshStremio(true).then(function () { toast('Osvježeno'); renderSettings(); }); } });
         rows.push({ type: 'toggle', name: 'notify', label: 'Obavijest o novoj epizodi', value: S.notify ? 'Uključeno' : 'Isključeno', off: !S.notify, act: function () {
-          notifySet(!S.notify); stateSync(); renderSettings();
+          notifySet(!S.notify); renderSettings();
           if (S.notify) toast('Obavijest stiže i dok gledaš drugu aplikaciju (provjera svakih pola sata).');
         } });
         rows.push({ type: 'btn', label: 'Odjavi se', act: function () {
           S.authKey = ''; S.stremioUser = ''; S.cw = []; store.set('authKey', ''); store.set('stremioUser', ''); store.set('cw', []);
-          notifySync(); stateSync();
+          notifySync();
           renderCards(); updateShelf(true); renderSettings();
         } });
       } else {
@@ -2196,18 +2109,18 @@
       rows.push({ type: 'btn', name: 'autoorder', label: 'Redoslijed aplikacija', value: AO[String(S.autoOrder || false)] + '  ›', act: function () {
         S.autoOrder = S.autoOrder === false || !S.autoOrder ? 'uses' : (S.autoOrder === 'uses' ? 'time' : false);
         store.set('autoOrder', S.autoOrder);
-        buildList(); renderGrid(); renderSettings(); stateSync();
+        buildList(); renderGrid(); renderSettings();
       } });
       if (S.autoOrder === 'time') rows.push({ note: 'Naprijed su aplikacije koje najčešće otvaraš u ovo doba dana (jutro, dan, večer, noć).' });
       rows.push({ type: 'toggle', name: 'oled', label: 'Zaštita OLED ekrana', value: S.oled ? 'Uključeno' : 'Isključeno', off: !S.oled, act: function () {
-        S.oled = !S.oled; store.set('oled', S.oled); oledShift(); undim(); renderSettings(); stateSync();
+        S.oled = !S.oled; store.set('oled', S.oled); oledShift(); undim(); renderSettings();
       } });
       rows.push({ note: 'Slika se svake 3 minute neprimjetno pomakne za par piksela, a nakon 4 minute bez daljinskog Dom se zatamni.' });
       rows.push({ type: 'btn', name: 'night', label: 'Noćni način', value: NIGHT_NAMES[S.night] + '  ›', act: function () {
-        S.night = NIGHT_ORDER[(NIGHT_ORDER.indexOf(S.night) + 1) % NIGHT_ORDER.length]; store.set('night', S.night); nightApply(); renderSettings(); stateSync();
+        S.night = NIGHT_ORDER[(NIGHT_ORDER.indexOf(S.night) + 1) % NIGHT_ORDER.length]; store.set('night', S.night); nightApply(); renderSettings();
       } });
       rows.push({ type: 'toggle', name: 'nightsleep', label: 'Tajmer kad nešto pokreneš kasno', value: S.nightSleep ? 'Uključeno' : 'Isključeno', off: !S.nightSleep, act: function () {
-        S.nightSleep = !S.nightSleep; store.set('nightSleep', S.nightSleep); renderSettings(); stateSync();
+        S.nightSleep = !S.nightSleep; store.set('nightSleep', S.nightSleep); renderSettings();
       } });
       if (S.nightSleep) rows.push({ note: 'Između 22 i 4 h pokretanje aplikacije uključi tajmer za spavanje od 90 min (ako već nije uključen).' });
       rows.push({ type: 'toggle', name: 'crt', label: 'Gašenje kao na starom TV-u', value: S.crt ? 'Uključeno' : 'Isključeno', off: !S.crt, act: function () {
@@ -2218,7 +2131,7 @@
     if (g === 'apps') {
       rows.push({ type: 'btn', name: 'console', label: 'Kad se upali konzola', value: CONSOLE_MODES[CONSOLE.mode] + '  ›', act: function () {
         CONSOLE.mode = CONSOLE_ORDER[(CONSOLE_ORDER.indexOf(CONSOLE.mode) + 1) % CONSOLE_ORDER.length];
-        store.set('consoleMode', CONSOLE.mode); consoleSync(); renderSettings(); stateSync();
+        store.set('consoleMode', CONSOLE.mode); consoleSync(); renderSettings();
       } });
       rows.push({ note: 'Dok je Dom na ekranu i upali se PlayStation, Xbox ili Switch na HDMI-ju, Dom pita ili odmah prebaci na njega.' });
       rows.push({ h: 'Prikaz' });
@@ -2234,7 +2147,7 @@
       });
     }
     if (g === 'ha') {
-      rows.push({ note: 'Dom može pozvati scenu, skriptu ili automatizaciju u Home Assistantu kad pokreneš nešto za gledanje i kad se vratiš u Dom. Lakše je upisati s mobitela (Sustav › Upravljanje s mobitela).' });
+      rows.push({ note: 'Dom može pozvati scenu, skriptu ili automatizaciju u Home Assistantu kad pokreneš nešto za gledanje i kad se vratiš u Dom.' });
       rows.push({ type: 'toggle', name: 'ha-on', label: 'Home Assistant', value: S.ha.on ? 'Uključeno' : 'Isključeno', off: !S.ha.on, act: function () {
         haSave({ on: !S.ha.on }); renderSettings();
       } });
@@ -2275,14 +2188,6 @@
     }
     if (g === 'stats') statsRows(rows);
     if (g === 'health') healthRows(rows);
-    if (g === 'phone') {
-      rows.push({ note: 'Na mobitelu u istoj Wi-Fi mreži otvori stranicu s koje upisuješ tekst na TV, prijavljuješ se, dodaješ slike i ikone, slažeš aplikacije i mijenjaš postavke.' });
-      rows.push({ type: 'toggle', name: 'web-on', label: 'Upravljanje s mobitela', value: WEB.on ? 'Uključeno' : 'Isključeno', off: !WEB.on, act: webToggle });
-      if (WEB.on && WEB.url) {
-        rows.push({ qr: WEB.url });
-        rows.push({ note: 'Skeniraj kameru mobitela ili upiši: ' + WEB.url.replace(/#.*$/, '') + '  ·  kod: ' + (WEB.url.split('#k=')[1] || '') });
-      } else if (WEB.on) rows.push({ note: 'Pokrećem…' });
-    }
     if (g === 'tune') {
       if (!S.tune) {
         rows.push({ note: S.tuneMissing ? 'Nije instalirano. Ponovi instalaciju Doma pa otvori Postavke opet.' : 'Učitavam…' });
@@ -2303,7 +2208,6 @@
     if (g === 'sys') {
       rows.push({ type: 'btn', name: 'update', label: 'Nadogradi Dom', value: S.version ? 'verzija ' + S.version : '', act: domUpdate });
       rows.push({ type: 'btn', name: 'grp-health', label: 'Stanje sustava', value: '›', act: function () { openGroup('health'); } });
-      rows.push({ type: 'btn', name: 'grp-phone', label: 'Upravljanje s mobitela', value: (WEB.on ? 'Uključeno  ' : '') + '›', act: function () { openGroup('phone'); } });
       rows.push({ type: 'toggle', name: 'pin', label: 'PIN za Postavke', value: S.pin ? 'Uključen' : 'Isključen', off: !S.pin, act: function () {
         if (S.pin) { S.pin = ''; store.set('pin', ''); toast('PIN je uklonjen'); renderSettings(); return; }
         pinAsk('Novi PIN (4 znamenke)', function (a) {
@@ -2349,13 +2253,6 @@
     if (rows[0] && rows[0].h && rows.filter(function (r) { return r.h; }).length === 1) rows.shift();
     return rows;
   }
-  function qrSvg(text) {
-    var m = window.DOM_QR ? window.DOM_QR(text) : null;
-    if (!m) return '';
-    var n = m.length, q = 4, d = '';
-    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) if (m[y][x]) d += 'M' + (x + q) + ' ' + (y + q) + 'h1v1h-1z';
-    return '<svg viewBox="0 0 ' + (n + 2 * q) + ' ' + (n + 2 * q) + '" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
-  }
   function settingsTitle() { var g = setGroup(SET.only); return SET.only === 'run' ? 'Brzi izbornik' : (g ? g.name : 'Postavke'); }
   function renderSettings() {
     var rowId = function (r) { return r ? (r.app ? 'app:' + r.app.key : (r.name ? 'in:' + r.name : '')) : ''; };
@@ -2370,7 +2267,6 @@
     SET.rows.forEach(function (r, i) {
       if (r.h) { html += '<div class="s-h">' + esc(r.h) + '</div>'; return; }
       if (r.note) { html += '<div class="s-note">' + esc(r.note) + '</div>'; return; }
-      if (r.qr) { html += '<div class="s-qr">' + qrSvg(r.qr) + '</div>'; return; }
       focusables.push(i);
       if (r.type === 'input') {
         html += '<div class="s-row s-input" data-i="' + i + '"><input type="' + r.inputType + '" placeholder="' + esc(r.label) +
@@ -2442,7 +2338,7 @@
     SET.busy = true; renderSettings();
     stremioLogin(SET.email, SET.password).then(function () {
       SET.busy = false; SET.password = ''; SET.pos = 0;
-      notifySync(); stateSync();
+      notifySync();
       toast('Prijavljen u Stremio');
       renderSettings(); renderCards(); updateShelf(true);
     }).catch(function (e) {
@@ -2616,12 +2512,6 @@
       if (CONSOLE.mode === 'auto') launch({ id: String(d.appId || ''), title: shownName(String(d.label || '')), params: {} }); else consoleOffer(d);
       return;
     }
-    if (d.dom === 'remote') {    // a change from the phone page: keep whatever is open
-      if (document.hidden) onShow();
-      bringToFront();
-      remoteCmd(d.cmd);
-      return;
-    }
     onShow();
     if (d.dom === 'recents' && !(S.zone === 'settings' && SET.only === 'run')) openRun();
     if (d.dom === 'kidslimit') toast('Vrijeme za gledanje je isteklo za danas.', 6000);
@@ -2664,6 +2554,6 @@
   // show the last known apps immediately; the fresh list replaces them if anything changed
   var cachedApps = DEMO ? null : store.get('appsCache', null);
   if (cachedApps && cachedApps.length) { S.apps = cachedApps; buildList(); renderGrid(); drawShelf(); }
-  reloadApps().then(function () { refreshStremio(true); refreshAppContents(true); stateSync(); });
+  reloadApps().then(function () { refreshStremio(true); refreshAppContents(true); });
   setInterval(function () { if (!document.hidden) { refreshStremio(false); refreshAppContents(false); } }, 5 * 60 * 1000);
 })();
