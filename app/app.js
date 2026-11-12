@@ -17,10 +17,16 @@
     ambient:  { name: 'Ambijent', mode: 'dock', scale: 0.8, view: 1965, enter: 'up', cardAxis: 'h', cardView: 1692 },
     traka:    { name: 'Traka', mode: 'dock', scale: 0.72, view: 2440, enter: 'down', cardAxis: 'h', cardView: 1728, tabs: true },
     konzola:  { name: 'Konzola', mode: 'dock', scale: 0.49, view: 1920, step: 226, enter: 'down', cardAxis: 'h', cardView: 1728 },
-    harmonika: { name: 'Harmonika', mode: 'accordion', enter: 'down', cardAxis: 'h', cardView: 1728, boxed: true }
+    harmonika: { name: 'Harmonika', mode: 'accordion', enter: 'down', cardAxis: 'h', cardView: 1728, boxed: true },
+    // everything there is to continue, from every app, in one row above a small row of apps
+    police:   { name: 'Police', mode: 'dock', scale: 0.6, view: 2880, enter: 'up', cardAxis: 'h', cardView: 1728, allCards: true },
+    // an old set's channel list: numbers, scan lines, the picture of the focused channel
+    retro:    { name: 'Retro TV', mode: 'list', enter: 'right', cardAxis: 'v', listView: 700 },
+    // page 100 of the teletext: no pictures, blocky colours, channel numbers
+    teletekst: { name: 'Teletekst', mode: 'list', enter: 'right', cardAxis: 'v', listView: 620 }
   };
   LAYOUTS.bento.boxed = true;
-  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika'];
+  var LAYOUT_ORDER = ['classic', 'sidebar', 'bento', 'carousel', 'ambient', 'traka', 'konzola', 'harmonika', 'police', 'retro', 'teletekst'];
   function L() { return LAYOUTS[S.layout] || LAYOUTS.classic; }
   function cols() { var m = L().mode; return m === 'list' ? 1 : (m ? Math.max(1, S.list.length) : 5); }
   var ROW_H = 180 + 92;
@@ -123,6 +129,10 @@
     ha: store.get('ha', { on: false, url: '', token: '', play: '', back: '' }),
     kids: store.get('kids', { on: false, apps: [], limit: 0, used: { d: '', s: 0 }, leftAt: 0 }),
     notify: store.get('notify', false),        // new-episode notices from the background agent
+    accent: store.get('accent', true),         // focus and progress take the colour of the picture
+    surface: store.get('surface', 'std'),      // std | black (OLED black panels) | glass (see-through, blurred)
+    kenburns: store.get('kenburns', true),     // backgrounds drift and zoom very slowly
+    season: store.get('season', true),         // snow in December
     pin: store.get('pin', ''),
     sleepMins: 0, version: '',
     lastStremio: 0
@@ -444,10 +454,24 @@
   }
   function shelfItems(a) {
     if (!a || a.key === SETTINGS_KEY || S.kids.on) return [];
+    if (L().allCards) return allContinue();
     var items = isStremio(a) ? S.cw : (S.appRows[a.id] || []);
     if (!items.length && L().fallback) items = S.cw;   // keep the row filled with what you're watching
     var mx = L().maxCards;
     return mx ? items.slice(0, mx) : items;
+  }
+  // Police: what you were watching in every app, Stremio first
+  function allContinue() {
+    var out = S.cw.slice();
+    Object.keys(S.appRows).forEach(function (k) {
+      S.appRows[k].forEach(function (it) { if (it.kicker === 'Nastavi gledati') out.push(it); });
+    });
+    return out.slice(0, 14);
+  }
+  function itemApp(item) {
+    if (item.kind !== 'app') return stremioApp();
+    for (var i = 0; i < S.apps.length; i++) if (S.apps[i].id === item.appId) return S.apps[i];
+    return null;
   }
   function activateItem(item) {
     if (!item) return;
@@ -731,8 +755,10 @@
       var el = document.createElement('div');
       el.className = 'card';
       var pct = item.duration ? Math.min(100, Math.round(item.offset / item.duration * 100)) : 0;
+      var ia = L().allCards ? itemApp(item) : null;
       el.innerHTML = '<div class="card-title">' + esc(item.name) + (item.season ? ' · S' + item.season + 'E' + item.episode : '') + '</div>' +
-        '<div class="card-bar"><div style="width:' + pct + '%"></div></div>';
+        '<div class="card-bar"><div style="width:' + pct + '%"></div></div>' +
+        (ia && ia.icon ? '<img class="card-app" src="' + esc(ia.icon) + '" alt="">' : '');
       setImage(el, [item.thumb, item.thumbFallback, item.poster]);
       el.addEventListener('mouseenter', function () { if (!pointerMoved()) return; if (S.zone !== 'settings' && !S.moving) { S.zone = 'shelf'; S.card = i; applyFocus(); updateShelf(); } });
       // look the item up at click time: launch parameters are refreshed in the background
@@ -840,6 +866,8 @@
       };
       }
     }
+    // Police: while on the apps, the top shows the app, not the first card
+    if (L().allCards && S.zone !== 'shelf') info = null;
     // Karusel: while on the apps, the big line names the app; the art waits for the card row
     if (S.layout === 'carousel' && S.zone !== 'shelf' && a && a.key !== SETTINGS_KEY) {
       var first = showCards ? items[0] : null;
@@ -859,6 +887,7 @@
 
     if (key === shelfKey && !force) return;
     shelfKey = key;
+    accentFrom(a);
     setBackground(key, info.bg, info.fb);
 
     var box = $('#shelf-info');
@@ -946,6 +975,8 @@
     }
     stage.classList.toggle('scrolled', !lay.mode && S.zone !== 'shelf' && r > 0);
     stage.classList.toggle('zone-shelf', S.zone === 'shelf');
+    var osd = $('#osd'), cur = S.list[S.idx];
+    if (osd) osd.textContent = cur && cur.key !== SETTINGS_KEY ? (S.layout === 'teletekst' ? 'P' + (100 + S.idx + 1) : 'P' + ('0' + (S.idx + 1)).slice(-2)) : '';
     stage.classList.toggle('zone-tabs', S.zone === 'tabs');
     stage.classList.toggle('moving-mode', S.moving);
   }
@@ -1036,6 +1067,15 @@
     if (stage.classList.contains('out')) { fadeIn(true); if (e.preventDefault) e.preventDefault(); return; }
     if (S.zone === 'settings') { settingsKey(e); return; }
     if (k === 403 && !S.moving) { openRun(); if (e.preventDefault) e.preventDefault(); return; }   // red button: open apps
+    if (k === 404 && !S.moving) { openSettings(); if (e.preventDefault) e.preventDefault(); return; }   // green button: Settings
+    // 1-9 on the remote: that app straight away, like a channel
+    var num = k >= 49 && k <= 57 ? k - 48 : (k >= 97 && k <= 105 ? k - 96 : 0);
+    if (num && !S.moving) {
+      var apps = S.list.filter(function (x) { return x.key !== SETTINGS_KEY; });
+      if (apps[num - 1]) { S.zone = 'grid'; setIdx(S.list.indexOf(apps[num - 1])); toast('Kanal ' + num + ' · ' + apps[num - 1].title); launch(apps[num - 1]); }
+      if (e.preventDefault) e.preventDefault();
+      return;
+    }
     // remotes with media or colour keys: play/pause or yellow keeps the wallpaper, fast-forward or blue shows the next one
     if (S.wall.on && (k === 415 || k === 19 || k === 10252 || k === 405)) { wallTogglePause(); e.preventDefault(); return; }
     if (S.wall.on && (k === 417 || k === 406)) { wallNext(true); e.preventDefault(); return; }
@@ -1147,11 +1187,69 @@
     stage.classList.toggle('dock', L().mode === 'dock');
     stage.classList.toggle('boxed', !!L().boxed);
     stage.style.setProperty('--dock-scale', L().scale || 1);
+    themeApply();
     $('#grid').style.transform = 'none';
     if (S.list.length) renderGrid();
     S.cardsFor = null; shelfKey = ''; bgKey = '';
     if (S.zone === 'shelf' || S.zone === 'tabs') S.zone = 'grid';
     updateShelf(true);
+  }
+
+  /* ================= themes: accent colour, panels, drifting backgrounds, the season ================= */
+  // the accent: from the live or drawn landscape when that is the wallpaper, else from the focused app
+  function hsl(c) {
+    var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0;
+    if (mx !== mn) {
+      var d = mx - mn;
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : (mx === g ? (b - r) / d + 2 : (r - g) / d + 4);
+      h /= 6;
+    }
+    return [h, s, l];
+  }
+  function rgbOf(h, s, l) {
+    var f = function (p, q, t) { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    return [f(p, q, h + 1 / 3), f(p, q, h), f(p, q, h - 1 / 3)].map(function (v) { return Math.round(v * 255); });
+  }
+  var accentKey = '';
+  function accentFrom(a) {
+    if (!S.accent) return;
+    var c = S.wall.on && WALL.accent ? toRgb(WALL.accent) : (a && a.key !== SETTINGS_KEY ? brandColor(a) : null);
+    if (!c) c = [140, 150, 170];
+    var x = hsl(c), grey = x[1] < 0.12;
+    // a clear colour that reads on dark pictures, and a pale one to put black text on
+    var main = rgbOf(x[0], grey ? 0 : Math.max(0.55, x[1]), 0.62), pale = rgbOf(x[0], grey ? 0 : Math.max(0.5, x[1]), 0.88);
+    var key = main.join(',') + '/' + pale.join(',');
+    if (key === accentKey) return;
+    accentKey = key;
+    stage.style.setProperty('--acc', main.join(','));
+    stage.style.setProperty('--acc-l', pale.join(','));
+  }
+  function themeApply() {
+    stage.classList.toggle('accent', !!S.accent);
+    stage.classList.toggle('surf-black', S.surface === 'black');
+    stage.classList.toggle('surf-glass', S.surface === 'glass');
+    stage.classList.toggle('kb', !!S.kenburns);
+    seasonApply();
+    accentKey = ''; accentFrom(S.list[S.idx]);
+  }
+  var SURFACES = { std: 'Standardne', black: 'OLED crne', glass: 'Staklo' };
+  var SURFACE_ORDER = ['std', 'black', 'glass'];
+  // snow from 1 December to 6 January
+  function snowSeason() { var d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); }
+  function seasonApply() {
+    var on = S.season && snowSeason() && S.layout !== 'teletekst', box = $('#season');
+    stage.classList.toggle('snow', on);
+    if (on && !box.firstChild) {
+      var html = '';
+      for (var i = 0; i < 46; i++) {
+        var sz = 3 + Math.random() * Math.random() * 9, dur = 9 + Math.random() * 14;
+        html += '<i style="left:' + (Math.random() * 100).toFixed(1) + '%;width:' + sz.toFixed(1) + 'px;height:' + sz.toFixed(1) + 'px;opacity:' + (0.35 + Math.random() * 0.55).toFixed(2) +
+          ';animation-duration:' + dur.toFixed(1) + 's,' + (3 + Math.random() * 4).toFixed(1) + 's;animation-delay:-' + (Math.random() * dur).toFixed(1) + 's,-' + (Math.random() * 4).toFixed(1) + 's"></i>';
+      }
+      box.innerHTML = html;
+    } else if (!on && box.firstChild) box.innerHTML = '';
   }
 
   /* ================= tabs (layout Traka) ================= */
@@ -1272,6 +1370,8 @@
       old.classList.remove('on');
       setTimeout(function () { if (!old.classList.contains('on')) old.style.backgroundImage = ''; }, 2200);
       WALL.front = back; WALL.failed = 0;
+      WALL.accent = item.accent || '';
+      accentFrom(S.list[S.idx]);
       if (!S.wall.on) return;   // a screensaver picture: not remembered as the wallpaper
       WALL.cur = item; WALL.shownAt = Date.now();
       store.set('wallCur', item);
@@ -2105,6 +2205,19 @@
         S.saverMins = steps[(steps.indexOf(S.saverMins) + 1) % steps.length];
         store.set('saverMins', S.saverMins); saverSync(); renderSettings();
       } });
+      rows.push({ type: 'toggle', name: 'accent', label: 'Boja iz pozadine', value: S.accent ? 'Uključeno' : 'Isključeno', off: !S.accent, act: function () {
+        S.accent = !S.accent; store.set('accent', S.accent); themeApply(); renderSettings();
+      } });
+      rows.push({ type: 'btn', name: 'surface', label: 'Plohe', value: SURFACES[S.surface] + '  ›', act: function () {
+        S.surface = SURFACE_ORDER[(SURFACE_ORDER.indexOf(S.surface) + 1) % SURFACE_ORDER.length]; store.set('surface', S.surface); themeApply(); renderSettings();
+      } });
+      rows.push({ type: 'toggle', name: 'kenburns', label: 'Pozadina se polako pomiče', value: S.kenburns ? 'Uključeno' : 'Isključeno', off: !S.kenburns, act: function () {
+        S.kenburns = !S.kenburns; store.set('kenburns', S.kenburns); themeApply(); renderSettings();
+      } });
+      rows.push({ type: 'toggle', name: 'season', label: 'Snijeg u prosincu', value: S.season ? 'Uključeno' : 'Isključeno', off: !S.season, act: function () {
+        S.season = !S.season; store.set('season', S.season); themeApply(); renderSettings();
+        if (S.season && !snowSeason()) toast('Snijeg pada od 1. prosinca do Sveta tri kralja.');
+      } });
       var AO = { 'false': 'Ručno', uses: 'Najčešće korištene', time: 'Po dobu dana' };
       rows.push({ type: 'btn', name: 'autoorder', label: 'Redoslijed aplikacija', value: AO[String(S.autoOrder || false)] + '  ›', act: function () {
         S.autoOrder = S.autoOrder === false || !S.autoOrder ? 'uses' : (S.autoOrder === 'uses' ? 'time' : false);
@@ -2134,6 +2247,7 @@
         store.set('consoleMode', CONSOLE.mode); consoleSync(); renderSettings();
       } });
       rows.push({ note: 'Dok je Dom na ekranu i upali se PlayStation, Xbox ili Switch na HDMI-ju, Dom pita ili odmah prebaci na njega.' });
+      rows.push({ note: 'Tipke 1 do 9 na daljinskom odmah pokreću prvih devet aplikacija. Zelena tipka otvara Postavke.' });
       rows.push({ h: 'Prikaz' });
       rows.push({ note: 'Dugi pritisak na OK na ikoni pokreće premještanje. Ovdje možeš sakriti aplikacije.' });
       S.apps.forEach(function (a) {

@@ -369,7 +369,7 @@
       }
     }
     b += fromLeft ? fg : flipX(W / 2, fg);
-    return { d: defs, b: b, name: p.name };
+    return { d: defs, b: b, name: p.name, accent: p.glow };
   }
 
   /* ---------------- 2: a valley at sunset, poster style ---------------- */
@@ -414,7 +414,7 @@
       for (var k = 0; k < 4; k++) { var x = side ? W - 40 - k * 105 - r() * 50 : 40 + k * 105 + r() * 50; b += sp(x, at(l, x) + 20, 520 - k * 95 + r() * 60, { d: p.fg }); }
     });
     b += flock(r, sx + (r() - 0.5) * 600, 250 + r() * 120, p.bird);
-    return { d: defs, b: b, name: p.name };
+    return { d: defs, b: b, name: p.name, accent: p.glow[0] };
   }
 
   /* ---------------- 3: a coast with a lighthouse ---------------- */
@@ -472,7 +472,7 @@
       for (i = 0; i < tn; i++) { var tx = pier ? (left ? 70 + i * 95 + r() * 30 : W - 70 - i * 95 - r() * 30) : lx + (left ? -1 : 1) * (110 + i * 75 + r() * 25), tp = top(tx); b += sp(tx, tp[0] + 12, 120 + r() * 80, { d: p.rock[tp[1]] }); }
     }
     b += flock(r, left ? W * 0.7 : W * 0.3, 240 + r() * 120, p.rock[1]);
-    return { d: defs, b: b, name: p.name };
+    return { d: defs, b: b, name: p.name, accent: p.lamp };
   }
 
   /* ---------------- weather over any scene: overcast, rain, storm, fog, snow ---------------- */
@@ -521,7 +521,7 @@
       body = '<g filter="url(#wxg)">' + body + '</g>' + over;
       name += ' · ' + WEATHER[opts.weather];
     }
-    return { url: svg(defs, body), title: name, credit: '', seed: seed, gen: 'vector' };
+    return { url: svg(defs, body), title: name, credit: '', seed: seed, gen: 'vector', accent: s.accent };
   };
   window.DOM_LANDSCAPE.moods = ['night', 'dawn', 'day', 'sunset', 'dusk'];
   window.DOM_LANDSCAPE.weathers = Object.keys(WEATHER);

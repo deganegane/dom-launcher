@@ -499,7 +499,7 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 #stage.layout-harmonika #weather .wx-t { font-size: 28px; }
 
 /* ---------- screensaver: the picture, a wandering clock, the weather ---------- */
-#stage.saver > *:not(#wall):not(#topbar):not(#cover):not(#toast) { opacity: 0 !important; pointer-events: none; transition: opacity 900ms ease; }
+#stage.saver > *:not(#wall):not(#topbar):not(#cover):not(#toast):not(#season) { opacity: 0 !important; pointer-events: none; transition: opacity 900ms ease; }
 #stage.saver #wall { display: block; }
 #stage.saver #wall::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.22); z-index: 1; transition: background 4s ease; }
 #stage.saver.saver-deep #wall::before { background: rgba(0,0,0,.72); }
@@ -542,3 +542,164 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 .pin-key { height: 84px; line-height: 84px; border-radius: 20px; background: rgba(255,255,255,.1); font-size: 34px; font-weight: 500; transition: background 120ms ease, transform 120ms ease; }
 .pin-key.wide { font-size: 22px; }
 .pin-key.focus { background: #fff; color: #000; transform: scale(1.05); }
+
+/* ================= themes ================= */
+/* ---- accent: focus and progress in the colour of the picture ---- */
+#stage.accent #shelf-progress > div, #stage.accent .card .card-bar > div { background: rgb(var(--acc, 255,255,255)); transition: background 600ms ease; }
+#stage.accent .s-row.focus, #stage.accent .pin-key.focus { background: rgb(var(--acc-l, 255,255,255)); transition: background 400ms ease; }
+#stage.accent .s-input.focus input { background: rgb(var(--acc-l, 255,255,255)); }
+#stage.accent.zone-shelf .card.focus { box-shadow: 0 0 0 4px rgb(var(--acc-l, 255,255,255)), 0 22px 46px rgba(0,0,0,.65); }
+#stage.accent.layout-traka .tile.focus::before, #stage.accent.layout-konzola .tile.focus::before { box-shadow: 0 0 0 6px rgb(var(--acc-l, 255,255,255)); }
+#stage.accent.layout-harmonika .tile.focus { box-shadow: 0 0 0 5px rgb(var(--acc-l, 255,255,255)); }
+#stage.accent.layout-sidebar .tile.focus { background: rgb(var(--acc-l, 255,255,255)); }
+#stage.accent.layout-traka .tab.active { background: rgb(var(--acc-l, 255,255,255)); }
+#stage.accent #pin-dots i.on { background: rgb(var(--acc-l, 255,255,255)); border-color: rgb(var(--acc-l, 255,255,255)); }
+
+/* ---- panels: OLED black ---- */
+#stage.surf-black #settings-panel { background: #000; box-shadow: none; border-left: 1px solid rgba(255,255,255,.14); }
+#stage.surf-black .s-row:not(.focus) { background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+#stage.surf-black #pin-box, #stage.surf-black #toast { background: #000; box-shadow: 0 0 0 1px rgba(255,255,255,.18); }
+#stage.surf-black .pin-key:not(.focus) { background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+#stage.surf-black.layout-sidebar #dockbar { background: #000; }
+#stage.surf-black #settings { background: rgba(0,0,0,.7); }
+/* ---- panels: glass ---- */
+#stage.surf-glass #settings { background: rgba(0,0,0,.25); }
+#stage.surf-glass #settings-panel { background: rgba(28,28,34,.55); -webkit-backdrop-filter: blur(34px) saturate(1.5); backdrop-filter: blur(34px) saturate(1.5); box-shadow: -1px 0 0 rgba(255,255,255,.12); }
+#stage.surf-glass .s-row:not(.focus) { background: rgba(255,255,255,.09); }
+#stage.surf-glass #pin-box, #stage.surf-glass #toast { background: rgba(34,34,40,.6); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); }
+
+/* ---- backgrounds drift: a slow zoom, back and forth (also spares the OLED) ---- */
+@keyframes kb { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -.8%); } }
+#stage.kb .wall-layer.on, #stage.kb .bg-layer.on { animation: kb 80s ease-in-out infinite alternate; will-change: transform; }
+
+/* ---- snow in December ---- */
+#season { position: absolute; inset: 0; overflow: hidden; pointer-events: none; display: none; }
+#stage.snow #season { display: block; }
+#season i { position: absolute; top: -20px; border-radius: 50%; background: #fff; animation-name: snow-fall, snow-sway; animation-timing-function: linear, ease-in-out; animation-iteration-count: infinite, infinite; animation-direction: normal, alternate; }
+@keyframes snow-fall { from { transform: translateY(0); } to { transform: translateY(1120px); } }
+@keyframes snow-sway { from { margin-left: -14px; } to { margin-left: 14px; } }
+#stage.saver.snow #season { opacity: 1 !important; }
+#stage.saver > #season { opacity: 1 !important; }
+
+/* ================= Police: everything to continue in one row, the apps small below ================= */
+#osd, #ttx, #crtfx { display: none; }
+.card-app { display: none; }
+#stage.layout-police #bg-shade {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.8) 0%, rgba(0,0,0,.35) 45%, rgba(0,0,0,0) 70%),
+    linear-gradient(180deg, rgba(0,0,0,.4) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,.55) 48%, rgba(0,0,0,.94) 72%, #000 88%);
+}
+#stage.layout-police #topbar { right: 96px; top: 50px; display: flex; gap: 18px; align-items: baseline; }
+#stage.layout-police #date { font-size: 22px; opacity: .8; margin: 0; }
+#stage.layout-police #clock { font-size: 34px; font-weight: 600; }
+#stage.layout-police #shelf { left: 96px; top: 0; width: 1728px; height: 1080px; }
+#stage.layout-police #shelf-info, #stage.layout-police #shelf.has-cards #shelf-info { top: 120px; width: 940px; }
+#stage.layout-police #shelf-title { font-size: 76px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+#stage.layout-police #shelf.has-cards::after { content: "Nastavi gledati"; position: absolute; left: 0; top: 452px; font-size: 26px; font-weight: 600; color: #e8e8ee; }
+#stage.layout-police #cards { top: 500px; gap: 26px; }
+#stage.layout-police .card { width: 400px; height: 225px; border-radius: 18px; opacity: .9; }
+#stage.layout-police.zone-shelf .card { opacity: .75; }
+#stage.layout-police.zone-shelf .card.focus { opacity: 1; transform: scale(1.06); }
+#stage.layout-police .card-app { display: block; position: absolute; right: 12px; top: 12px; width: 54px; height: 32px; object-fit: contain; border-radius: 7px; background: rgba(0,0,0,.55); padding: 3px; }
+#stage.layout-police #grid-wrap { left: 96px; top: 850px; }
+#stage.layout-police #grid-wrap::before { content: "Aplikacije"; position: absolute; left: 0; top: -82px; font-size: 44px; font-weight: 600; color: #e8e8ee; white-space: nowrap; }
+#stage.layout-police .tile-label { font-size: 34px; top: 196px; }
+#stage.layout-police .tile.focus .tile-art { --s: 1.1; }
+#stage.layout-police.zone-shelf #grid-wrap { opacity: .7; transition: opacity 300ms ease; }
+
+/* ================= Retro TV: the channel list of an old set ================= */
+#stage.layout-retro { font-family: "Courier New", "DejaVu Sans Mono", monospace; }
+#stage.layout-retro #crtfx {
+  display: block; position: absolute; inset: 0; pointer-events: none; z-index: 25;
+  background:
+    repeating-linear-gradient(180deg, rgba(0,0,0,.22) 0, rgba(0,0,0,.22) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 4px),
+    radial-gradient(ellipse 80% 75% at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,.55) 100%);
+  box-shadow: inset 0 0 0 26px #000, inset 0 0 0 28px rgba(0,0,0,.8), inset 0 0 120px 40px rgba(0,0,0,.6);
+  border-radius: 70px / 60px;
+}
+#stage.layout-retro .bg-img { filter: saturate(1.25) contrast(1.1); }
+#stage.layout-retro #bg-shade { background: linear-gradient(90deg, rgba(4,10,6,.92) 0%, rgba(4,10,6,.75) 34%, rgba(4,10,6,0) 62%), linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.75) 100%); }
+#stage.layout-retro #osd { display: block; position: absolute; right: 110px; top: 70px; font-size: 92px; font-weight: 700; color: #7dff8a; text-shadow: 0 0 18px rgba(125,255,138,.7), 3px 3px 0 #003b0a; z-index: 6; }
+#stage.layout-retro #topbar { left: 100px; right: auto; top: 76px; text-align: left; display: flex; gap: 22px; align-items: baseline; color: #7dff8a; text-shadow: 0 0 12px rgba(125,255,138,.6); }
+#stage.layout-retro #clock { font-size: 46px; font-weight: 700; }
+#stage.layout-retro #date { font-size: 24px; opacity: .85; margin: 0; text-transform: uppercase; }
+#stage.layout-retro #weather.on { left: 0; right: auto; color: #7dff8a; }
+#stage.layout-retro #grid-wrap { left: 100px; top: 250px; width: 600px; height: 694px; overflow: hidden; z-index: 2; }
+#stage.layout-retro #grid { grid-template-columns: 600px; row-gap: 6px; counter-reset: ch; }
+#stage.layout-retro .tile { width: 600px; height: 64px; border-radius: 6px; counter-increment: ch; }
+#stage.layout-retro .tile-art, #stage.layout-retro .tile-sheen { display: none; }
+#stage.layout-retro .tile-label, #stage.layout-retro .tile.focus .tile-label {
+  left: 0; right: 0; top: 0; height: 64px; line-height: 64px; padding: 0 22px; text-align: left; transform: none; opacity: 1;
+  font-size: 34px; font-weight: 700; text-transform: uppercase; color: #c8ffd0; text-shadow: 0 0 10px rgba(125,255,138,.45);
+}
+#stage.layout-retro .tile-label::before { content: counter(ch, decimal-leading-zero) "  "; color: #7dff8a; white-space: pre; }
+#stage.layout-retro .tile-settings .tile-label::before { content: "--  "; }
+#stage.layout-retro .tile.focus { background: #7dff8a; box-shadow: 0 0 24px rgba(125,255,138,.55); }
+#stage.layout-retro .tile.focus .tile-label, #stage.layout-retro .tile.focus .tile-label::before { color: #001a06; text-shadow: none; }
+#stage.layout-retro.zone-shelf .tile.focus { background: rgba(125,255,138,.25); box-shadow: none; }
+#stage.layout-retro.zone-shelf .tile.focus .tile-label { color: #c8ffd0; }
+#stage.layout-retro #shelf { left: 780px; top: 0; width: 1040px; height: 1080px; }
+#stage.layout-retro #shelf-info, #stage.layout-retro #shelf.has-cards #shelf-info { top: 250px; width: 980px; }
+#stage.layout-retro #shelf-kicker { color: #7dff8a; letter-spacing: .2em; }
+#stage.layout-retro #shelf-title { font-size: 70px; font-weight: 700; text-transform: uppercase; letter-spacing: -1px; line-height: 1; text-shadow: 3px 3px 0 rgba(0,0,0,.6); }
+#stage.layout-retro #shelf-sub { font-size: 26px; }
+#stage.layout-retro #shelf-progress > div { background: #7dff8a; }
+#stage.layout-retro #cards { top: 540px; flex-direction: column; gap: 14px; }
+#stage.layout-retro .card { width: 640px; height: 76px; border-radius: 6px; background-image: none !important; background: rgba(0,24,8,.7); box-shadow: inset 0 0 0 2px rgba(125,255,138,.35); opacity: 1; }
+#stage.layout-retro .card::before { display: none; }
+#stage.layout-retro .card .card-title { position: static; padding: 0 22px; line-height: 70px; font-size: 26px; text-transform: uppercase; color: #c8ffd0; text-shadow: none; }
+#stage.layout-retro .card .card-bar { height: 6px; background: rgba(125,255,138,.2); }
+#stage.layout-retro .card .card-bar > div { background: #7dff8a !important; }
+#stage.layout-retro.zone-shelf .card.focus { transform: none; background: #7dff8a; box-shadow: 0 0 24px rgba(125,255,138,.55); }
+#stage.layout-retro.zone-shelf .card.focus .card-title { color: #001a06; }
+
+/* ================= Teletekst: page 100 ================= */
+#stage.layout-teletekst { font-family: "Courier New", "DejaVu Sans Mono", monospace; background: #000; }
+#stage.layout-teletekst #bg, #stage.layout-teletekst #wall, #stage.layout-teletekst #bgblur, #stage.layout-teletekst #night { display: none !important; }
+#stage.layout-teletekst #osd { display: block; position: absolute; left: 96px; top: 46px; font-size: 34px; font-weight: 700; color: #fff; }
+#stage.layout-teletekst #osd::after { content: "  DOM  TELETEKST"; color: #ffff00; white-space: pre; }
+#stage.layout-teletekst #topbar { right: 96px; top: 46px; display: flex; gap: 22px; align-items: baseline; color: #fff; }
+#stage.layout-teletekst #clock { font-size: 34px; font-weight: 700; color: #ffff00; }
+#stage.layout-teletekst #date { font-size: 34px; font-weight: 700; margin: 0; text-transform: uppercase; }
+#stage.layout-teletekst #weather.on { color: #00ffff; font-size: 30px; font-weight: 700; margin-top: 160px; }
+#stage.layout-teletekst #ttx { display: block; }
+#stage.layout-teletekst .ttx-band { position: absolute; left: 96px; right: 96px; top: 110px; height: 120px; background: #0000ff; display: flex; align-items: center; padding-left: 40px; }
+#stage.layout-teletekst .ttx-band span { font-size: 96px; font-weight: 700; color: #00ffff; letter-spacing: 18px; transform: scaleY(1.35); display: inline-block; }
+#stage.layout-teletekst .ttx-sub { position: absolute; left: 96px; top: 248px; font-size: 30px; font-weight: 700; color: #00ff00; }
+#stage.layout-teletekst .ttx-keys { position: absolute; left: 96px; right: 96px; bottom: 44px; display: flex; gap: 0; font-size: 30px; font-weight: 700; }
+#stage.layout-teletekst .ttx-keys span { flex: 1; padding: 6px 14px; color: #000; }
+#stage.layout-teletekst .ttx-keys .r { background: #ff0000; color: #fff; }
+#stage.layout-teletekst .ttx-keys .g { background: #00ff00; }
+#stage.layout-teletekst #grid-wrap { left: 96px; top: 320px; width: 820px; height: 620px; overflow: hidden; }
+#stage.layout-teletekst #grid { grid-template-columns: 820px; row-gap: 4px; counter-reset: ch 100; }
+#stage.layout-teletekst .tile { width: 820px; height: 54px; counter-increment: ch; }
+#stage.layout-teletekst .tile-art, #stage.layout-teletekst .tile-sheen { display: none; }
+#stage.layout-teletekst .tile-label, #stage.layout-teletekst .tile.focus .tile-label {
+  left: 0; right: 0; top: 0; height: 54px; line-height: 54px; padding: 0 14px; text-align: left; transform: none; opacity: 1;
+  font-size: 34px; font-weight: 700; color: #ffff00; text-transform: uppercase; overflow: hidden;
+}
+#stage.layout-teletekst .tile-label::after { content: " ............................................................"; color: #fff; }
+#stage.layout-teletekst .tile-label::before { content: counter(ch) " "; float: right; color: #00ffff; padding-left: 14px; background: #000; }
+#stage.layout-teletekst .tile-settings .tile-label::before { content: "199 "; }
+#stage.layout-teletekst .tile.focus { background: #00ffff; }
+#stage.layout-teletekst .tile.focus .tile-label { color: #000; }
+#stage.layout-teletekst .tile.focus .tile-label::after { color: #000; }
+#stage.layout-teletekst .tile.focus .tile-label::before { color: #000; background: #00ffff; }
+#stage.layout-teletekst.zone-shelf .tile.focus { background: #0000ff; }
+#stage.layout-teletekst.zone-shelf .tile.focus .tile-label, #stage.layout-teletekst.zone-shelf .tile.focus .tile-label::after { color: #fff; }
+#stage.layout-teletekst.zone-shelf .tile.focus .tile-label::before { color: #fff; background: #0000ff; }
+#stage.layout-teletekst #shelf { left: 1000px; top: 0; width: 830px; height: 1080px; }
+#stage.layout-teletekst #shelf-info, #stage.layout-teletekst #shelf.has-cards #shelf-info { top: 320px; width: 820px; }
+#stage.layout-teletekst #shelf-kicker { color: #00ff00; font-size: 30px; letter-spacing: 0; opacity: 1; }
+#stage.layout-teletekst #shelf-title { font-size: 48px; font-weight: 700; color: #fff; text-transform: uppercase; text-shadow: none; transform: scaleY(1.3); transform-origin: 0 0; margin-bottom: 26px; }
+#stage.layout-teletekst #shelf-sub { font-size: 30px; color: #00ffff; text-shadow: none; opacity: 1; }
+#stage.layout-teletekst #shelf-progress { background: #0000ff; border-radius: 0; height: 12px; }
+#stage.layout-teletekst #shelf-progress > div { background: #ffff00 !important; border-radius: 0; }
+#stage.layout-teletekst #cards { top: 560px; flex-direction: column; gap: 4px; }
+#stage.layout-teletekst .card { width: 820px; height: 54px; border-radius: 0; background-image: none !important; background: transparent; box-shadow: none !important; opacity: 1; }
+#stage.layout-teletekst .card::before, #stage.layout-teletekst .card .card-bar { display: none; }
+#stage.layout-teletekst .card .card-title { position: static; padding: 0 14px; line-height: 54px; font-size: 30px; font-weight: 700; color: #fff; text-transform: uppercase; text-shadow: none; }
+#stage.layout-teletekst.zone-shelf .card.focus { transform: none; background: #00ffff; }
+#stage.layout-teletekst.zone-shelf .card.focus .card-title { color: #000; }
+#stage.layout-teletekst #settings-panel { background: #000; box-shadow: 0 0 0 4px #0000ff; }
+#stage.layout-teletekst .s-row { border-radius: 0; }

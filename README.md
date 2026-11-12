@@ -42,6 +42,18 @@ Postavke → "Izgled početnog zaslona" mijenja između:
 - **Bento**: velika pločica za ono što gledaš, dvije sporedne, aplikacije u redu ispod (strelica gore).
 - **Karusel**: fokusirana aplikacija velika u sredini, susjedne okrenute u 3D; strelica dolje za kartice.
 - **Ambijent**: slika preko cijelog ekrana, veliki sat i okrugle ikone; strelica gore za kartice.
+- **Traka**, **Konzola**, **Harmonika**: kartice na dnu, ikone u traci ili kao široke ploče.
+- **Police**: sve što gledaš, iz svih aplikacija, u jednom redu (s ikonom aplikacije na kartici), ispod mali red aplikacija.
+- **Retro TV**: popis kanala starog televizora sa zelenim brojevima, linijama slike i zaobljenim ekranom.
+- **Teletekst**: stranica 100 kao na teletekstu, bez slika, s brojevima 101, 102… i crvenom i zelenom trakom.
+
+**Tipke 1–9** na daljinskom u svakom izgledu odmah pokreću prvih devet aplikacija, kao kanale. Zelena tipka otvara Postavke.
+
+Postavke → Tema još ima:
+- **Boja iz pozadine**: okvir fokusa, trake napretka i označeni redovi poprime boju slike (krajolika ili aplikacije u fokusu).
+- **Plohe**: standardne, **OLED crne** (Postavke i prozori potpuno crni s tankim rubom) ili **staklo** (prozirne i zamućene).
+- **Pozadina se polako pomiče**: slika se jedva primjetno približava i odmiče (minuta i pol u jednom smjeru).
+- **Snijeg u prosincu**: od 1. prosinca do Sveta tri kralja preko slike pada snijeg, i u čuvaru zaslona.
 
 Izbor se pamti.
 
