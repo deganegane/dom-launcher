@@ -3,14 +3,54 @@ name: Build IPK
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Script syntax
+        run: |
+          for f in scripts/*.sh; do sh -n "$f" || exit 1; done
+          for f in scripts/*.js app/*.js tests/*.js; do node --check "$f" || exit 1; done
+          jq . app/appinfo.json > /dev/null
+
+      - name: Install browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.48.2
+          npx playwright install --with-deps chromium
+
+      - name: Smoke test (every layout and Settings page)
+        run: SHOTS=shots node tests/smoke.js
+
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots
+          if-no-files-found: ignore
+
+  build:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +68,7 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p app/tools && cp scripts/dom-homeguard.sh scripts/dom-keys.js scripts/dom-blank-home.sh scripts/dom-ctl.sh scripts/dom-tune.sh scripts/install.sh app/tools/
+          mkdir -p app/tools && cp scripts/dom-homeguard.sh scripts/dom-keys.js scripts/dom-agent.js scripts/dom-web.html scripts/dom-blank-home.sh scripts/dom-ctl.sh scripts/dom-tune.sh scripts/install.sh app/tools/
           ares-package app -o out -n
           mv out/*.ipk out/com.deganegane.dom.ipk
           ls -la out
