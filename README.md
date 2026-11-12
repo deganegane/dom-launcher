@@ -181,6 +181,16 @@ bilo čega što se gleda i nove aplikacije se ne pokreću do sutra (ili dok rodi
 Postavke → **Statistika gledanja**: koliko je danas i zadnjih 7 dana koja aplikacija (i HDMI ulaz) bila na ekranu.
 Home guard bilježi samo promjene (`/home/root/dom-usage.log`), ništa ne napušta TV.
 
+## Brzina i memorija
+
+- **Povratak u Dom** je brži: ikone i vlastite slike kopiraju se samo kad se popis aplikacija ili mape `dom-backgrounds`/`dom-icons` promijene (i svakih pola sata); inače se gledaju samo nove snimke ekrana.
+- **Lakše slike**: pozadine s interneta najviše 2560 px i 3 MB, velike pozadine kartica učitavaju se unaprijed samo za prve tri.
+- **Lagani način** (Tema): bez zamućivanja, sjaja i naginjanja ikona, pomicanja pozadine i snijega.
+- **Oslobodi memoriju** (brzi izbornik): zatvori sve aplikacije u pozadini, isprazni predmemoriju sustava i javi koliko je MB slobodno.
+- **Zatvaraj zaboravljene aplikacije** (Čišćenje i ubrzanje): nakon 30 min, 1 h ili 3 h bez da je bila na ekranu aplikaciju zatvori pomoćnik. Dom, Stremio i ono što gledaš ostaju.
+- **Ugasi Always Ready** (Čišćenje i ubrzanje, isključeno dok ga ne uključiš): ime postavke razlikuje se po firmwareu pa ga skripta traži; ako ga TV nema, u zapisniku (`/tmp/dom-tune.log`) piše "no such setting". Quick Start+ ostaje.
+- **Manje sistemskih zapisa** sada i ograničava sistemski dnevnik u RAM-u na 8 MB (do restarta, kao i ostalo).
+
 ## Nadogradnja i sigurnosna kopija
 
 - **Nadogradi Dom** (Postavke → Sustav) skida i instalira najnoviju verziju bez SSH-a.

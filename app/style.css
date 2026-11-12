@@ -572,6 +572,14 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 @keyframes kb { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -.8%); } }
 #stage.kb .wall-layer.on, #stage.kb .bg-layer.on { animation: kb 80s ease-in-out infinite alternate; will-change: transform; }
 
+/* ---- light mode: nothing the TV has to blur, shine or keep animating ---- */
+#stage.lite .tile-sheen, #stage.lite .tile-gloss, #stage.lite #bgblur { display: none !important; }
+#stage.lite .bg-img.soft, #stage.lite .bg-img.blurred { filter: none; transform: none; }
+#stage.lite #settings-panel, #stage.lite #pin-box, #stage.lite #toast { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+#stage.lite.surf-glass #settings-panel { background: rgba(28,28,34,.96); }
+#stage.lite .tile-art { transition: transform 160ms ease; }
+#stage.lite.layout-retro .bg-img { filter: none; }
+
 /* ---- snow in December ---- */
 #season { position: absolute; inset: 0; overflow: hidden; pointer-events: none; display: none; }
 #stage.snow #season { display: block; }

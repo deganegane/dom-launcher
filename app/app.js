@@ -133,6 +133,8 @@
     surface: store.get('surface', 'std'),      // std | black (OLED black panels) | glass (see-through, blurred)
     kenburns: store.get('kenburns', true),     // backgrounds drift and zoom very slowly
     season: store.get('season', true),         // snow in December
+    lite: store.get('lite', false),            // no blur, shine, tilt, drift or snow: less work for the TV
+    autoClose: store.get('autoClose', 0),      // minutes after which an app nobody went back to is closed (0 = never)
     pin: store.get('pin', ''),
     sleepMins: 0, version: '',
     lastStremio: 0
@@ -173,33 +175,38 @@
 
   // The web sandbox can't read other apps' folders (Store apps live in root-only cryptofs),
   // so copy icons/backgrounds into our own app folder as root, then load them by relative path.
-  function cacheAssets(apps) {
+  // Copying icons and pictures is only needed when the apps or the own-picture folders changed;
+  // on an ordinary return to Dom only the snapshots are looked at (a much shorter root command).
+  var ASSETS = { sig: '', dirs: '', lines: '', at: 0 };
+  function cacheAssets(apps, full) {
     var appDir = decodeURIComponent(location.pathname).replace(/\/[^\/]*$/, '');
-    var cmds = ['D=' + shq(appDir + '/cache'), 'mkdir -p "$D"'];
+    var sig = apps.map(function (a) { return [a.key, a.iconPath, a.bgPath, a.title0].join('|'); }).join('\n');
+    if (sig !== ASSETS.sig || Date.now() - ASSETS.at > 30 * 60000) full = true;
+    var cmds = ['D=' + shq(appDir + '/cache'), 'mkdir -p "$D"'], copy = [];
     function plan(app, field, src, suffix) {
       if (!src) return;
       if (/^https?:|^data:/.test(src)) { app[field] = src; return; }
       src = src.replace(/^file:\/\//, '');
       var ext = (/\.(png|jpe?g|webp|gif)$/i.exec(src) || ['', 'png'])[1].toLowerCase();
       var name = (app.key + suffix).replace(/[^A-Za-z0-9._-]/g, '_') + '.' + ext;
-      cmds.push('[ "$D/' + name + '" -nt ' + shq(src) + ' ] || cp -f ' + shq(src) + ' "$D/' + name + '" 2>/dev/null');
+      copy.push('[ "$D/' + name + '" -nt ' + shq(src) + ' ] || cp -f ' + shq(src) + ' "$D/' + name + '" 2>/dev/null');
       app[field] = 'cache/' + name;
       app[field + 'Direct'] = 'file://' + src;
     }
     apps.forEach(function (a) { plan(a, 'icon', a.iconPath, ''); plan(a, 'bg', a.bgPath, '_bg'); });
     // own pictures: /home/root/dom-backgrounds/<app id or title>.jpg|png
-    cmds.push('B=/home/root/dom-backgrounds');
+    copy.push('B=/home/root/dom-backgrounds');
     apps.forEach(function (a) {
       var base = a.key.replace(/[^A-Za-z0-9._-]/g, '_') + '_custom';
       var names = [a.id, a.title0, a.title].filter(function (n, i, all) { return n && all.indexOf(n) === i; }).map(shq).join(' ');
-      cmds.push('for n in ' + names + '; do for e in jpg jpeg png webp; do if [ -f "$B/$n.$e" ]; then cp -f "$B/$n.$e" "$D/' + base + '.$e" && echo "CUSTOM|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e"; break 2; fi; done; done');
+      copy.push('for n in ' + names + '; do for e in jpg jpeg png webp; do if [ -f "$B/$n.$e" ]; then { [ "$D/' + base + '.$e" -nt "$B/$n.$e" ] || cp -f "$B/$n.$e" "$D/' + base + '.$e"; } && echo "CUSTOM|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e"; break 2; fi; done; done');
     });
     // own icons: /home/root/dom-icons/<app id or title>.png|jpg|webp
-    cmds.push('I=/home/root/dom-icons');
+    copy.push('I=/home/root/dom-icons');
     apps.forEach(function (a) {
       var base = a.key.replace(/[^A-Za-z0-9._-]/g, '_') + '_icon';
       var names = [a.id, a.title0, a.title].filter(function (n, i, all) { return n && all.indexOf(n) === i; }).map(shq).join(' ');
-      cmds.push('for n in ' + names + '; do for e in png jpg jpeg webp; do if [ -f "$I/$n.$e" ]; then cp -f "$I/$n.$e" "$D/' + base + '.$e" && echo "ICON|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e|$(date -r "$I/$n.$e" +%s)"; break 2; fi; done; done');
+      copy.push('for n in ' + names + '; do for e in png jpg jpeg webp; do if [ -f "$I/$n.$e" ]; then { [ "$D/' + base + '.$e" -nt "$I/$n.$e" ] || cp -f "$I/$n.$e" "$D/' + base + '.$e"; } && echo "ICON|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + base + '.$e|$(date -r "$I/$n.$e" +%s)"; break 2; fi; done; done');
     });
     // last frame of what was watched in each app, captured by dom-homeguard.sh
     cmds.push('H=/home/root/dom-shots');
@@ -210,8 +217,17 @@
         '"; echo "SHOT|' + a.key.replace(/[|'"\\$`]/g, '') + '|' + name + '|$(date -r "$H/' + a.id + '.jpg" +%s)"; fi');
     });
     cmds.push('[ -f /home/root/dom-disabled ] && echo DISABLED');
+    // a picture added to or removed from the own-picture folders changes the folder's time
+    cmds.push('echo "DIRS|$(date -r /home/root/dom-backgrounds +%s 2>/dev/null)|$(date -r /home/root/dom-icons +%s 2>/dev/null)"');
     cmds.push('echo ok');
+    if (full) cmds = cmds.slice(0, 2).concat(copy, cmds.slice(2));
     return exec(cmds.join('; '), 30000).then(function (out) {
+      var dirs = (/^DIRS\|.*$/m.exec(out || '') || [''])[0];
+      if (!full && dirs !== ASSETS.dirs) return cacheAssets(apps, true);
+      if (full) {
+        ASSETS = { sig: sig, dirs: dirs, at: Date.now(),
+                   lines: (out || '').split('\n').filter(function (l) { return /^(CUSTOM|ICON)\|/.test(l.trim()); }).join('\n') };
+      } else out = ASSETS.lines + '\n' + out;
       S.disabled = /^DISABLED$/m.test(out || '');
       var byKey = {};
       apps.forEach(function (a) { byKey[a.key.replace(/[|'"\\$`]/g, '')] = a; });
@@ -365,12 +381,14 @@
   }
 
   // fetch all artwork up front so moving between cards is instant
-  var preloaded = {};
+  // small pictures for every card, the big backdrop only for the first few (memory is short on a TV)
+  var preloaded = {}, preloadedN = 0;
   function preloadCW(items) {
-    items.forEach(function (it) {
-      [it.backdrop, it.logo, it.thumb].forEach(function (u) {
+    if (preloadedN > 160) { preloaded = {}; preloadedN = 0; }
+    items.forEach(function (it, i) {
+      [i < 3 ? it.backdrop : '', it.logo, it.thumb].forEach(function (u) {
         if (!u || preloaded[u]) return;
-        var im = new Image(); im.src = u; preloaded[u] = im;
+        var im = new Image(); im.src = u; preloaded[u] = im; preloadedN++;
       });
     });
   }
@@ -447,8 +465,7 @@
       var changed = sig(rows) !== sig(S.appRows);
       S.appRows = rows;   // always keep the fresh launch parameters (they expire)
       store.set('appRows', rows);
-      preloadCW([].concat.apply([], Object.keys(rows).map(function (k) { return rows[k]; })));
-      Object.keys(rows).forEach(function (k) { hdWarm(rows[k]); });
+      Object.keys(rows).forEach(function (k) { preloadCW(rows[k]); hdWarm(rows[k]); });
       if (changed) { S.cardsFor = null; updateShelf(true); }
     }).catch(function (e) { console.log('appContents', e); });
   }
@@ -992,6 +1009,7 @@
   /* ---------- parallax tilt ---------- */
   function focusedTileEl() { return document.querySelectorAll('.tile')[S.idx]; }
   function nudge(dir) {
+    if (S.lite) return;
     if (S.layout === 'carousel' || S.layout === 'sidebar' || S.layout === 'harmonika') return;
     var el = focusedTileEl();
     if (!el) return;
@@ -1007,6 +1025,7 @@
     el._t = setTimeout(function () { art.style.setProperty('--rx', '0deg'); art.style.setProperty('--ry', '0deg'); }, 260);
   }
   function tiltFromPointer(el, ev) {
+    if (S.lite) return;
     if (S.layout === 'carousel' || S.layout === 'sidebar' || S.layout === 'harmonika') return;
     if (!el.classList.contains('focus')) return;
     var r = el.getBoundingClientRect();
@@ -1230,7 +1249,8 @@
     stage.classList.toggle('accent', !!S.accent);
     stage.classList.toggle('surf-black', S.surface === 'black');
     stage.classList.toggle('surf-glass', S.surface === 'glass');
-    stage.classList.toggle('kb', !!S.kenburns);
+    stage.classList.toggle('kb', !!S.kenburns && !S.lite);
+    stage.classList.toggle('lite', !!S.lite);
     seasonApply();
     accentKey = ''; accentFrom(S.list[S.idx]);
   }
@@ -1239,7 +1259,7 @@
   // snow from 1 December to 6 January
   function snowSeason() { var d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); }
   function seasonApply() {
-    var on = S.season && snowSeason() && S.layout !== 'teletekst', box = $('#season');
+    var on = S.season && !S.lite && snowSeason() && S.layout !== 'teletekst', box = $('#season');
     stage.classList.toggle('snow', on);
     if (on && !box.firstChild) {
       var html = '';
@@ -1320,8 +1340,8 @@
       var seen = {}, out = [];
       rs.forEach(function (list) {
         list.forEach(function (d) {
-          // nothing bigger than 4K or heavier than 8 MB: the TV has little memory to spare
-          if (!d || !d.path || seen[d.id] || d.purity !== 'sfw' || d.dimension_x > 3840 || d.dimension_y > 2160 || d.file_size > 8e6) return;
+          // the TV draws 1920x1080: bigger files only cost memory and time
+          if (!d || !d.path || seen[d.id] || d.purity !== 'sfw' || d.dimension_x > 2560 || d.dimension_y > 1600 || d.file_size > 3e6) return;
           seen[d.id] = 1;
           out.push({ url: d.path, title: 'Ilustracija', credit: 'wallhaven.cc/w/' + d.id });
         });
@@ -1681,6 +1701,23 @@
     renderSettings();
     toast(next ? 'TV će se ugasiti za ' + next + ' min' : 'Tajmer za spavanje je isključen');
   }
+  var FREE = { busy: false, last: '' };
+  function freeMem() {
+    if (FREE.busy) return;
+    var done = function (out) {
+      FREE.busy = false;
+      var m = /(\d+) (\d+) (\d+)/.exec(out || '');
+      if (!m) { toast('Nije uspjelo'); renderSettings(); return; }
+      var gain = Math.max(0, +m[2] - +m[1]);
+      FREE.last = m[2] + ' MB slobodno';
+      toast('Zatvoreno aplikacija: ' + m[3] + ' · slobodno ' + m[2] + ' MB (+' + gain + ' MB)');
+      RUN.at = 0; runLoad();
+      renderSettings();
+    };
+    FREE.busy = true; renderSettings();
+    if (DEMO) { setTimeout(function () { done('402 611 3'); }, 400); return; }
+    exec('/home/root/dom-ctl.sh freemem', 40000).then(done, function () { done(''); });
+  }
   function screenOff() {
     closeSettings();
     if (DEMO) { toast('Demo: ekran bi se ugasio'); return; }
@@ -1731,6 +1768,7 @@
   function quickRows(rows, inRun) {
     rows.push({ h: 'Brze radnje' });
     if (!inRun) rows.push({ type: 'btn', name: 'q-run', label: 'Otvorene aplikacije', value: (RUN.at ? RUN.list.length : '') + '  ›', act: openRun });
+    rows.push({ type: 'btn', name: 'q-free', label: 'Oslobodi memoriju', value: FREE.busy ? '…' : (FREE.last || ''), act: freeMem });
     rows.push({ type: 'btn', name: 'q-screen', label: 'Ugasi ekran (zvuk ostaje)', act: screenOff });
     rows.push({ type: 'btn', name: 'q-sleep', label: 'Tajmer za spavanje', value: (S.sleepMins ? S.sleepMins + ' min' : 'Isključen') + '  ›', act: sleepSet });
     avLoad();
@@ -1978,6 +2016,9 @@
       : 'rm -f /home/root/dom-notify-on' + (S.authKey ? '' : ' /home/root/dom-stremio-auth');
     exec(cmd).catch(function () {});
   }
+  function autoCloseSync() {
+    if (!DEMO) exec(S.autoClose ? 'echo ' + (+S.autoClose) + ' > /home/root/dom-autoclose' : 'rm -f /home/root/dom-autoclose').catch(function () {});
+  }
   function notifySet(on) { S.notify = on; store.set('notify', on); notifySync(); }
 
   /* ================= weather under the clock ================= */
@@ -2076,7 +2117,8 @@
     { key: 'cast',  label: 'Ugasi AirPlay i zrcaljenje zaslona', warn: 'AirPlay, Miracast i Chromecast ne rade dok je ovo uključeno' },
     { key: 'tv',    label: 'Ugasi TV vodič (antena/kabel)', warn: 'Vodič i podsjetnici za TV kanale ne rade dok je ovo uključeno' },
     { key: 'telnet', label: 'Ugasi Telnet (SSH ostaje)', warn: 'Telnet se gasi odmah i više se ne pali nakon restarta' },
-    { key: 'zram',  label: 'Brža izmjena aplikacija (pokusno)', warn: 'Pokusno: ako TV postane nestabilan, isključi ovo ili restartaj TV' }
+    { key: 'zram',  label: 'Brža izmjena aplikacija (pokusno)', warn: 'Pokusno: ako TV postane nestabilan, isključi ovo ili restartaj TV' },
+    { key: 'ready', label: 'Ugasi Always Ready', warn: 'U stanju pripravnosti TV više ne prikazuje sat ni slike. Quick Start+ (brzo paljenje) ostaje.' }
   ];
   function parseTune(out) {
     var m = /^track=\d.*$/m.exec(out || '');
@@ -2087,7 +2129,7 @@
     return true;
   }
   function loadTune() {
-    if (DEMO) { if (!S.tune) S.tune = { track: 1, logs: 1, voice: 0, iot: 0, cast: 0, tv: 0, telnet: 0, zram: 0, mem: 531, stopped: 5, safe: 0 }; return; }
+    if (DEMO) { if (!S.tune) S.tune = { track: 1, logs: 1, voice: 0, iot: 0, cast: 0, tv: 0, telnet: 0, zram: 0, ready: 0, mem: 531, stopped: 5, safe: 0 }; return; }
     exec('/home/root/dom-tune.sh get', 15000).then(function (out) {
       if (!parseTune(out)) S.tuneMissing = true;
     }, function () { S.tuneMissing = true; }).then(function () { if (S.zone === 'settings') renderSettings(); });
@@ -2214,6 +2256,10 @@
       rows.push({ type: 'toggle', name: 'kenburns', label: 'Pozadina se polako pomiče', value: S.kenburns ? 'Uključeno' : 'Isključeno', off: !S.kenburns, act: function () {
         S.kenburns = !S.kenburns; store.set('kenburns', S.kenburns); themeApply(); renderSettings();
       } });
+      rows.push({ type: 'toggle', name: 'lite', label: 'Lagani način', value: S.lite ? 'Uključeno' : 'Isključeno', off: !S.lite, act: function () {
+        S.lite = !S.lite; store.set('lite', S.lite); themeApply(); renderSettings();
+      } });
+      if (S.lite) rows.push({ note: 'Bez zamućivanja, sjaja i naginjanja ikona, pomicanja pozadine i snijega: manje posla za TV.' });
       rows.push({ type: 'toggle', name: 'season', label: 'Snijeg u prosincu', value: S.season ? 'Uključeno' : 'Isključeno', off: !S.season, act: function () {
         S.season = !S.season; store.set('season', S.season); themeApply(); renderSettings();
         if (S.season && !snowSeason()) toast('Snijeg pada od 1. prosinca do Sveta tri kralja.');
@@ -2309,6 +2355,11 @@
         rows.push({ note: 'Slobodno memorije: ' + S.tune.mem + ' MB' + (S.tune.stopped ? ' · ugašeno servisa: ' + S.tune.stopped : '') +
           '. Ništa se ne briše: isključivanjem prekidača ili restartom TV-a sve se vraća.' +
           (S.tune.safe ? ' TV se dvaput zaredom ubrzo restartao pa je čišćenje pauzirano; uključi neki prekidač da ga vratiš.' : '') });
+        var AC = [0, 30, 60, 180];
+        rows.push({ type: 'btn', name: 'autoclose', label: 'Zatvaraj zaboravljene aplikacije', value: (S.autoClose ? 'nakon ' + fmtDur(S.autoClose * 60) : 'Nikad') + '  ›', act: function () {
+          S.autoClose = AC[(AC.indexOf(S.autoClose) + 1) % AC.length]; store.set('autoClose', S.autoClose); autoCloseSync(); renderSettings();
+        } });
+        if (S.autoClose) rows.push({ note: 'Aplikaciju koja toliko dugo nije bila na ekranu pomoćnik zatvori. Dom, Stremio i ono što gledaš ostaju.' });
         TUNE_GROUPS.forEach(function (g) {
           var on = !!S.tune[g.key], busy = S.tuneBusy === g.key;
           rows.push({ type: 'toggle', name: 'tune-' + g.key, label: g.label, value: busy ? '…' : (on ? 'Uključeno' : 'Isključeno'), off: !on, act: function () {
@@ -2654,7 +2705,7 @@
   setInterval(tickClock, 10000);
   oledShift();
   if (!DEMO) {
-    consoleSync(); notifySync();
+    consoleSync(); notifySync(); autoCloseSync();
     // tell an update in progress that this version starts; and say so if the last update was undone
     exec('date +%s > /tmp/dom-alive; [ -f /home/root/dom-rolled-back ] && echo "ROLLED $(cat /home/root/dom-rolled-back)" && rm -f /home/root/dom-rolled-back; ' +
          'if [ -f /tmp/dom-update.log ]; then grep "^!!" /tmp/dom-update.log | head -1 | sed "s/^/FAIL /"; mv -f /tmp/dom-update.log /tmp/dom-update.log.old; fi').then(function (out) {

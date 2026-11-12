@@ -17,7 +17,7 @@ PENDING=/home/root/.dom-tune-pending
 LOG=/tmp/dom-tune.log
 ZDEV=/tmp/dom-tune.zram
 LPPREV=/home/root/.dom-liveplus-prev
-GRPS="track logs voice iot cast tv telnet zram"
+GRPS="track logs voice iot cast tv telnet zram ready"
 
 # systemd units per group (stopped, never disabled)
 U_track="rdxd uploadd remotelogger contentminer nudge"
@@ -28,6 +28,7 @@ U_cast="airplay-adaptor appcasting miracast chromecast-provisioning dmr"
 U_tv="iepg tv-reservation-agent broadcast-conf-downloader"
 U_zram=""
 U_telnet=""
+U_ready=""
 TELNET_OFF=/var/luna/preferences/webosbrew_telnet_disabled
 # on-demand services per group (just ended; the system may start them again when asked)
 K_track="admanager"
@@ -142,6 +143,49 @@ lp_restore() {
   lp_set on; rm -f "$LPPREV"; log "Live Plus -> on (as before)"
 }
 
+# ---------- Always Ready (the TV keeps a clock/art screen and its services ready in standby) ----------
+# The key's name differs between firmwares: the first one the settings service knows is used.
+RDPREV=/home/root/.dom-alwaysready-prev
+ready_find() {
+  for c in option general other; do
+    for k in alwaysReady alwaysReadyEnable alwaysReadyMode; do
+      v=$(luna-send -n 1 -w 5000 $SET_URI/getSystemSettings "{\"category\":\"$c\",\"keys\":[\"$k\"]}" 2>/dev/null </dev/null \
+        | sed -n "s/.*\"$k\" *: *\"\([A-Za-z]*\)\".*/\1/p")
+      [ -n "$v" ] && { echo "$c $k $v"; return 0; }
+    done
+  done
+  return 1
+}
+ready_set() { luna-send -n 1 -w 8000 $SET_URI/setSystemSettings "{\"category\":\"$1\",\"settings\":{\"$2\":\"$3\"}}" >/dev/null 2>&1 </dev/null; }
+ready_off() {
+  f=$(ready_find) || { log "Always Ready: no such setting on this TV"; return 0; }
+  set -- $f
+  case "$3" in
+    on) echo "$1 $2" > "$RDPREV"; ready_set "$1" "$2" off; log "Always Ready ($1/$2) -> off" ;;
+    *) log "Always Ready ($1/$2) already $3" ;;
+  esac
+}
+ready_restore() {
+  [ -f "$RDPREV" ] || return 0
+  set -- $(cat "$RDPREV")
+  ready_set "$1" "$2" on; rm -f "$RDPREV"; log "Always Ready -> on (as before)"
+}
+
+# ---------- a smaller system journal in RAM (runtime setting, gone after a restart) ----------
+JDROP=/run/systemd/journald.conf.d/dom.conf
+journal_small() {
+  command -v journalctl >/dev/null 2>&1 || return 0
+  if [ ! -f "$JDROP" ]; then
+    mkdir -p /run/systemd/journald.conf.d 2>/dev/null && printf '[Journal]\nRuntimeMaxUse=8M\nRuntimeMaxFileSize=2M\n' > "$JDROP" 2>/dev/null &&
+      systemctl restart systemd-journald 2>/dev/null && log "journal: at most 8 MB in RAM"
+  fi
+  journalctl --vacuum-size=8M >/dev/null 2>&1
+}
+journal_restore() {
+  [ -f "$JDROP" ] || return 0
+  rm -f "$JDROP"; systemctl restart systemd-journald 2>/dev/null; log "journal: system default again"
+}
+
 # ---------- zram (compressed swap in RAM, ahead of the slow flash swap) ----------
 zram_on() {
   if [ -f "$ZDEV" ]; then
@@ -200,7 +244,8 @@ apply_group() {
       else
         log "telnet left on: SSH is not running"
       fi ;;
-    logs)  command -v PmLogCtl >/dev/null 2>&1 && PmLogCtl set '*' err >/dev/null 2>&1 && log "logging -> err" ;;
+    logs)  command -v PmLogCtl >/dev/null 2>&1 && PmLogCtl set '*' err >/dev/null 2>&1 && log "logging -> err"; journal_small ;;
+    ready) ready_off ;;
   esac
 }
 undo_group() {
@@ -212,7 +257,8 @@ undo_group() {
     iot)   hosts_del iot ;;
     zram)  zram_off ;;
     telnet) rm -f "$TELNET_OFF"; log "telnet comes back after a restart" ;;
-    logs)  log "logging level returns after a restart" ;;
+    logs)  log "logging level returns after a restart"; journal_restore ;;
+    ready) ready_restore ;;
   esac
 }
 apply_all() { for g in $GRPS; do [ "$(cfg "$g")" = 1 ] && apply_group "$g"; done; }
@@ -267,6 +313,8 @@ case "$1" in
     done
     echo "zram-control: $(ls /sys/class/zram-control 2>/dev/null | tr '\n' ' ') alati: $(command -v mkswap) $(command -v swapon) $(command -v swapoff)"
     echo "Live Plus: $(lp_get)"
+    echo "Always Ready: $(ready_find || echo 'nema te postavke')"
+    echo "journal: $(du -sh /run/log/journal 2>/dev/null | cut -f1) $( [ -f "$JDROP" ] && echo '(ograničen na 8 MB)')"
     echo; echo "== procesi kandidati (kB RAM, kB swap, ime, roditelj)"
     CAND=" nudge sdx update admanager iot-client trigger_thinq trigger_alexa nlpmanager voiceclick voiceinput_preprocessor iconnectivity hybridtv-manager legacy-broadcast-dvb awareness-agent user-intent-manager lg.thinqai.adapter wowplay contentminer sportsalarm ai-inference-manager nn-proxy telnetd "
     for d in /proc/[0-9]*; do

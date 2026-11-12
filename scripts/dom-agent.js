@@ -2,6 +2,7 @@
 //  - consoles: watches the HDMI inputs and tells Dom when a PlayStation, Xbox or Switch comes on
 //  - new episodes: asks Stremio every half hour and shows a TV notice, whatever is on screen
 //    (only while /home/root/dom-notify-on exists)
+//  - forgotten apps: closes an app that has not been on screen for the minutes in /home/root/dom-autoclose
 // Plain Node, no modules.  Log: /tmp/dom-agent.log
 'use strict';
 var fs = require('fs');
@@ -144,9 +145,34 @@ function checkEpisodes() {
   });
 }
 
+/* ---------------- forgotten apps ---------------- */
+// apps that keep running in the background hold memory; the ones nobody went back to are closed
+var KEEP_RE = /^com\.deganegane\.dom$|^com\.webos\.app\.(home|starfish|systemui|screensaver)|^com\.webos\.surfacemanager|stremio/i;
+var lastSeen = {};
+function autoClose() {
+  var fg = foreground(), now = Date.now();
+  if (fg) lastSeen[fg] = now;
+  var mins = parseInt(read(ROOT + '/dom-autoclose'), 10) || 0;
+  if (!mins) return;
+  lunaSend('luna://com.webos.applicationManager/running', {}, function (err, out) {
+    var j = null; try { j = JSON.parse(out); } catch (e) {}
+    ((j && j.running) || []).forEach(function (r) {
+      var id = r.id;
+      if (!id || id === fg || KEEP_RE.test(id)) return;
+      if (!lastSeen[id]) { lastSeen[id] = now; return; }   // first time we see it: the clock starts now
+      if (now - lastSeen[id] < mins * 60000) return;
+      log('closing ' + id + ' (not on screen for ' + Math.round((now - lastSeen[id]) / 60000) + ' min)');
+      delete lastSeen[id];
+      lunaSend('luna://com.webos.service.applicationManager/closeByAppId', { id: id });
+    });
+  });
+}
+
 /* ---------------- start ---------------- */
 log('start (pid ' + process.pid + ', node ' + process.version + ')');
 watchInputs();
+setInterval(function () { var fg = foreground(); if (fg) lastSeen[fg] = Date.now(); }, 10000);
+setInterval(autoClose, 5 * 60000);
 setTimeout(checkEpisodes, 2 * 60000);
 setInterval(checkEpisodes, 30 * 60000);
 // switched on in Dom just now: do not make people wait half an hour for the first check

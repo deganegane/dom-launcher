@@ -12,7 +12,7 @@ rm -f /home/root/dom-homeguard.sh
 pkill -f "dom-agent.js" 2>/dev/null
 pkill -f "getAllInputStatus" 2>/dev/null
 rm -f /var/lib/webosbrew/init.d/91-dom-agent /home/root/dom-agent.js /home/root/dom-web.html /home/root/dom-web-on /home/root/dom-web-token \
-  /home/root/dom-notify-on /home/root/dom-stremio-auth /home/root/dom-notified.json /home/root/dom-console-mode /home/root/dom-usage.log /home/root/dom-rolled-back
+  /home/root/dom-notify-on /home/root/dom-stremio-auth /home/root/dom-notified.json /home/root/dom-console-mode /home/root/dom-usage.log /home/root/dom-rolled-back /home/root/dom-autoclose
 [ -x /home/root/dom-blank-home.sh ] && /home/root/dom-blank-home.sh off
 rm -f /var/lib/webosbrew/init.d/06-dom-blank-home /home/root/dom-blank-home.sh /home/root/dom-ctl.sh /home/root/dom-disabled
 [ -x /home/root/dom-tune.sh ] && /home/root/dom-tune.sh off >/dev/null 2>&1

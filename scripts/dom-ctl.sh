@@ -13,7 +13,8 @@
 #   dom-ctl.sh health             one line per check, for Settings > Sustav > Stanje sustava
 #   dom-ctl.sh restart            start the home guard and the helper again
 #   dom-ctl.sh rollback           put the previous version of Dom back
-#   dom-ctl.sh agent start|stop   the background helper (new-episode notices, consoles)
+#   dom-ctl.sh agent start|stop   the background helper (new-episode notices, consoles, closing forgotten apps)
+#   dom-ctl.sh freemem            close every app in the background, drop the caches; prints "<MB before> <MB after> <apps closed>"
 FLAG=/home/root/dom-disabled
 ALLOW=/tmp/dom-allow-home
 HOME_ID=com.webos.app.home
@@ -156,6 +157,18 @@ case "$1" in
   rollback)
     [ -x /home/root/dom-install.sh ] && [ -s /home/root/dom-backup/previous.ipk ] || exit 1
     request_install rollback
+    ;;
+  freemem)
+    before=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo)
+    n=0
+    for id in $(luna-send -n 1 -w 5000 luna://com.webos.applicationManager/running '{}' 2>/dev/null </dev/null | grep -o '"id" *: *"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/'); do
+      case "$id" in com.deganegane.dom|com.webos.app.home*|com.webos.app.starfish*|com.webos.app.systemui*|com.webos.surfacemanager*) continue ;; esac
+      luna-send -n 1 -w 4000 luna://com.webos.service.applicationManager/closeByAppId "{\"id\":\"$id\"}" >/dev/null 2>&1 </dev/null && n=$((n + 1))
+    done
+    sleep 2
+    sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+    sleep 1
+    echo "$before $(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo) $n"
     ;;
   agent)
     case "$2" in
