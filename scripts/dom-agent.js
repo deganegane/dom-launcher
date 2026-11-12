@@ -70,35 +70,53 @@ function curlJSON(url, body, cb) {
 }
 
 /* ---------------- consoles on HDMI ---------------- */
+// "connected" only means a cable is in (it stays true while the console sleeps). A console that is on
+// either sends a picture (hdmiSignalExist) or says so over HDMI-CEC (subList SIMPLINK, cecPower "On").
 var CONSOLE_RE = /ps5|ps4|playstation|xbox|nintendo|switch/i;
-var inputs = null, inputLog = 0;
+var inputs = null;
 function consoleMode() { return read(ROOT + '/dom-console-mode').trim() || 'ask'; }
-function watchInputs() {
-  subscribe('luna://com.webos.service.eim/getAllInputStatus', { subscribe: true }, function (j, line) {
-    if (inputLog < 15) { inputLog++; try { fs.appendFileSync('/tmp/dom-inputs.log', line + '\n'); } catch (e) {} }
-    var devs = j.devices || j.inputs || [];
-    if (!devs.length) return;
-    var now = {};
-    devs.forEach(function (d) {
-      var id = d.id || d.inputId || d.deviceId;
-      if (!id) return;
-      // "connected" is true while something with a picture is on that input
-      now[id] = { on: d.connected === true && d.hdmiPlugIn !== false, label: d.label || d.deviceName || d.name || '', app: d.appId || '', port: d.port };
-    });
-    if (inputs) {
-      Object.keys(now).forEach(function (id) {
-        var n = now[id], o = inputs[id];
-        if (!n.on || (o && o.on)) return;
-        var app = n.app || (n.port ? 'com.webos.app.hdmi' + n.port : '');
-        if (!CONSOLE_RE.test(n.label + ' ' + id) || !app) return;
-        var mode = consoleMode();
-        log('console on: ' + n.label + ' (' + id + '), mode ' + mode + ', on screen ' + foreground());
-        if (mode === 'off' || foreground() !== APPID) return;   // never interrupt something that is playing
-        launchDom({ dom: 'console', appId: app, label: n.label });
-      });
-    }
-    inputs = now;
+function inputLog(msg) {
+  try {
+    var f = '/tmp/dom-inputs.log';
+    if (fs.existsSync(f) && fs.statSync(f).size > 60000) fs.writeFileSync(f, '');
+    fs.appendFileSync(f, new Date().toTimeString().slice(0, 8) + ' ' + msg + '\n');
+  } catch (e) {}
+}
+function inputDevices(j) {
+  var devs = (j && (j.devices || j.inputs)) || [];
+  if (!devs.length) return;
+  var now = {};
+  devs.forEach(function (d) {
+    var id = d.id || d.inputId || d.deviceId;
+    if (!id) return;
+    var sub = d.subList || [], cec = '', names = [d.label || '', id];
+    sub.forEach(function (x) { if (x.cecPower) cec = String(x.cecPower); names.push(x.osdName || '', x.brandName || '', x.labelName || ''); });
+    now[id] = { on: d.hdmiSignalExist === true || /^on$/i.test(cec), signal: d.hdmiSignalExist, cec: cec,
+                label: d.label || d.deviceName || d.name || '', names: names.join(' '), app: d.appId || '', port: d.port };
   });
+  Object.keys(now).forEach(function (id) {
+    var n = now[id], o = inputs && inputs[id];
+    if (!o || o.signal !== n.signal || o.cec !== n.cec) inputLog(id + ' "' + n.label + '" signal=' + n.signal + ' cec=' + (n.cec || '-'));
+    if (!inputs || !n.on || (o && o.on)) return;   // the first reading is only the starting point
+    var app = n.app || (n.port ? 'com.webos.app.hdmi' + n.port : '');
+    if (!CONSOLE_RE.test(n.names) || !app) return;
+    var mode = consoleMode(), fg = foreground();
+    log('console on: ' + n.label + ' (' + id + '), mode ' + mode + ', on screen ' + fg);
+    if (mode === 'off' || fg !== APPID) return;   // never interrupt something that is playing
+    launchDom({ dom: 'console', appId: app, label: n.label });
+  });
+  inputs = now;
+}
+function watchInputs() {
+  subscribe('luna://com.webos.service.eim/getAllInputStatus', { subscribe: true }, function (j) { inputDevices(j); });
+  // not every firmware sends an update when a console wakes up: while Dom is on screen, also ask every 5 s
+  setInterval(function () {
+    if (foreground() !== APPID || consoleMode() === 'off') return;
+    lunaSend('luna://com.webos.service.eim/getAllInputStatus', {}, function (err, out) {
+      var j = null; try { j = JSON.parse(out); } catch (e) {}
+      if (j) inputDevices(j);
+    });
+  }, 5000);
 }
 
 /* ---------------- new episodes ---------------- */
