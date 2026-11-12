@@ -169,6 +169,17 @@ pravo doba dana (noć, svitanje, dan, zalazak, sumrak, prema izlasku i zalasku s
 prognozu i vrijeme (oblačno, kiša, magla, snijeg, grmljavina). Kad se doba dana ili vrijeme promijeni, slika se odmah zamijeni.
 Čuvar zaslona koristi iste krajolike.
 
+## Vremenski efekti
+
+Pozadine → **Vrijeme preko pozadine** (isključeni, statični ili animirani): preko svake pozadine (Bing, ilustracije, Zemlja, snimke aplikacija, krajolici) ide trenutno vrijeme u postavljenom gradu:
+- **kiša** i **rosulja**: dva sloja kiše nagnuta vjetrom, u statičnom načinu i kapi na staklu,
+- **oluja**: jača kiša, tamnije nebo i povremena munja,
+- **snijeg**: sitne pahulje u daljini i velike blizu, njišu se dok padaju,
+- **magla** i **oblačno**: mekani slojevi koji polako plove,
+- **sunčano** (danju): topli sjaj i zrake iz gornjeg kuta.
+
+Teksture se iscrtaju jednom na TV-u, animacija samo pomiče gotove slojeve. U laganom načinu efekti su statični. **Isprobaj efekt** pokaže svaki redom na 30 sekundi.
+
 ## Konzole, obavijesti, pametni dom
 
 - **Kad se upali konzola** (Aplikacije): dok je Dom na ekranu i upali se PlayStation, Xbox ili Switch na HDMI-ju, Dom pita (OK prebacuje) ili odmah prebaci. Ono što se gleda nikad ne prekida. Pokusno: ako ne reagira, pošalji `/tmp/dom-inputs.log`.

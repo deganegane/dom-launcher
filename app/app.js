@@ -146,6 +146,7 @@
     kenburns: store.get('kenburns', true),     // backgrounds drift and zoom very slowly
     season: store.get('season', true),         // snow in December
     lite: store.get('lite', false),            // no blur, shine, tilt, drift or snow: less work for the TV
+    wxfx: store.get('wxfx', 'anim'),           // weather over the backgrounds: off | static | anim
     autoClose: store.get('autoClose', 0),      // minutes after which an app nobody went back to is closed (0 = never)
     pin: store.get('pin', ''),
     sleepMins: 0, version: '',
@@ -1282,6 +1283,7 @@
     stage.classList.toggle('kb', !!S.kenburns && !S.lite);
     stage.classList.toggle('lite', !!S.lite);
     seasonApply();
+    wxfxApply();
     widgetsRefresh();
     accentKey = ''; accentFrom(S.list[S.idx]);
   }
@@ -1531,7 +1533,129 @@
   function liveOpts() {
     var w = '', d = WX.place && WX.data;
     if (d && Date.now() - WX.at < 3 * 3600 * 1000) w = { cloud: 'cloud', fog: 'fog', rain: 'rain', snow: 'snow', storm: 'storm' }[wxKind(d.code, d.day)[0]] || '';
+    if (S.wxfx !== 'off') w = '';   // the weather effects draw it over the picture instead
     return { mood: dayPhase(), weather: w };
+  }
+
+  /* ================= weather over every background: rain, storm, snow, fog, clouds, sun ================= */
+  // Textures are drawn once on a canvas; the animation only moves finished layers (cheap for the TV).
+  var WXFX = { kind: '', preview: '', until: 0, tex: {} };
+  var WXFX_NAMES = { rain: 'kiša', drizzle: 'rosulja', storm: 'oluja', snow: 'snijeg', fog: 'magla', cloud: 'oblačno', sun: 'sunčano' };
+  var WXFX_MODES = { off: 'Isključeni', 'static': 'Statični', anim: 'Animirani' };
+  function wxfxKind() {
+    if (WXFX.preview && Date.now() < WXFX.until) return WXFX.preview;
+    var d = WX.place && WX.data;
+    if (!d || Date.now() - WX.at > 3 * 3600 * 1000) return '';
+    var c = d.code;
+    if (c >= 95) return 'storm';
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
+    if (c >= 51 && c <= 57) return 'drizzle';
+    if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return 'rain';
+    if (c === 45 || c === 48) return 'fog';
+    if (c === 3) return 'cloud';
+    if ((c === 0 || c === 1) && d.day) return 'sun';
+    return '';
+  }
+  function tex(key, w, h, draw) {
+    if (WXFX.tex[key] !== undefined) return WXFX.tex[key];
+    var u = '';
+    try {
+      var c = document.createElement('canvas'); c.width = w; c.height = h;
+      draw(c.getContext('2d'), w, h);
+      u = c.toDataURL('image/png');
+    } catch (e) {}
+    WXFX.tex[key] = u;
+    return u;
+  }
+  // everything is drawn three times across each edge so the tile repeats without a seam
+  function wrapDraw(w, h, x, y, fn) { for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) fn(x + dx * w, y + dy * h); }
+  function rainTex(seed, n, minL, maxL, maxA, width) {
+    return tex('rain' + seed, 512, 512, function (g, w, h) {
+      var r = rngFx(seed);
+      for (var i = 0; i < n; i++) {
+        var x = r() * w, y = r() * h, len = minL + r() * (maxL - minL), a = 0.12 + r() * maxA, lw = 0.8 + r() * width;
+        wrapDraw(w, h, x, y, function (px, py) {
+          var gr = g.createLinearGradient(px, py, px, py + len);
+          gr.addColorStop(0, 'rgba(220,230,245,0)'); gr.addColorStop(1, 'rgba(220,230,245,' + a.toFixed(2) + ')');
+          g.strokeStyle = gr; g.lineWidth = lw; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(px, py); g.lineTo(px, py + len); g.stroke();
+        });
+      }
+    });
+  }
+  function snowTex(seed, n, minR, maxR) {
+    return tex('snow' + seed, 512, 512, function (g, w, h) {
+      var r = rngFx(seed);
+      for (var i = 0; i < n; i++) {
+        var x = r() * w, y = r() * h, rad = minR + r() * r() * (maxR - minR), a = 0.5 + r() * 0.5;
+        wrapDraw(w, h, x, y, function (px, py) {
+          var gr = g.createRadialGradient(px, py, 0, px, py, rad);
+          gr.addColorStop(0, 'rgba(255,255,255,' + a.toFixed(2) + ')'); gr.addColorStop(0.45, 'rgba(255,255,255,' + (a * 0.7).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          g.fillStyle = gr; g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
+        });
+      }
+    });
+  }
+  function fogTex(seed, n, tint) {
+    return tex('fog' + seed + tint, 1024, 512, function (g, w, h) {
+      var r = rngFx(seed);
+      for (var i = 0; i < n; i++) {
+        var x = r() * w, y = h * 0.25 + r() * h * 0.6, rad = 120 + r() * 260, a = (tint.charAt(0) === '2' ? 0.05 : 0.12) + r() * 0.14;
+        wrapDraw(w, h, x, y, function (px, py) {
+          var gr = g.createRadialGradient(px, py, 0, px, py, rad);
+          gr.addColorStop(0, 'rgba(' + tint + ',' + a.toFixed(3) + ')'); gr.addColorStop(1, 'rgba(' + tint + ',0)');
+          g.fillStyle = gr; g.fillRect(px - rad, py - rad, rad * 2, rad * 2);
+        });
+      }
+    });
+  }
+  function glassTex() {   // drops sitting on a window: a dark rim, a lighter body, a small highlight
+    return tex('glass', 512, 512, function (g, w, h) {
+      var r = rngFx(77);
+      for (var i = 0; i < 70; i++) {
+        var x = r() * w, y = r() * h, rad = 2 + r() * r() * 11, tall = 1 + r() * 0.4;
+        wrapDraw(w, h, x, y, function (px, py) {
+          g.save(); g.translate(px, py); g.scale(1, tall);
+          var gr = g.createRadialGradient(-rad * 0.25, -rad * 0.3, rad * 0.1, 0, 0, rad);
+          gr.addColorStop(0, 'rgba(255,255,255,.28)'); gr.addColorStop(0.7, 'rgba(200,215,230,.10)'); gr.addColorStop(0.92, 'rgba(10,15,25,.28)'); gr.addColorStop(1, 'rgba(10,15,25,0)');
+          g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rad, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.arc(-rad * 0.35, -rad * 0.4, Math.max(0.6, rad * 0.16), 0, Math.PI * 2); g.fill();
+          g.restore();
+        });
+      }
+    });
+  }
+  function rngFx(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function wxfxApply() {
+    var mode = S.wxfx === 'anim' && S.lite ? 'static' : S.wxfx;
+    var k = mode === 'off' || S.layout === 'teletekst' || S.layout === 'novine' ? '' : wxfxKind();
+    stage.classList.toggle('wxfx-on', !!k);
+    stage.classList.toggle('wfx-anim', mode === 'anim');
+    for (var n in WXFX_NAMES) stage.classList.toggle('wx-' + n, k === n);
+    if (!k || k === WXFX.kind) { WXFX.kind = k; return; }
+    WXFX.kind = k;
+    var set = function (sel, u) { var el = $(sel); if (el) el.style.backgroundImage = u ? 'url("' + u + '")' : ''; };
+    var heavy = k === 'storm';
+    if (k === 'rain' || k === 'drizzle' || k === 'storm') {
+      set('#wxfx .wf-a', rainTex(11 + (heavy ? 1 : 0), k === 'drizzle' ? 70 : (heavy ? 260 : 170), 26, k === 'drizzle' ? 50 : 90, heavy ? 0.4 : 0.32, 1.1));
+      set('#wxfx .wf-b', k === 'drizzle' ? '' : rainTex(21, heavy ? 90 : 55, 60, 150, 0.35, 1.8));
+      set('#wxfx .wf-glass', glassTex());
+    } else if (k === 'snow') {
+      set('#wxfx .wf-a', snowTex(31, 300, 1.4, 4.2));
+      set('#wxfx .wf-b', snowTex(41, 80, 3.5, 11));
+    } else if (k === 'fog' || k === 'cloud') {
+      set('#wxfx .wf-a', fogTex(51, k === 'fog' ? 70 : 40, k === 'fog' ? '235,238,242' : '90,96,108'));
+      set('#wxfx .wf-b', fogTex(61, k === 'fog' ? 45 : 26, k === 'fog' ? '245,247,250' : '70,76,88'));
+    }
+  }
+  setInterval(function () { if (WXFX.preview && Date.now() > WXFX.until) { WXFX.preview = ''; wxfxApply(); } }, 5000);
+  var WXFX_TRY = ['rain', 'storm', 'snow', 'fog', 'cloud', 'sun', 'drizzle'];
+  function wxfxTry() {
+    var i = WXFX_TRY.indexOf(WXFX.preview);
+    WXFX.preview = WXFX_TRY[(i + 1) % WXFX_TRY.length]; WXFX.until = Date.now() + 30000;
+    if (S.wxfx === 'off') toast('Efekti su isključeni: uključi ih iznad pa isprobaj.');
+    else toast('Efekt: ' + WXFX_NAMES[WXFX.preview] + ' (30 s; OK za sljedeći)');
+    wxfxApply(); renderSettings();
   }
 
   /* ================= OLED care: tiny shifts of the whole picture, dimming when nobody is using it ================= */
@@ -2092,6 +2216,7 @@
       '<span class="wx-t">' + Math.round(d.temp) + '°</span>' + (k[1] ? '<span class="wx-d">' + esc(k[1]) + '</span>' : '') +
       (d.max != null ? '<span class="wx-r">' + Math.round(d.max) + '° / ' + Math.round(d.min) + '°</span>' : '');
     widgetsRender();
+    wxfxApply();
   }
   // Widgeti: the five-day forecast and today's time in front of the screen
   var DAYS = ['ned', 'pon', 'uto', 'sri', 'čet', 'pet', 'sub'];
@@ -2204,6 +2329,13 @@
   /* ================= settings ================= */
   var SET = { rows: [], pos: 0, email: '', password: '', city: '', busy: false };
   function wallRows(rows) {
+    rows.push({ h: 'Vremenski efekti' });
+    rows.push({ type: 'btn', name: 'wxfx', label: 'Vrijeme preko pozadine', value: WXFX_MODES[S.wxfx] + '  ›', act: function () {
+      S.wxfx = S.wxfx === 'off' ? 'static' : (S.wxfx === 'static' ? 'anim' : 'off'); store.set('wxfx', S.wxfx);
+      WXFX.kind = '-'; wxfxApply(); if (S.wall.on && S.wall.src === 'live') wallNext(false); renderSettings();
+    } });
+    rows.push({ type: 'btn', name: 'wxfx-try', label: 'Isprobaj efekt', value: (WXFX.preview && Date.now() < WXFX.until ? WXFX_NAMES[WXFX.preview] : 'kiša, oluja, snijeg…') + '  ›', act: wxfxTry });
+    rows.push({ note: WX.place ? 'Kiša, oluja, snijeg, magla, oblaci ili sunce, prema trenutnom vremenu u gradu ' + String(WX.place.name).split(',')[0] + ', preko svake pozadine.' + (S.lite && S.wxfx === 'anim' ? ' U laganom načinu su statični.' : '') : 'Postavi grad (Računi i prognoza) da efekti prate pravo vrijeme.' });
     rows.push({ h: 'Pozadina' });
     if (S.wall.on) {
       rows.push({ type: 'btn', name: 'wall-pause', label: 'Zadrži trenutnu pozadinu', value: S.wall.paused ? 'Da' : 'Ne', act: wallTogglePause });
@@ -2230,7 +2362,7 @@
   // Settings in two levels: quick actions and six groups first, a group's own rows after OK
   var SET_GROUPS = [
     { key: 'theme', name: 'Tema', sum: function () { return L().name; } },
-    { key: 'wall', name: 'Pozadine', sum: function () { return S.wall.on ? WALL_SRC[S.wall.src] : 'Isključeno'; } },
+    { key: 'wall', name: 'Pozadine', sum: function () { return (S.wall.on ? WALL_SRC[S.wall.src] : 'Isključeno') + (S.wxfx !== 'off' && WXFX.kind && WXFX.kind !== '-' ? ' · ' + WXFX_NAMES[WXFX.kind] : ''); } },
     { key: 'apps', name: 'Aplikacije', sum: function () {
       var h = S.apps.filter(function (a) { return S.hidden.indexOf(a.key) >= 0; }).length;
       return (S.apps.length - h) + ' prikazano' + (h ? ', ' + h + ' skriveno' : '');
