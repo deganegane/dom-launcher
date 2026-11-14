@@ -16,6 +16,7 @@
   'use strict';
   var W = 960, H = 540;          // drawn at half the screen size: the scene is blurred anyway, drops stay crisp enough
   var gl = null, cv = null, P = {}, buf = null, T = {}, F = {};
+  var ERR = '', INFO = '';
   var S = { on: false, anim: false, kind: 'rain', grade: [1, 1, 1], haze: 0.12, mix: 1, mixT: 0, hasImg: false,
             heads: [], spawnAt: 0, raf: 0, last: 0, frame: 0, flash: 0 };
 
@@ -267,7 +268,8 @@
         cv = canvas; cv.width = W; cv.height = H;
         gl = cv.getContext('webgl', { alpha: false, antialias: false, depth: false, preserveDrawingBuffer: false, premultipliedAlpha: false }) ||
              cv.getContext('experimental-webgl', { alpha: false, antialias: false, depth: false });
-        if (!gl) return false;
+        if (!gl) { ERR = 'no WebGL context'; return false; }
+        try { var dbg = gl.getExtension('WEBGL_debug_renderer_info'); INFO = String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER)); } catch (e2) {}
         buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
         P.sprite = program(FS_SPRITE); P.copy = program(FS_COPY); P.fill = program(FS_FILL); P.final = program(FS_FINAL);
@@ -276,7 +278,7 @@
         T.sharpA = texture(W, H); T.blurA = texture(240, 135); T.sharpB = texture(W, H); T.blurB = texture(240, 135);
         seedDrops();
         return true;
-      } catch (e) { console.log('rain glass', e); gl = null; return false; }
+      } catch (e) { ERR = 'setup: ' + (e && e.message || e); console.log('rain glass', e); gl = null; return false; }
     },
     set: function (o) {
       if (!gl) return;
@@ -289,19 +291,22 @@
       kick();
     },
     image: function (img, alignY) {
-      if (!gl || !img || !prepare(img, alignY)) return false;
+      if (!gl || !img) return false;
+      try { if (!prepare(img, alignY)) { ERR = 'picture has no size'; return false; } } catch (e) { ERR = 'draw: ' + (e && e.message || e); return false; }
       try {
         // the old picture becomes A, the new one B, and the glass cross-fades like the background does
         var t = T.sharpA; T.sharpA = T.sharpB; T.sharpB = t; t = T.blurA; T.blurA = T.blurB; T.blurB = t;
         gl.bindTexture(gl.TEXTURE_2D, T.sharpB); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, SHARP);
         gl.bindTexture(gl.TEXTURE_2D, T.blurB); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, BLUR);
-      } catch (e) { console.log('rain glass picture', e); return false; }   // a picture from elsewhere that the browser will not hand over
+      } catch (e) { ERR = 'texture: ' + (e && (e.name + ' ' + e.message) || e); console.log('rain glass picture', e); return false; }   // a picture from elsewhere that the browser will not hand over
       S.mix = S.hasImg ? 0 : 1; S.mixT = performance.now(); S.hasImg = true;
       if (S.on) { composeWater(); final(); kick(); }
       return true;
     },
     flash: function () { S.flash = 1; kick(); },
     stop: function () { S.on = false; if (S.raf) cancelAnimationFrame(S.raf); S.raf = 0; },
-    active: function () { return S.on && S.hasImg; }
+    active: function () { return S.on && S.hasImg; },
+    error: function () { return ERR; },
+    renderer: function () { return INFO; }
   };
 })();

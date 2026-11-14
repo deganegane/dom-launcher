@@ -825,6 +825,7 @@
       var layer = $('#bg' + back), img = layer.querySelector('.bg-img');
       img.className = 'bg-img' + (u && fb && (fb.soft || fb.softUrl === u) ? ' soft' : '');
       img.style.backgroundImage = u ? 'url("' + u + '")' : ((fb && fb.ambient) || '');
+      img.__amb = u ? '' : ((fb && fb.ambient) || ''); img.__col = u ? '' : ((fb && fb.color) || '#0b0b0d');
       img.style.backgroundColor = u ? '#111' : ((fb && fb.color) || '#0b0b0d');
       layer.classList.add('on');
       $('#bg' + bgFront).classList.remove('on');
@@ -856,12 +857,35 @@
     if (lum > 0.7) c = c.map(function (v) { return Math.round(v * 0.55); });
     var dark = c.map(function (v) { return Math.round(v * 0.22); });
     function rgba(x, al) { return 'rgba(' + x[0] + ',' + x[1] + ',' + x[2] + ',' + al + ')'; }
-    return [
+    var str = [
       'radial-gradient(ellipse 55% 75% at 78% 18%, ' + rgba(c, 0.85) + ' 0%, ' + rgba(c, 0) + ' 70%)',
       'radial-gradient(ellipse 45% 55% at 30% 0%, ' + rgba(c, 0.35) + ' 0%, ' + rgba(c, 0) + ' 70%)',
       'radial-gradient(ellipse 70% 60% at 10% 90%, ' + rgba(dark, 0.9) + ' 0%, rgba(0,0,0,0) 70%)',
       'linear-gradient(160deg, rgb(' + dark.join(',') + ') 0%, #050506 75%)'
     ].join(', ');
+    AMBIENT[str] = [c, dark];   // the same picture can be drawn on a canvas (rain on the glass)
+    return str;
+  }
+  var AMBIENT = {};
+  // the ambient background, painted the way the CSS above paints it
+  function ambientCanvas(c, dark, flat) {
+    var W = 960, H = 540, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var g = cv.getContext('2d');
+    if (flat) { g.fillStyle = flat; g.fillRect(0, 0, W, H); return cv; }
+    var rgba = function (x, al) { return 'rgba(' + x[0] + ',' + x[1] + ',' + x[2] + ',' + al + ')'; };
+    var dx = Math.sin(160 * Math.PI / 180), dy = -Math.cos(160 * Math.PI / 180), len = Math.abs(W * dx) + Math.abs(H * dy);
+    var lg = g.createLinearGradient(W / 2 - dx * len / 2, H / 2 - dy * len / 2, W / 2 + dx * len / 2, H / 2 + dy * len / 2);
+    lg.addColorStop(0, 'rgb(' + dark.join(',') + ')'); lg.addColorStop(0.75, '#050506'); lg.addColorStop(1, '#050506');
+    g.fillStyle = lg; g.fillRect(0, 0, W, H);
+    // CSS paints the first gradient on top: draw them back to front
+    [[0.10, 0.90, 0.70, 0.60, dark, 0.9], [0.30, 0.00, 0.45, 0.55, c, 0.35], [0.78, 0.18, 0.55, 0.75, c, 0.85]].forEach(function (e) {
+      g.save(); g.translate(e[0] * W, e[1] * H); g.scale(e[2] * W, e[3] * H);
+      var rg = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+      rg.addColorStop(0, rgba(e[4], e[5])); rg.addColorStop(0.7, rgba(e[4], 0)); rg.addColorStop(1, rgba(e[4], 0));
+      g.fillStyle = rg; g.fillRect(-2, -2, 4, 4);
+      g.restore();
+    });
+    return cv;
   }
 
   /* ---------- top shelf ---------- */
@@ -1741,11 +1765,25 @@
     var b = $('#bg').getBoundingClientRect(), s = stage.getBoundingClientRect();
     return b.width >= s.width * 0.98 && b.height >= s.height * 0.98;
   }
+  // why the glass is (not) on, for Settings and /tmp/dom-glass.log
+  function glassWhy(w) {
+    if (w === GLASS.why) return;
+    GLASS.why = w;
+    if (!DEMO && w) exec('echo "$(date +%T) ' + String(w).replace(/["`$\\]/g, '') + '" >> /tmp/dom-glass.log').catch(function () {});
+    if (S.zone === 'settings' && SET.only === 'wall') renderSettings();
+  }
   function glassApply(k, mode) {
-    var want = (k === 'rain' || k === 'drizzle' || k === 'storm') && !!window.DOM_RAIN && glassFull();
-    if (want && !GLASS.mounted) { GLASS.mounted = true; GLASS.ok = window.DOM_RAIN.supported() && window.DOM_RAIN.mount($('#wxfx .wf-gl')); }
-    want = want && GLASS.ok;
-    if (!want) { if (GLASS.on) { GLASS.on = false; window.DOM_RAIN.stop(); } stage.classList.remove('wx-glass'); return; }
+    var rain = k === 'rain' || k === 'drizzle' || k === 'storm', want = rain;
+    if (want && !window.DOM_RAIN) { want = false; glassWhy('nije učitan rainglass.js'); }
+    else if (want && !glassFull()) { want = false; glassWhy('izgled ' + L().name + ' nema sliku preko cijelog ekrana'); }
+    if (want && !GLASS.mounted) {
+      GLASS.mounted = true;
+      if (!window.DOM_RAIN.supported()) { GLASS.ok = false; GLASS.err = 'TV ne daje WebGL'; }
+      else { GLASS.ok = window.DOM_RAIN.mount($('#wxfx .wf-gl')); GLASS.err = GLASS.ok ? '' : 'WebGL greška: ' + window.DOM_RAIN.error(); }
+      if (GLASS.ok && !DEMO) exec('echo "$(date +%T) WebGL: ' + String(window.DOM_RAIN.renderer()).replace(/["`$\\]/g, '') + '" >> /tmp/dom-glass.log').catch(function () {});
+    }
+    if (want && !GLASS.ok) { want = false; glassWhy(GLASS.err); }
+    if (!want) { if (GLASS.on) { GLASS.on = false; window.DOM_RAIN.stop(); } stage.classList.remove('wx-glass'); if (!rain) GLASS.why = ''; return; }
     var d = WX.data || {}, heavy = k === 'storm' || [65, 67, 82].indexOf(d.code) >= 0;
     var grade = { drizzle: [0.85, 0.96, 1], rain: [0.75, 0.9, 1.02], heavy: [0.66, 0.82, 1.05] }[k === 'drizzle' ? 'drizzle' : (heavy ? 'heavy' : 'rain')];
     GLASS.on = true;
@@ -1758,6 +1796,11 @@
     var useWall = SAVER.on || (S.wall.on && S.zone !== 'shelf');
     var el = useWall ? $('#wall' + WALL.front) : $('#bg' + bgFront + ' .bg-img');
     var m = el && /url\("?([^")]+)"?\)/.exec(el.style.backgroundImage || '');
+    if (!m && el && !useWall) {   // the app's own colours: drawn on a canvas instead
+      var amb = el.__amb && AMBIENT[el.__amb];
+      if (amb) return { url: 'amb:' + amb[0].join(',') + '/' + amb[1].join(','), canvas: function () { return ambientCanvas(amb[0], amb[1]); }, align: 0.5 };
+      if (el.__col) return { url: 'col:' + el.__col, canvas: function () { return ambientCanvas(null, null, el.__col); }, align: 0.5 };
+    }
     if (!m) return null;
     var pos = useWall ? 0.5 : (parseFloat(getComputedStyle(el).backgroundPositionY) || 0) / 100;
     return { url: m[1], align: pos };
@@ -1768,14 +1811,16 @@
     clearTimeout(glassTimer);
     glassTimer = setTimeout(function () {
       var src = glassSource();
-      if (!src) { stage.classList.remove('wx-glass'); GLASS.url = ''; return; }   // a colour, not a picture: the CSS rain instead
+      if (!src) { stage.classList.remove('wx-glass'); GLASS.url = ''; glassWhy('iza je boja, a ne slika'); return; }   // a colour, not a picture: the CSS rain instead
       if (src.url === GLASS.url) { stage.classList.add('wx-glass'); return; }
       var seq = ++GLASS.seq;
-      glassImage(src.url, function (img) {
+      (src.canvas ? function (u, cb) { cb(src.canvas()); } : glassImage)(src.url, function (img, why) {
         if (seq !== GLASS.seq || !GLASS.on) return;
         var ok = img && window.DOM_RAIN.image(img, src.align);
         GLASS.url = ok ? src.url : '';
         stage.classList.toggle('wx-glass', !!ok);
+        var kind = src.canvas ? 'boja aplikacije' : (/^data:/.test(src.url) ? 'crtež' : (/^https?:/.test(src.url) ? 'internet' : 'datoteka'));
+        glassWhy(ok ? 'radi' : (img ? 'slika odbijena (' + kind + '): ' + window.DOM_RAIN.error() : 'slika se ne učitava (' + kind + (why ? ', ' + why : '') + ')'));
       });
     }, 120);
   }
@@ -1785,17 +1830,17 @@
     var open = function (src, revoke) {
       var im = new Image();
       im.onload = function () { cb(im); if (revoke) setTimeout(function () { URL.revokeObjectURL(src); }, 3000); };
-      im.onerror = function () { cb(null); };
+      im.onerror = function () { cb(null, 'ne otvara se'); };
       im.src = src;
     };
     var viaBlob = function (u) {
       try {
         var x = new XMLHttpRequest();
         x.open('GET', u, true); x.responseType = 'blob';
-        x.onload = function () { if (x.response && (x.status === 0 || x.status === 200)) open(URL.createObjectURL(x.response), true); else cb(null); };
-        x.onerror = function () { cb(null); };
+        x.onload = function () { if (x.response && x.response.size && (x.status === 0 || x.status === 200)) open(URL.createObjectURL(x.response), true); else cb(null, 'prazno, status ' + x.status); };
+        x.onerror = function () { cb(null, 'XHR greška'); };
         x.send();
-      } catch (e) { cb(null); }
+      } catch (e) { cb(null, 'XHR: ' + e.message); }
     };
     if (/^(data|blob):/.test(url)) return open(url);
     if (!/^https?:/.test(url)) return viaBlob(url);
@@ -1803,10 +1848,10 @@
     im.crossOrigin = 'anonymous';
     im.onload = function () { cb(im); };
     im.onerror = function () {
-      if (DEMO) return cb(null);
+      if (DEMO) return cb(null, 'CORS');
       var appDir = decodeURIComponent(location.pathname).replace(/\/[^\/]*$/, ''), name = 'glass' + (GLASS.n++ % 3) + '.jpg';
       exec('curl -s -m 25 -o ' + shq(appDir + '/cache/' + name) + ' ' + shq(url), 30000)
-        .then(function () { viaBlob('cache/' + name + '?t=' + Date.now()); }, function () { cb(null); });
+        .then(function () { viaBlob('cache/' + name + '?t=' + Date.now()); }, function (e) { cb(null, 'curl: ' + (e && e.message)); });
     };
     im.src = url;
   }
@@ -2497,6 +2542,10 @@
       S.wxfx = S.wxfx === 'off' ? 'static' : (S.wxfx === 'static' ? 'anim' : 'off'); store.set('wxfx', S.wxfx);
       WXFX.kind = '-'; wxfxApply(); if (S.wall.on && S.wall.src === 'live') wallNext(false); renderSettings();
     } });
+    if (S.wxfx !== 'off') {
+      rows.push({ type: 'info', name: 'glass', label: 'Kiša na staklu', value: GLASS.why === 'radi' ? 'Radi' : (GLASS.why ? 'Ne radi' : 'Čeka kišu (isprobaj efekt)') });
+      if (GLASS.why && GLASS.why !== 'radi') rows.push({ note: 'Razlog: ' + GLASS.why + '. Zato se prikazuje obična kiša.' });
+    }
     rows.push({ type: 'btn', name: 'wxfx-try', label: 'Isprobaj efekt', value: (WXFX.preview && Date.now() < WXFX.until ? WXFX_NAMES[WXFX.preview] : 'kiša, oluja, snijeg…') + '  ›', act: wxfxTry });
     rows.push({ note: WX.place ? 'Kiša, oluja, snijeg, magla, oblaci ili sunce, prema trenutnom vremenu u gradu ' + String(WX.place.name).split(',')[0] + ', preko svake pozadine.' + (S.lite && S.wxfx === 'anim' ? ' U laganom načinu su statični.' : '') : 'Postavi grad (Računi i prognoza) da efekti prate pravo vrijeme.' });
     rows.push({ h: 'Pozadina' });
