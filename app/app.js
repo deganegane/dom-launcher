@@ -829,6 +829,7 @@
       layer.classList.add('on');
       $('#bg' + bgFront).classList.remove('on');
       bgFront = back;
+      glassSync();
       var bl = $('#bgblur');
       bl.style.backgroundImage = img.style.backgroundImage;
       bl.style.backgroundColor = img.style.backgroundColor;
@@ -1018,6 +1019,7 @@
       grid.style.transform = 'translateY(' + y + 'px)';
     }
     stage.classList.toggle('scrolled', !lay.mode && !lay.noScroll && S.zone !== 'shelf' && r > 0);
+    if (stage.classList.contains('zone-shelf') !== (S.zone === 'shelf')) glassSync();
     stage.classList.toggle('zone-shelf', S.zone === 'shelf');
     var osd = $('#osd'), cur = S.list[S.idx];
     if (osd) osd.textContent = cur && cur.key !== SETTINGS_KEY ? (S.layout === 'teletekst' ? 'P' + (100 + S.idx + 1) : 'P' + ('0' + (S.idx + 1)).slice(-2)) : '';
@@ -1424,6 +1426,7 @@
       setTimeout(function () { if (!old.classList.contains('on')) old.style.backgroundImage = ''; }, 2200);
       WALL.front = back; WALL.failed = 0;
       WALL.accent = item.accent || '';
+      glassSync();
       accentFrom(S.list[S.idx]);
       if (!S.wall.on) return;   // a screensaver picture: not remembered as the wallpaper
       WALL.cur = item; WALL.shownAt = Date.now();
@@ -1696,6 +1699,7 @@
     stage.classList.toggle('wxfx-on', !!k);
     stage.classList.toggle('wfx-anim', mode === 'anim');
     for (var n in WXFX_NAMES) stage.classList.toggle('wx-' + n, k === n);
+    glassApply(k, mode);
     if (!k || k === WXFX.kind) { WXFX.kind = k; return; }
     WXFX.kind = k;
     var set = function (sel, u) { var el = $(sel); if (el) el.style.backgroundImage = u ? 'url("' + u + '")' : ''; };
@@ -1723,7 +1727,89 @@
     }
   }
   setInterval(function () { if (WXFX.preview && Date.now() > WXFX.until) { WXFX.preview = ''; wxfxApply(); } }, 5000);
-  document.addEventListener('animationiteration', function (e) { if (e.animationName === 'wf-flash') boltMove(); }, true);
+  document.addEventListener('animationiteration', function (e) {
+    if (e.animationName !== 'wf-flash' && e.animationName !== 'wf-bolt-glass') return;
+    boltMove();
+    if (GLASS.on && window.DOM_RAIN) setTimeout(function () { window.DOM_RAIN.flash(); }, 12000 * 0.866);   // the flash, seen through the glass
+  }, true);
+
+  /* ---------- rain on the window (rainglass.js, WebGL): the picture behind the glass ---------- */
+  var GLASS = { on: false, url: '', ok: false, mounted: false, seq: 0, n: 0 };
+  // the glass needs a picture that fills the screen; boxed layouts keep the CSS rain
+  function glassFull() {
+    if (L().boxed || S.layout === 'teletekst' || S.layout === 'novine') return false;
+    var b = $('#bg').getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return b.width >= s.width * 0.98 && b.height >= s.height * 0.98;
+  }
+  function glassApply(k, mode) {
+    var want = (k === 'rain' || k === 'drizzle' || k === 'storm') && !!window.DOM_RAIN && glassFull();
+    if (want && !GLASS.mounted) { GLASS.mounted = true; GLASS.ok = window.DOM_RAIN.supported() && window.DOM_RAIN.mount($('#wxfx .wf-gl')); }
+    want = want && GLASS.ok;
+    if (!want) { if (GLASS.on) { GLASS.on = false; window.DOM_RAIN.stop(); } stage.classList.remove('wx-glass'); return; }
+    var d = WX.data || {}, heavy = k === 'storm' || [65, 67, 82].indexOf(d.code) >= 0;
+    var grade = { drizzle: [0.85, 0.96, 1], rain: [0.75, 0.9, 1.02], heavy: [0.66, 0.82, 1.05] }[k === 'drizzle' ? 'drizzle' : (heavy ? 'heavy' : 'rain')];
+    GLASS.on = true;
+    $('#wxfx .wf-shade').style.background = getComputedStyle($('#bg-shade')).backgroundImage;
+    window.DOM_RAIN.set({ kind: k === 'drizzle' ? 'drizzle' : (heavy ? 'heavy' : 'rain'), animated: mode === 'anim', grade: grade });
+    glassSync();
+  }
+  // which picture is on screen now: the wallpaper, or the background of what is focused
+  function glassSource() {
+    var useWall = SAVER.on || (S.wall.on && S.zone !== 'shelf');
+    var el = useWall ? $('#wall' + WALL.front) : $('#bg' + bgFront + ' .bg-img');
+    var m = el && /url\("?([^")]+)"?\)/.exec(el.style.backgroundImage || '');
+    if (!m) return null;
+    var pos = useWall ? 0.5 : (parseFloat(getComputedStyle(el).backgroundPositionY) || 0) / 100;
+    return { url: m[1], align: pos };
+  }
+  var glassTimer = 0;
+  function glassSync() {
+    if (!GLASS.on) return;
+    clearTimeout(glassTimer);
+    glassTimer = setTimeout(function () {
+      var src = glassSource();
+      if (!src) { stage.classList.remove('wx-glass'); GLASS.url = ''; return; }   // a colour, not a picture: the CSS rain instead
+      if (src.url === GLASS.url) { stage.classList.add('wx-glass'); return; }
+      var seq = ++GLASS.seq;
+      glassImage(src.url, function (img) {
+        if (seq !== GLASS.seq || !GLASS.on) return;
+        var ok = img && window.DOM_RAIN.image(img, src.align);
+        GLASS.url = ok ? src.url : '';
+        stage.classList.toggle('wx-glass', !!ok);
+      });
+    }, 120);
+  }
+  // WebGL may only read pictures that allow it: local ones go through a blob, ones from the internet
+  // are asked for with CORS first, and saved on the TV (by the root service) when that is refused
+  function glassImage(url, cb) {
+    var open = function (src, revoke) {
+      var im = new Image();
+      im.onload = function () { cb(im); if (revoke) setTimeout(function () { URL.revokeObjectURL(src); }, 3000); };
+      im.onerror = function () { cb(null); };
+      im.src = src;
+    };
+    var viaBlob = function (u) {
+      try {
+        var x = new XMLHttpRequest();
+        x.open('GET', u, true); x.responseType = 'blob';
+        x.onload = function () { if (x.response && (x.status === 0 || x.status === 200)) open(URL.createObjectURL(x.response), true); else cb(null); };
+        x.onerror = function () { cb(null); };
+        x.send();
+      } catch (e) { cb(null); }
+    };
+    if (/^(data|blob):/.test(url)) return open(url);
+    if (!/^https?:/.test(url)) return viaBlob(url);
+    var im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = function () { cb(im); };
+    im.onerror = function () {
+      if (DEMO) return cb(null);
+      var appDir = decodeURIComponent(location.pathname).replace(/\/[^\/]*$/, ''), name = 'glass' + (GLASS.n++ % 3) + '.jpg';
+      exec('curl -s -m 25 -o ' + shq(appDir + '/cache/' + name) + ' ' + shq(url), 30000)
+        .then(function () { viaBlob('cache/' + name + '?t=' + Date.now()); }, function () { cb(null); });
+    };
+    im.src = url;
+  }
   var WXFX_TRY = ['rain', 'storm', 'snow', 'fog', 'cloud', 'sun', 'drizzle'];
   function wxfxTry() {
     var i = WXFX_TRY.indexOf(WXFX.preview);
@@ -1784,6 +1870,7 @@
     if (S.zone === 'settings') closeSettings();
     if (S.moving) endMove();
     SAVER.on = true; SAVER.since = Date.now();
+    glassSync();
     saverMove();
     stage.classList.add('saver');
     saverPic();
@@ -1796,6 +1883,7 @@
   function saverOff() {
     if (!SAVER.on) return;
     SAVER.on = false;
+    glassSync();
     clearInterval(SAVER.timer);
     stage.classList.remove('saver'); stage.classList.remove('saver-deep');
     lastInput = Date.now();

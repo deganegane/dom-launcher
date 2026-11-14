@@ -180,7 +180,13 @@ Pozadine → **Vrijeme preko pozadine** (isključeni, statični ili animirani): 
 
 I sama slika se mijenja kao što bi je kamera vidjela: po kiši i oluji tamnija i bljeđa, po magli mutnija, po snijegu hladnija, po suncu toplija. Kiša ima tri sloja dubine (mutne kapi blizu objektiva), izmaglicu pri dnu i kapi na staklu s lomom svjetla; oluja razgranate munje, svaki put na drugom mjestu; snijeg mutne pahulje ispred objektiva; magla i oblaci su fraktalni šum; sunce ima zrake i odbljeske objektiva.
 
-Teksture se iscrtaju jednom na TV-u, animacija samo pomiče gotove slojeve. U laganom načinu efekti su statični i slika se ne mijenja. **Isprobaj efekt** pokaže svaki redom na 30 sekundi.
+Teksture se iscrtaju jednom na TV-u, animacija samo pomiče gotove slojeve. U laganom načinu efekti su statični i slika se ne mijenja.
+
+**Kiša na staklu** (rosulja, kiša, pljusak i oluja, u izgledima gdje slika ide preko cijelog ekrana): slika je iza mokrog,
+zamagljenog stakla. Kapi su male leće koje pokazuju oštar dio prizora; poneka kap oteža i sklizne niz staklo, pokupi kapi
+na putu, ostavi kapljice i bistriji trag koji se polako ponovno zamagli. Crta se WebGL-om (`app/rainglass.js`) u pola
+rezolucije; slike s interneta koje preglednik ne da čitati prvo se spreme na TV. U izgledima s pločama (Bento, Kartice…)
+i kad iza nema slike ostaje obična kiša. **Isprobaj efekt** pokaže svaki redom na 30 sekundi.
 
 ## Konzole, obavijesti, pametni dom
 
