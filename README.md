@@ -186,7 +186,7 @@ Teksture se iscrtaju jednom na TV-u, animacija samo pomiče gotove slojeve. U la
 zamagljenog stakla. Kapi su male leće koje pokazuju oštar dio prizora; poneka kap oteža i sklizne niz staklo, pokupi kapi
 na putu, ostavi kapljice i bistriji trag koji se polako ponovno zamagli. Crta se WebGL-om (`app/rainglass.js`) u pola
 rezolucije; slike s interneta koje preglednik ne da čitati prvo se spreme na TV. U izgledima s pločama (Bento, Kartice…)
-i kad iza nema slike ostaje obična kiša. **Isprobaj efekt** pokaže svaki redom na 30 sekundi.
+i kad iza nema slike ostaje obična kiša. **Isprobaj efekt** pokaže svaki redom na 30 sekundi. **Efekt** (Prema prognozi, ili kiša, rosulja, oluja, snijeg, magla, oblačno, sunčano) drži odabrani efekt stalno uključen, bez obzira na prognozu i bez postavljenog grada.
 
 ## Konzole, obavijesti, pametni dom
 

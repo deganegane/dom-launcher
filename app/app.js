@@ -147,6 +147,7 @@
     season: store.get('season', true),         // snow in December
     lite: store.get('lite', false),            // no blur, shine, tilt, drift or snow: less work for the TV
     wxfx: store.get('wxfx', 'anim'),           // weather over the backgrounds: off | static | anim
+    wxfxFixed: store.get('wxfxFixed', ''),     // '' = from the forecast, else this effect all the time
     autoClose: store.get('autoClose', 0),      // minutes after which an app nobody went back to is closed (0 = never)
     pin: store.get('pin', ''),
     sleepMins: 0, version: '',
@@ -1571,6 +1572,7 @@
   var WXFX_MODES = { off: 'Isključeni', 'static': 'Statični', anim: 'Animirani' };
   function wxfxKind() {
     if (WXFX.preview && Date.now() < WXFX.until) return WXFX.preview;
+    if (S.wxfxFixed && WXFX_NAMES[S.wxfxFixed]) return S.wxfxFixed;   // chosen in Settings, whatever the sky does
     var d = WX.place && WX.data;
     if (!d || Date.now() - WX.at > 3 * 3600 * 1000) return '';
     var c = d.code;
@@ -2542,12 +2544,19 @@
       S.wxfx = S.wxfx === 'off' ? 'static' : (S.wxfx === 'static' ? 'anim' : 'off'); store.set('wxfx', S.wxfx);
       WXFX.kind = '-'; wxfxApply(); if (S.wall.on && S.wall.src === 'live') wallNext(false); renderSettings();
     } });
+    var FIX = ['', 'rain', 'drizzle', 'storm', 'snow', 'fog', 'cloud', 'sun'];
+    rows.push({ type: 'btn', name: 'wxfx-fixed', label: 'Efekt', value: (S.wxfxFixed ? WXFX_NAMES[S.wxfxFixed].charAt(0).toUpperCase() + WXFX_NAMES[S.wxfxFixed].slice(1) + ', stalno' : 'Prema prognozi') + '  ›', act: function () {
+      S.wxfxFixed = FIX[(FIX.indexOf(S.wxfxFixed) + 1) % FIX.length]; store.set('wxfxFixed', S.wxfxFixed);
+      WXFX.preview = ''; WXFX.kind = '-'; wxfxApply(); renderSettings();
+      if (S.wxfxFixed && S.wxfx === 'off') toast('Efekti su isključeni: uključi "Vrijeme preko pozadine" da se vidi.');
+    } });
     if (S.wxfx !== 'off') {
       rows.push({ type: 'info', name: 'glass', label: 'Kiša na staklu', value: GLASS.why === 'radi' ? 'Radi' : (GLASS.why ? 'Ne radi' : 'Čeka kišu (isprobaj efekt)') });
       if (GLASS.why && GLASS.why !== 'radi') rows.push({ note: 'Razlog: ' + GLASS.why + '. Zato se prikazuje obična kiša.' });
     }
     rows.push({ type: 'btn', name: 'wxfx-try', label: 'Isprobaj efekt', value: (WXFX.preview && Date.now() < WXFX.until ? WXFX_NAMES[WXFX.preview] : 'kiša, oluja, snijeg…') + '  ›', act: wxfxTry });
-    rows.push({ note: WX.place ? 'Kiša, oluja, snijeg, magla, oblaci ili sunce, prema trenutnom vremenu u gradu ' + String(WX.place.name).split(',')[0] + ', preko svake pozadine.' + (S.lite && S.wxfx === 'anim' ? ' U laganom načinu su statični.' : '') : 'Postavi grad (Računi i prognoza) da efekti prate pravo vrijeme.' });
+    rows.push({ note: S.wxfxFixed ? 'Efekt "' + WXFX_NAMES[S.wxfxFixed] + '" je uvijek uključen, bez obzira na prognozu. "Prema prognozi" ga vraća na pravo vrijeme.' + (S.lite && S.wxfx === 'anim' ? ' U laganom načinu je statičan.' : '') :
+      (WX.place ? 'Kiša, oluja, snijeg, magla, oblaci ili sunce, prema trenutnom vremenu u gradu ' + String(WX.place.name).split(',')[0] + ', preko svake pozadine.' + (S.lite && S.wxfx === 'anim' ? ' U laganom načinu su statični.' : '') : 'Postavi grad (Računi i prognoza) da efekti prate pravo vrijeme, ili odaberi stalni efekt.') });
     rows.push({ h: 'Pozadina' });
     if (S.wall.on) {
       rows.push({ type: 'btn', name: 'wall-pause', label: 'Zadrži trenutnu pozadinu', value: S.wall.paused ? 'Da' : 'Ne', act: wallTogglePause });
