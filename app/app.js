@@ -1846,7 +1846,8 @@
   function glassSource() {
     var useWall = SAVER.on || (S.wall.on && S.zone !== 'shelf');
     var el = useWall ? $('#wall' + WALL.front) : $('#bg' + bgFront + ' .bg-img');
-    var m = el && /url\("?([^")]+)"?\)/.exec(el.style.backgroundImage || '');
+    // the whole address up to the closing bracket at the very end: a drawn landscape (data: URL) has brackets inside
+    var m = el && /^url\("?(.*?)"?\)$/.exec(el.style.backgroundImage || '');
     if (!m && el && !useWall) {   // the app's own colours: drawn on a canvas instead
       var amb = el.__amb && AMBIENT[el.__amb];
       if (amb) return { url: 'amb:' + amb[0].join(',') + '/' + amb[1].join(','), canvas: function () { return ambientCanvas(amb[0], amb[1]); }, align: 0.5 };

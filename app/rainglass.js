@@ -23,7 +23,7 @@
   var ERR = '', INFO = '';
   var S = { on: false, anim: false, kind: 'rain', grade: [1, 1, 1], haze: 0.12, mix: 1, mixT: 0, hasImg: false,
             heads: [], spawnAt: 0, raf: 0, last: 0, frame: 0, flash: 0,
-            glass: true, sky: '', fog: 0, lightning: false, t0: 0, time: 0,
+            glass: true, sky: '', fog: 0, strength: 0.7, lightning: false, t0: 0, time: 0,
             strike: null, nextStrike: 0, bolt: [0.6, 0.18, 0, 0], boltOn: 0, strikeAt: [0.6, 0.2] };
 
   /* ---------------- GL plumbing ---------------- */
@@ -38,7 +38,7 @@
     'precision mediump float;',
     'varying vec2 vUv;',
     'uniform sampler2D uSharpA, uBlurA, uSharpB, uBlurB, uWater, uTrail, uNoise, uBolt;',
-    'uniform float uMix, uHaze, uFlash, uGlass, uTime, uCloud, uCov, uShadow, uFog, uBoltOn;',
+    'uniform float uMix, uHaze, uFlash, uGlass, uTime, uCloud, uCov, uShadow, uFog, uBoltOn, uStrength;',
     'uniform vec3 uGrade, uCloudBase, uCloudTop;',
     'uniform vec2 uPx, uFade, uStrike;',
     'uniform vec4 uBoltRect;',
@@ -122,6 +122,7 @@
     '      }',
     '    }',
     '  }',
+    '  c = mix(sh, c, uStrength);',   // how strong the weather is over the picture
     '  gl_FragColor = vec4(c, 1.0);',
     '}'].join('\n');
 
@@ -305,7 +306,7 @@
         h.ang = Math.max(-1.0, Math.min(1.0, h.ang * 0.985 + h.turn));
         if (R() < 0.012) h.ang += (R() < 0.5 ? -1 : 1) * (0.35 + R() * 0.5);
         var step = h.vy * (0.55 + h.r / 9), dy = step * Math.cos(h.ang);
-        h.y += dy; h.x += step * Math.sin(h.ang) * 1.3 + (R() - 0.5) * 0.5;
+        h.y += dy; h.x += step * Math.sin(h.ang) * 0.65 + (R() - 0.5) * 0.25;   // half as much sideways as the heading alone would give
         if (h.x < 6 || h.x > W - 6) h.ang = -h.ang * 0.5;
         h.r = Math.min(10, h.r + 0.015);
         if (R() < 0.008) {   // it sticks; when it breaks away it often goes off at an angle
@@ -360,6 +361,7 @@
     gl.uniform3f(u(p, 'uCloudBase'), sky.base[0], sky.base[1], sky.base[2]); gl.uniform3f(u(p, 'uCloudTop'), sky.top[0], sky.top[1], sky.top[2]);
     gl.uniform2f(u(p, 'uFade'), sky.fade[0], sky.fade[1]);
     gl.uniform1f(u(p, 'uFog'), S.fog);
+    gl.uniform1f(u(p, 'uStrength'), S.strength);
     gl.uniform2f(u(p, 'uStrike'), S.strikeAt[0], S.strikeAt[1]);
     gl.uniform1f(u(p, 'uBoltOn'), S.boltOn);
     gl.uniform4f(u(p, 'uBoltRect'), S.bolt[0], S.bolt[1], S.bolt[2], S.bolt[3]);
@@ -478,6 +480,7 @@
       S.grade = o.grade || [1, 1, 1];
       S.haze = kind === 'heavy' ? 0.2 : 0.13;
       S.sky = o.sky || ''; S.fog = o.fog || 0;
+      if (o.strength != null) S.strength = o.strength;
       S.lightning = !!o.lightning;
       if (!S.lightning) { S.strike = null; S.flash = 0; S.boltOn = 0; }
       else if (!S.anim) {   // a still picture: a strike caught in the photo

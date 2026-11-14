@@ -949,13 +949,13 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 
 /* the picture itself changes with the weather, the way a camera would see it */
 #stage.wxfx-on .bg-img:not(.soft), #stage.wxfx-on .wall-layer { transition: filter 2s ease; }
-#stage.wx-rain .bg-img:not(.soft), #stage.wx-rain .wall-layer, #stage.wx-storm .bg-img:not(.soft), #stage.wx-storm .wall-layer { filter: saturate(.62) brightness(.78) contrast(1.06); }
-#stage.wx-storm .bg-img:not(.soft), #stage.wx-storm .wall-layer { filter: saturate(.5) brightness(.62) contrast(1.12); }
-#stage.wx-drizzle .bg-img:not(.soft), #stage.wx-drizzle .wall-layer { filter: saturate(.75) brightness(.86); }
-#stage.wx-cloud .bg-img:not(.soft), #stage.wx-cloud .wall-layer { filter: saturate(.7) brightness(.86) contrast(.96); }
-#stage.wx-fog .bg-img:not(.soft), #stage.wx-fog .wall-layer { filter: saturate(.55) brightness(1.04) contrast(.78); }
-#stage.wx-snow .bg-img:not(.soft), #stage.wx-snow .wall-layer { filter: saturate(.6) brightness(1.05) contrast(.92) hue-rotate(-6deg); }
-#stage.wx-sun .bg-img:not(.soft), #stage.wx-sun .wall-layer { filter: saturate(1.15) contrast(1.05) brightness(1.03); }
+#stage.wx-rain .bg-img:not(.soft), #stage.wx-rain .wall-layer, #stage.wx-storm .bg-img:not(.soft), #stage.wx-storm .wall-layer { filter: saturate(0.734) brightness(0.846) contrast(1.042); }
+#stage.wx-storm .bg-img:not(.soft), #stage.wx-storm .wall-layer { filter: saturate(0.65) brightness(0.734) contrast(1.084); }
+#stage.wx-drizzle .bg-img:not(.soft), #stage.wx-drizzle .wall-layer { filter: saturate(0.825) brightness(0.902); }
+#stage.wx-cloud .bg-img:not(.soft), #stage.wx-cloud .wall-layer { filter: saturate(0.79) brightness(0.902) contrast(0.972); }
+#stage.wx-fog .bg-img:not(.soft), #stage.wx-fog .wall-layer { filter: saturate(0.685) brightness(1.028) contrast(0.846); }
+#stage.wx-snow .bg-img:not(.soft), #stage.wx-snow .wall-layer { filter: saturate(0.72) brightness(1.035) contrast(0.944) hue-rotate(-4.2deg); }
+#stage.wx-sun .bg-img:not(.soft), #stage.wx-sun .wall-layer { filter: saturate(1.105) contrast(1.035) brightness(1.021); }
 #stage.lite.wxfx-on .bg-img:not(.soft), #stage.lite.wxfx-on .wall-layer { filter: none; }
 
 #stage.wxfx-on .wf-veil { display: block; }
@@ -1042,3 +1042,6 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 /* the layout's own shading (legibility of the text) is copied above the picture */
 #wxfx .wf-shade { position: absolute; inset: 0; display: none; }
 #stage.wx-glass #wxfx .wf-shade { display: block; }
+
+/* every weather layer drawn with CSS at 70 % */
+#wxfx > div:not(.wf-shade) { filter: opacity(.7); }
