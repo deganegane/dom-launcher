@@ -23,7 +23,7 @@
   var ERR = '', INFO = '';
   var S = { on: false, anim: false, kind: 'rain', grade: [1, 1, 1], haze: 0.12, mix: 1, mixT: 0, hasImg: false,
             heads: [], spawnAt: 0, raf: 0, last: 0, frame: 0, flash: 0,
-            glass: true, sky: '', fog: 0, strength: 0.7, lightning: false, t0: 0, time: 0,
+            glass: true, sky: '', fog: 0, strength: 1, lightning: false, t0: 0, time: 0,
             strike: null, nextStrike: 0, bolt: [0.6, 0.18, 0, 0], boltOn: 0, strikeAt: [0.6, 0.2] };
 
   /* ---------------- GL plumbing ---------------- */
@@ -279,16 +279,16 @@
     bindTarget('still'); gl.clearColor(0.5, 0.5, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     use(P.sprite); blendNormal();
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, T.drop); gl.uniform1i(u(P.sprite, 'uT'), 0); gl.uniform1f(u(P.sprite, 'uA'), 1);
-    var k = S.kind, small = k === 'heavy' ? 1700 : (k === 'drizzle' ? 1000 : 900), big = k === 'heavy' ? 110 : (k === 'drizzle' ? 55 : 80);
+    var k = S.kind, small = k === 'heavy' ? 1190 : (k === 'drizzle' ? 700 : 630), big = k === 'heavy' ? 77 : (k === 'drizzle' ? 38 : 56);
     for (var i = 0; i < small; i++) drawDrop(R() * W, R() * H, 0.8 + Math.pow(R(), 2.4) * 2.9);
     for (i = 0; i < big; i++) drawDrop(R() * W, R() * H, 3.6 + Math.pow(R(), 2) * 8);
     bindTarget('trail'); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     S.heads = []; S.spawnAt = 0;
   }
   function spawnHead(now) {
-    var k = S.kind, max = k === 'heavy' ? 7 : (k === 'drizzle' ? 0 : 4);
+    var k = S.kind, max = k === 'heavy' ? 5 : (k === 'drizzle' ? 0 : 3);
     if (S.heads.length >= max || now < S.spawnAt) return;
-    S.spawnAt = now + (k === 'heavy' ? 900 : 2200) * (0.5 + R());
+    S.spawnAt = now + (k === 'heavy' ? 1290 : 3140) * (0.5 + R());
     S.heads.push(newHead(R() * H * 0.45, 0.4));
   }
   function newHead(y, vy) { return { x: 20 + R() * (W - 40), y: y, r: 4.5 + R() * 3, vy: vy, stick: 0, ang: (R() - 0.5) * 0.5, turn: 0 }; }
@@ -391,7 +391,7 @@
       S.bolt = [x - bw / 2, S.strikeAt[1] - 0.04, bw, bh];
     }
     S.boltOn = bolt ? 1 : 0;
-    S.nextStrike = now + 5000 + R() * 11000;
+    S.nextStrike = now + 7000 + R() * 16000;
   }
   function strikeLevel(now) {
     var s = S.strike;
@@ -430,7 +430,7 @@
   }
   function newDrops() {   // rain keeps hitting the glass
     var n = S.kind === 'heavy' ? 3 : 1;
-    if (R() > (S.kind === 'heavy' ? 0.9 : 0.5)) return;
+    if (R() > (S.kind === 'heavy' ? 0.63 : 0.35)) return;
     bindTarget('still'); use(P.sprite); blendNormal();
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, T.drop); gl.uniform1i(u(P.sprite, 'uT'), 0); gl.uniform1f(u(P.sprite, 'uA'), 1);
     for (var i = 0; i < n; i++) drawDrop(R() * W, R() * H, 0.8 + Math.pow(R(), 2.5) * 3.2);
@@ -439,7 +439,7 @@
   // a still picture: let a few drops run their whole way first, then draw once
   function settle() {
     if (S.anim || S.kind === 'drizzle' || !S.glass) return;
-    var n = S.kind === 'heavy' ? 6 : 4;
+    var n = S.kind === 'heavy' ? 4 : 3;
     for (var i = 0; i < n; i++) S.heads.push(newHead(R() * H * 0.3, 1));
     var guard = 0;
     while (S.heads.length && guard++ < 900) stepHeads(1);

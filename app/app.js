@@ -1708,7 +1708,7 @@
   function glassTex() {
     return tex('glass2', 768, 768, function (g, w, h) {
       var r = rngFx(77);
-      for (var i = 0; i < 120; i++) {
+      for (var i = 0; i < 84; i++) {
         var x = r() * w, y = r() * h, rad = 1.5 + Math.pow(r(), 2.2) * 13, tall = 1 + r() * 0.35, run = r() < 0.12;
         wrapDraw(w, h, x, y, function (px, py) {
           g.save(); g.translate(px, py);
@@ -1773,16 +1773,16 @@
     ['.wf-a', '.wf-b', '.wf-c', '.wf-mist', '.wf-glass', '.wf-bolt'].forEach(function (c) { set('#wxfx ' + c, ''); });
     if (k === 'rain' || k === 'drizzle' || k === 'storm') {
       // far: many fine faint streaks; middle; near: few thick, out-of-focus ones
-      set('#wxfx .wf-a', rainTex(11, 512, light ? 90 : (heavy ? 340 : 230), 20, light ? 45 : 70, 0.06, light ? 0.22 : 0.3, 0.6, 1.2, 0));
-      set('#wxfx .wf-b', light ? '' : rainTex(21, 768, heavy ? 120 : 70, 70, 170, 0.12, 0.4, 1.2, 2.2, 0.4));
-      set('#wxfx .wf-c', light ? '' : rainTex(31, 1024, heavy ? 26 : 14, 180, 380, 0.1, 0.28, 3, 6, 2.5));
+      set('#wxfx .wf-a', rainTex(11, 512, light ? 63 : (heavy ? 238 : 161), 20, light ? 45 : 70, 0.06, light ? 0.22 : 0.3, 0.6, 1.2, 0));
+      set('#wxfx .wf-b', light ? '' : rainTex(21, 768, heavy ? 84 : 49, 70, 170, 0.12, 0.4, 1.2, 2.2, 0.4));
+      set('#wxfx .wf-c', light ? '' : rainTex(31, 1024, heavy ? 18 : 10, 180, 380, 0.1, 0.28, 3, 6, 2.5));
       set('#wxfx .wf-mist', noiseTex(41, 512, 256, '200,210,222', 2.6, 0.38, function (t) { return Math.pow(t, 1.6); }));
       set('#wxfx .wf-glass', glassTex());
       if (heavy) boltMove();
     } else if (k === 'snow') {
-      set('#wxfx .wf-a', snowTex(51, 512, 420, 0.8, 2.6, 0, 0.85));
-      set('#wxfx .wf-b', snowTex(61, 768, 110, 2.2, 6, 0.6, 1));
-      set('#wxfx .wf-c', snowTex(71, 1024, 16, 9, 22, 5, 0.7));
+      set('#wxfx .wf-a', snowTex(51, 512, 294, 0.8, 2.6, 0, 0.85));
+      set('#wxfx .wf-b', snowTex(61, 768, 77, 2.2, 6, 0.6, 1));
+      set('#wxfx .wf-c', snowTex(71, 1024, 11, 9, 22, 5, 0.7));
       set('#wxfx .wf-mist', noiseTex(81, 512, 256, '235,240,246', 2.2, 0.42, function (t) { return 0.35 + 0.65 * t; }));
     } else if (k === 'fog') {
       set('#wxfx .wf-a', noiseTex(91, 512, 256, '236,239,243', 2.4, 0.3, function (t) { return Math.min(1, t * 1.6); }));
