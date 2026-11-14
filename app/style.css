@@ -1030,18 +1030,15 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
 /* layouts without pictures */
 #stage.layout-teletekst #wxfx, #stage.layout-novine #wxfx { display: none !important; }
 
-/* ---- rain on the window (WebGL): the canvas shows the picture through wet glass; the CSS rain steps aside ---- */
+/* ---- the weather drawn with WebGL (rain on the glass, clouds, fog, lightning): the CSS versions step aside ---- */
 #wxfx .wf-gl { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: none; }
 #stage.wx-glass #wxfx .wf-gl { display: block; }
 #stage.wx-glass #wxfx .wf, #stage.wx-glass #wxfx .wf-glass, #stage.wx-glass #wxfx .wf-mist { display: none !important; }
+#stage.wx-glass .wf-bolt, #stage.wx-glass .wf-flash, #stage.wx-glass .wf-sun, #stage.wx-glass .wf-flare { display: none !important; }
 #stage.wx-glass .wf-veil { opacity: .2; }
-/* the layout's own shading (legibility of the text) is copied above the glass */
+#stage.wx-glass.wx-fog .wf-veil, #stage.wx-glass.wx-cloud .wf-veil, #stage.wx-glass.wx-part .wf-veil, #stage.wx-glass.wx-storm .wf-veil { display: none; }
+#stage.wx-glass .bg-img, #stage.wx-glass .wall-layer { filter: none !important; }
+#stage.wx-glass .bg-layer.on, #stage.wx-glass .wall-layer.on { animation: none; }
+/* the layout's own shading (legibility of the text) is copied above the picture */
 #wxfx .wf-shade { position: absolute; inset: 0; display: none; }
 #stage.wx-glass #wxfx .wf-shade { display: block; }
-#stage.wx-glass .bg-layer.on, #stage.wx-glass .wall-layer.on { animation: none; }
-/* lightning far behind the glass: soft, and the flash comes from the glass itself */
-#stage.wx-glass .wf-bolt { filter: blur(5px); opacity: 0; }
-#stage.wx-glass.wfx-anim .wf-bolt { animation: wf-bolt-glass 12s linear infinite; }
-@keyframes wf-bolt-glass { 0%, 86% { opacity: 0; } 86.6% { opacity: .5; } 87.4% { opacity: .05; } 88.4% { opacity: .35; } 91% { opacity: 0; } 100% { opacity: 0; } }
-#stage.wx-glass .wf-flash { display: none !important; }
-#stage.wx-glass.wx-storm:not(.wfx-anim) .wf-bolt { opacity: .35; }

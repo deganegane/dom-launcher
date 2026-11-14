@@ -173,9 +173,10 @@ prognozu i vrijeme (oblačno, kiša, magla, snijeg, grmljavina). Kad se doba dan
 
 Pozadine → **Vrijeme preko pozadine** (isključeni, statični ili animirani): preko svake pozadine (Bing, ilustracije, Zemlja, snimke aplikacija, krajolici) ide trenutno vrijeme u postavljenom gradu:
 - **kiša** i **rosulja**: dva sloja kiše nagnuta vjetrom, u statičnom načinu i kapi na staklu,
-- **oluja**: jača kiša, tamnije nebo i povremena munja,
-- **snijeg**: sitne pahulje u daljini i velike blizu, njišu se dok padaju,
-- **magla** i **oblačno**: mekani slojevi koji polako plove,
+- **oluja**: teški tamni oblaci; povremeno bljesne oblak iznutra (daleka munja), rjeđe udari razgranata munja koja izlazi iz oblaka i na trenutak osvijetli krajolik, s dva do četiri treptaja kao prava munja,
+- **snijeg**: pahulje su nepravilne nakupine kristala (bliže ponekad s vidljivim krakovima), malo razmazane padom; u daljini sitne, ispred objektiva velike i mutne; njišu se dok padaju,
+- **magla**: gušća što je prizor dalje (horizont nestaje, blizina ostaje), prizemna magla u dolini, slojevi se polako valjaju, svjetla sjaje kroz nju,
+- **oblačno** i **djelomično oblačno**: oblaci sa svjetlijim vrhovima i tamnijim podnožjem dolaze s vrha slike i polako plove, svjetlo postane ravno, a preko tla putuju sjene oblaka,
 - **sunčano** (danju): topli sjaj i zrake iz gornjeg kuta.
 
 I sama slika se mijenja kao što bi je kamera vidjela: po kiši i oluji tamnija i bljeđa, po magli mutnija, po snijegu hladnija, po suncu toplija. Kiša ima tri sloja dubine (mutne kapi blizu objektiva), izmaglicu pri dnu i kapi na staklu s lomom svjetla; oluja razgranate munje, svaki put na drugom mjestu; snijeg mutne pahulje ispred objektiva; magla i oblaci su fraktalni šum; sunce ima zrake i odbljeske objektiva.

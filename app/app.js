@@ -1568,7 +1568,7 @@
   /* ================= weather over every background: rain, storm, snow, fog, clouds, sun ================= */
   // Textures are drawn once on a canvas; the animation only moves finished layers (cheap for the TV).
   var WXFX = { kind: '', preview: '', until: 0, tex: {} };
-  var WXFX_NAMES = { rain: 'kiša', drizzle: 'rosulja', storm: 'oluja', snow: 'snijeg', fog: 'magla', cloud: 'oblačno', sun: 'sunčano' };
+  var WXFX_NAMES = { rain: 'kiša', drizzle: 'rosulja', storm: 'oluja', snow: 'snijeg', fog: 'magla', cloud: 'oblačno', part: 'djelomično oblačno', sun: 'sunčano' };
   var WXFX_MODES = { off: 'Isključeni', 'static': 'Statični', anim: 'Animirani' };
   function wxfxKind() {
     if (WXFX.preview && Date.now() < WXFX.until) return WXFX.preview;
@@ -1582,6 +1582,7 @@
     if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return 'rain';
     if (c === 45 || c === 48) return 'fog';
     if (c === 3) return 'cloud';
+    if (c === 2) return 'part';
     if ((c === 0 || c === 1) && d.day) return 'sun';
     return '';
   }
@@ -1598,7 +1599,14 @@
   }
   function rngFx(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   // everything is drawn again across each edge so the tile repeats without a seam
-  function wrapDraw(w, h, x, y, fn) { for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) fn(x + dx * w, y + dy * h); }
+  function wrapDraw(w, h, x, y, fn, reach) {
+    if (reach == null) { for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) fn(x + dx * w, y + dy * h); return; }
+    // only the copies that actually reach into the tile (most things touch no edge)
+    var xs = [0], ys = [0];
+    if (x < reach) xs.push(1); if (x > w - reach) xs.push(-1);
+    if (y < reach) ys.push(1); if (y > h - reach) ys.push(-1);
+    xs.forEach(function (ox) { ys.forEach(function (oy) { fn(x + ox * w, y + oy * h); }); });
+  }
   // a soft blur where the canvas supports it (out-of-focus drops and flakes close to the lens)
   function soft(g, px) { try { g.filter = px ? 'blur(' + px + 'px)' : 'none'; } catch (e) {} }
 
@@ -1619,17 +1627,49 @@
     });
   }
   // snow: round flakes, a bright core and a soft edge; the near ones out of focus
+  // one snowflake as a camera sees it falling: an irregular clump of crystals, a little smeared by the fall;
+  // style 0 a speck far away, 1 a clump (sometimes with crystal arms showing), 2 out of focus right in front
+  function flake(g, px, py, rad, a, r, style) {
+    var fall = style === 2 ? rad * 0.5 : rad * 0.7;
+    for (var m = 0; m < 3; m++) {   // motion blur: the same flake a little higher, fainter
+      var oy = -fall * m / 2, am = a * [1, 0.45, 0.2][m];
+      if (style === 2) {   // bokeh: a soft disc with a slightly brighter rim, not quite round
+        var bg = g.createRadialGradient(px, py + oy, 0, px, py + oy, rad);
+        bg.addColorStop(0, 'rgba(255,255,255,' + (am * 0.35).toFixed(3) + ')'); bg.addColorStop(0.78, 'rgba(255,255,255,' + (am * 0.5).toFixed(3) + ')'); bg.addColorStop(1, 'rgba(255,255,255,0)');
+        g.save(); g.translate(px, py + oy); g.scale(1, 0.9 + r() * 0.2); g.translate(-px, -py - oy);
+        g.fillStyle = bg; g.beginPath(); g.arc(px, py + oy, rad, 0, Math.PI * 2); g.fill(); g.restore();
+        continue;
+      }
+      var blobs = style === 0 ? 2 + Math.floor(r() * 2) : 4 + Math.floor(r() * 6);
+      for (var i = 0; i < blobs; i++) {   // a clump: soft crystals around the middle
+        var ang = r() * Math.PI * 2, dist = r() * rad * 0.55, br = rad * (0.25 + r() * 0.35);
+        var bx = px + Math.cos(ang) * dist, by = py + oy + Math.sin(ang) * dist * 0.85;
+        var gr = g.createRadialGradient(bx, by, 0, bx, by, br);
+        gr.addColorStop(0, 'rgba(255,255,255,' + am.toFixed(3) + ')'); gr.addColorStop(0.5, 'rgba(248,251,255,' + (am * 0.6).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(240,245,255,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(bx, by, br, 0, Math.PI * 2); g.fill();
+      }
+      if (style === 1 && m === 0 && rad > 4 && r() < 0.35) {   // crystal arms catching the light
+        g.save(); g.translate(px, py); g.rotate(r() * Math.PI);
+        g.strokeStyle = 'rgba(255,255,255,' + (a * 0.55).toFixed(3) + ')'; g.lineWidth = Math.max(0.6, rad * 0.09); g.lineCap = 'round';
+        for (var k = 0; k < 6; k++) {
+          g.rotate(Math.PI / 3);
+          var len = rad * (0.75 + r() * 0.3);
+          g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -len);
+          g.moveTo(0, -len * 0.5); g.lineTo(len * 0.22, -len * 0.7); g.moveTo(0, -len * 0.5); g.lineTo(-len * 0.22, -len * 0.7);
+          g.stroke();
+        }
+        g.restore();
+      }
+    }
+  }
   function snowTex(seed, size, n, minR, maxR, blur, maxA) {
-    return tex('snow' + seed, size, size, function (g, w, h) {
-      var r = rngFx(seed);
-      soft(g, blur);
+    return tex('snow2' + seed, size, size, function (g, w, h) {
+      var r = rngFx(seed), style = blur >= 3 ? 2 : (maxR > 5 ? 1 : 0);
+      soft(g, style === 2 ? blur * 0.6 : 0);   // a canvas blur on every stroke is slow: only the few near flakes get it
       for (var i = 0; i < n; i++) {
-        var x = r() * w, y = r() * h, rad = minR + r() * r() * (maxR - minR), a = (0.45 + r() * 0.55) * (maxA || 1);
-        wrapDraw(w, h, x, y, function (px, py) {
-          var gr = g.createRadialGradient(px, py, 0, px, py, rad);
-          gr.addColorStop(0, 'rgba(255,255,255,' + a.toFixed(2) + ')'); gr.addColorStop(0.55, 'rgba(250,252,255,' + (a * 0.75).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(240,245,255,0)');
-          g.fillStyle = gr; g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
-        });
+        var x = r() * w, y = r() * h, rad = minR + r() * r() * (maxR - minR), a = (0.5 + r() * 0.5) * (maxA || 1);
+        var st = r() * 1e9;
+        wrapDraw(w, h, x, y, function (px, py) { flake(g, px, py, rad, a, rngFx(st), style); }, rad * 2 + 8);
       }
     });
   }
@@ -1754,9 +1794,8 @@
   }
   setInterval(function () { if (WXFX.preview && Date.now() > WXFX.until) { WXFX.preview = ''; wxfxApply(); } }, 5000);
   document.addEventListener('animationiteration', function (e) {
-    if (e.animationName !== 'wf-flash' && e.animationName !== 'wf-bolt-glass') return;
+    if (e.animationName !== 'wf-flash') return;
     boltMove();
-    if (GLASS.on && window.DOM_RAIN) setTimeout(function () { window.DOM_RAIN.flash(); }, 12000 * 0.866);   // the flash, seen through the glass
   }, true);
 
   /* ---------- rain on the window (rainglass.js, WebGL): the picture behind the glass ---------- */
@@ -1775,7 +1814,7 @@
     if (S.zone === 'settings' && SET.only === 'wall') renderSettings();
   }
   function glassApply(k, mode) {
-    var rain = k === 'rain' || k === 'drizzle' || k === 'storm', want = rain;
+    var rain = k === 'rain' || k === 'drizzle' || k === 'storm', sky = k === 'cloud' || k === 'part' || k === 'fog', want = rain || sky;
     if (want && !window.DOM_RAIN) { want = false; glassWhy('nije učitan rainglass.js'); }
     else if (want && !glassFull()) { want = false; glassWhy('izgled ' + L().name + ' nema sliku preko cijelog ekrana'); }
     if (want && !GLASS.mounted) {
@@ -1785,12 +1824,22 @@
       if (GLASS.ok && !DEMO) exec('echo "$(date +%T) WebGL: ' + String(window.DOM_RAIN.renderer()).replace(/["`$\\]/g, '') + '" >> /tmp/dom-glass.log').catch(function () {});
     }
     if (want && !GLASS.ok) { want = false; glassWhy(GLASS.err); }
-    if (!want) { if (GLASS.on) { GLASS.on = false; window.DOM_RAIN.stop(); } stage.classList.remove('wx-glass'); if (!rain) GLASS.why = ''; return; }
+    if (!want) { if (GLASS.on) { GLASS.on = false; window.DOM_RAIN.stop(); } stage.classList.remove('wx-glass'); if (!rain && !sky) GLASS.why = ''; return; }
     var d = WX.data || {}, heavy = k === 'storm' || [65, 67, 82].indexOf(d.code) >= 0;
-    var grade = { drizzle: [0.85, 0.96, 1], rain: [0.75, 0.9, 1.02], heavy: [0.66, 0.82, 1.05] }[k === 'drizzle' ? 'drizzle' : (heavy ? 'heavy' : 'rain')];
+    // grade: saturation, brightness, contrast of the picture under this sky
+    var look = {
+      drizzle: { grade: [0.8, 0.9, 0.95], sky: 'rain' },
+      rain:    { grade: [0.72, 0.84, 0.95], sky: 'rain' },
+      heavy:   { grade: [0.62, 0.74, 0.98], sky: 'rain' },
+      storm:   { grade: [0.45, 0.48, 1.05], sky: 'storm', lightning: true },
+      cloud:   { grade: [0.68, 0.84, 0.84], sky: 'overcast' },
+      part:    { grade: [1.03, 1.0, 1.02], sky: 'part' },
+      fog:     { grade: [0.85, 1.0, 0.92], sky: '', fog: d.code === 48 ? 1.5 : 1 }
+    }[k === 'rain' && heavy ? 'heavy' : k];
     GLASS.on = true;
     $('#wxfx .wf-shade').style.background = getComputedStyle($('#bg-shade')).backgroundImage;
-    window.DOM_RAIN.set({ kind: k === 'drizzle' ? 'drizzle' : (heavy ? 'heavy' : 'rain'), animated: mode === 'anim', grade: grade });
+    window.DOM_RAIN.set({ glass: rain, kind: k === 'drizzle' ? 'drizzle' : (heavy ? 'heavy' : 'rain'), sky: look.sky, fog: look.fog || 0,
+                          lightning: !!look.lightning, animated: mode === 'anim', grade: look.grade });
     glassSync();
   }
   // which picture is on screen now: the wallpaper, or the background of what is focused
@@ -1857,7 +1906,7 @@
     };
     im.src = url;
   }
-  var WXFX_TRY = ['rain', 'storm', 'snow', 'fog', 'cloud', 'sun', 'drizzle'];
+  var WXFX_TRY = ['rain', 'storm', 'snow', 'fog', 'cloud', 'part', 'sun', 'drizzle'];
   function wxfxTry() {
     var i = WXFX_TRY.indexOf(WXFX.preview);
     WXFX.preview = WXFX_TRY[(i + 1) % WXFX_TRY.length]; WXFX.until = Date.now() + 30000;
@@ -2544,7 +2593,7 @@
       S.wxfx = S.wxfx === 'off' ? 'static' : (S.wxfx === 'static' ? 'anim' : 'off'); store.set('wxfx', S.wxfx);
       WXFX.kind = '-'; wxfxApply(); if (S.wall.on && S.wall.src === 'live') wallNext(false); renderSettings();
     } });
-    var FIX = ['', 'rain', 'drizzle', 'storm', 'snow', 'fog', 'cloud', 'sun'];
+    var FIX = ['', 'rain', 'drizzle', 'storm', 'snow', 'fog', 'cloud', 'part', 'sun'];
     rows.push({ type: 'btn', name: 'wxfx-fixed', label: 'Efekt', value: (S.wxfxFixed ? WXFX_NAMES[S.wxfxFixed].charAt(0).toUpperCase() + WXFX_NAMES[S.wxfxFixed].slice(1) + ', stalno' : 'Prema prognozi') + '  ›', act: function () {
       S.wxfxFixed = FIX[(FIX.indexOf(S.wxfxFixed) + 1) % FIX.length]; store.set('wxfxFixed', S.wxfxFixed);
       WXFX.preview = ''; WXFX.kind = '-'; wxfxApply(); renderSettings();
