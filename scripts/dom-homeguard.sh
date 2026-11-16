@@ -55,6 +55,7 @@ skip_capture() {
 }
 
 USAGE="/home/root/dom-usage.log"
+DOMLEFT="/tmp/dom-left-at"   # when Dom last stopped being the app on screen
 # one line per change of what is on screen: "<unix time> <app id>", "OFF" when the TV goes off
 usage() {
   echo "$(date +%s) $1" >> "$USAGE"
@@ -119,9 +120,16 @@ start_agent
     while read -r line; do
       case "$line" in
         *'"event":"close"'*"\"appId\":\"$APPID\""*'"reason":"windowPolicy"'*)
-          date +%s > "$RECENTS"
-          log "Back held on Dom -> open apps"
-          launch_dom </dev/null
+          # only when Dom was what was on screen: the TV also closes Dom in the background (memory),
+          # e.g. during a game, and that must not bring Dom over the game
+          left=$(cat "$DOMLEFT" 2>/dev/null || echo 0)
+          if [ "$(cat "$FG" 2>/dev/null)" = "$APPID" ] || [ $(( $(date +%s) - left )) -le 2 ]; then
+            date +%s > "$RECENTS"
+            log "Back held on Dom -> open apps"
+            launch_dom </dev/null
+          else
+            log "Dom closed in the background ($(cat "$FG" 2>/dev/null) on screen): left closed"
+          fi
           ;;
       esac
     done
@@ -156,7 +164,9 @@ while true; do
   luna-send -i luna://com.webos.applicationManager/getForegroundAppInfo '{"subscribe":true}' 2>/dev/null |
   while read -r line; do
     app=$(echo "$line" | sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p')
-    [ "$app" = "$(cat "$FG" 2>/dev/null)" ] && continue
+    prev=$(cat "$FG" 2>/dev/null)
+    [ "$app" = "$prev" ] && continue
+    [ "$prev" = "$APPID" ] && date +%s > "$DOMLEFT"
     echo "$app" > "$FG"
     usage "${app:-?}"
     log "foreground: ${app:-?}"
@@ -164,6 +174,14 @@ while true; do
       if [ -f "$FLAG" ]; then
         rm -f "$FLAG"
         log "LG Home allowed"
+      elif case "$prev" in com.webos.app.hdmi*|com.webos.app.livetv|com.webos.app.externalinput*) true ;; *) false ;; esac; then
+        # coming from a console or a set-top box: the TV shows LG Home for a moment when the HDMI signal
+        # changes (resolution, HDR, game mode, standby). Only a Home that stays is a real one.
+        (
+          sleep 1.5 2>/dev/null || sleep 2
+          if [ "$(cat "$FG" 2>/dev/null)" = "$HOME_ID" ]; then launch_dom; log "-> launched Dom (after $prev)"
+          else log "LG Home for a moment after $prev: ignored"; fi
+        ) &
       else
         launch_dom
         log "-> launched Dom"
