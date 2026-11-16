@@ -2252,8 +2252,16 @@
     if (!/^[\w.-]+$/.test(appId)) return;
     CONSOLE.offer = { id: appId, title: name, params: {} };
     CONSOLE.until = Date.now() + 15000;
-    toast(name + ' je upaljen · OK za prebacivanje', 15000);
+    // a big card in the middle: OK (pressing the wheel) or a click with the pointer switches, Back says no
+    var t = $('#toast');
+    toast('', 15000);
+    t.classList.add('offer');
+    t.innerHTML = '<b>' + esc(name) + ' je upaljen</b><span>Pritisni kotačić na daljinskom (OK) ili klikni ovdje za prebacivanje.<br>Natrag: ostani u Domu.</span>';
   }
+  $('#toast').addEventListener('click', function () {
+    if (!CONSOLE.offer || Date.now() > CONSOLE.until) return;
+    var a = CONSOLE.offer; CONSOLE.offer = null; toastHide(); launch(a);
+  });
   function consoleKey(e) {   // true when the key was used for the offer
     if (!CONSOLE.offer || Date.now() > CONSOLE.until) { CONSOLE.offer = null; return false; }
     if (e.keyCode === KEY.OK) { var a = CONSOLE.offer; CONSOLE.offer = null; toastHide(); launch(a); }
@@ -2998,12 +3006,13 @@
   var toastTimer;
   function toast(msg, ms) {
     var t = $('#toast');
+    t.classList.remove('offer');
     t.textContent = msg;
     t.classList.add('on');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(toastHide, ms || 2800);
   }
-  function toastHide() { clearTimeout(toastTimer); $('#toast').classList.remove('on'); }
+  function toastHide() { clearTimeout(toastTimer); $('#toast').classList.remove('on'); setTimeout(function () { if (!$('#toast').classList.contains('on')) $('#toast').classList.remove('offer'); }, 300); }
   function tickClock() {
     // never stay collapsed: if the TV did not go off after all, or is coming back, show the picture again
     if (crtAt && Date.now() - crtAt > 6000) crtRestore();

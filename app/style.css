@@ -237,6 +237,13 @@ body.crt-off #crt-line { animation: crt-line 860ms linear forwards; }
   opacity: 0; transition: opacity 250ms ease, transform 250ms ease; z-index: 30; max-width: 1200px; text-align: center;
 }
 #toast.on { opacity: 1; transform: translate(-50%, 0); }
+/* a question that waits for an answer (a console was switched on): a card in the middle, clickable with the pointer */
+#toast.offer { top: 50%; transform: translate(-50%, -40%); padding: 34px 52px; border-radius: 34px; max-width: 980px; pointer-events: none; cursor: pointer;
+  background: #1e1e22; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45), 0 30px 80px rgba(0,0,0,.6), 0 0 0 3px rgba(255,255,255,.9); }
+#toast.offer.on { transform: translate(-50%, -50%); pointer-events: auto; }
+#toast.offer b { display: block; font-size: 40px; font-weight: 700; margin-bottom: 12px; }
+#toast.offer span { display: block; font-size: 24px; opacity: .8; line-height: 1.35; }
+#toast.offer:hover { background: #2a2a30; }
 
 /* ---------- fade through black when leaving / returning ----------
    A single black layer fades over everything: only that layer's alpha
