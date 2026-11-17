@@ -37,6 +37,13 @@ function lunaSend(uri, params, cb) {
 }
 function launchDom(params) { lunaSend('luna://com.webos.applicationManager/launch', { id: APPID, params: params }); }
 function foreground() { return read('/tmp/dom-fg').trim(); }
+// what is really on screen, asked of the TV itself (the file above can be stale)
+function realForeground(cb) {
+  lunaSend('luna://com.webos.applicationManager/getForegroundAppInfo', {}, function (err, out) {
+    var m = /"appId"\s*:\s*"([^"]*)"/.exec(out || '');
+    cb(m ? m[1] : '');
+  });
+}
 function tvToast(msg) {
   lunaSend('luna://com.webos.notification/createToast', { sourceId: APPID, message: msg, onclick: { appId: APPID } }, function (err, out) {
     if (err || /"returnValue"\s*:\s*false/.test(out || '')) log('toast failed: ' + (out || err));
@@ -101,9 +108,13 @@ function inputDevices(j) {
     var app = n.app || (n.port ? 'com.webos.app.hdmi' + n.port : '');
     if (!CONSOLE_RE.test(n.names) || !app) return;
     var mode = consoleMode(), fg = foreground();
-    log('console on: ' + n.label + ' (' + id + '), mode ' + mode + ', on screen ' + fg);
-    if (mode === 'off' || fg !== APPID) return;   // never interrupt something that is playing
-    launchDom({ dom: 'console', appId: app, label: n.label });
+    if (mode === 'off' || fg !== APPID) { log('console on: ' + n.label + ' (' + id + '), on screen ' + fg + ': left alone'); return; }
+    // only when Dom really is on screen, and never over the console's own input
+    realForeground(function (real) {
+      log('console on: ' + n.label + ' (' + id + '), mode ' + mode + ', on screen ' + (real || '?'));
+      if (real !== APPID || real === app) return;
+      launchDom({ dom: 'console', appId: app, label: n.label });
+    });
   });
   inputs = now;
 }

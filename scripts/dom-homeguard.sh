@@ -23,6 +23,8 @@ log() {
   if [ "$(wc -l < "$LOG")" -gt 300 ]; then tail -n 100 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"; fi
 }
 RECENTS="/tmp/dom-recents"
+# what is really on screen, asked of the TV (not the file that follows it)
+real_fg() { luna-send -n 1 -w 3000 luna://com.webos.applicationManager/getForegroundAppInfo '{}' 2>/dev/null </dev/null | sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p' | head -1; }
 launch_dom() {
   # right after a long press of Back (see below) Dom opens straight into its list of open apps
   params="{}"
@@ -179,7 +181,7 @@ while true; do
         # changes (resolution, HDR, game mode, standby). Only a Home that stays is a real one.
         (
           sleep 1.5 2>/dev/null || sleep 2
-          if [ "$(cat "$FG" 2>/dev/null)" = "$HOME_ID" ]; then launch_dom; log "-> launched Dom (after $prev)"
+          if [ "$(cat "$FG" 2>/dev/null)" = "$HOME_ID" ] && [ "$(real_fg)" = "$HOME_ID" ]; then launch_dom; log "-> launched Dom (after $prev)"
           else log "LG Home for a moment after $prev: ignored"; fi
         ) &
       else
