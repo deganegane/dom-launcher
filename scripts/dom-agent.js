@@ -35,7 +35,17 @@ function read(file) { try { return fs.readFileSync(file, 'utf8'); } catch (e) { 
 function lunaSend(uri, params, cb) {
   cp.execFile('luna-send', ['-n', '1', '-w', '6000', uri, JSON.stringify(params || {})], { timeout: 9000 }, function (err, out) { if (cb) cb(err, out); });
 }
-function launchDom(params) { lunaSend('luna://com.webos.applicationManager/launch', { id: APPID, params: params }); }
+// why Dom came up (or an app was closed): kept across restarts, for finding out what interrupts a film or a game
+var WHY = ROOT + '/dom-why.log';
+function why(msg) {
+  try {
+    var t = read(WHY).split('\n');
+    if (t.length > 300) fs.writeFileSync(WHY, t.slice(-200).join('\n'));
+    var d = new Date(), p = function (n) { return ('0' + n).slice(-2); };
+    fs.appendFileSync(WHY, d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) + ' helper: ' + msg + '\n');
+  } catch (e) {}
+}
+function launchDom(params, reason) { why('opened Dom (' + (reason || params.dom || '') + ')'); lunaSend('luna://com.webos.applicationManager/launch', { id: APPID, params: params }); }
 function foreground() { return read('/tmp/dom-fg').trim(); }
 // what is really on screen, asked of the TV itself (the file above can be stale)
 function realForeground(cb) {
@@ -113,7 +123,7 @@ function inputDevices(j) {
     realForeground(function (real) {
       log('console on: ' + n.label + ' (' + id + '), mode ' + mode + ', on screen ' + (real || '?'));
       if (real !== APPID || real === app) return;
-      launchDom({ dom: 'console', appId: app, label: n.label });
+      launchDom({ dom: 'console', appId: app, label: n.label }, n.label + ' switched on, Dom on screen');
     });
   });
   inputs = now;
@@ -176,13 +186,16 @@ function checkEpisodes() {
 
 /* ---------------- forgotten apps ---------------- */
 // apps that keep running in the background hold memory; the ones nobody went back to are closed
-var KEEP_RE = /^com\.deganegane\.dom$|^com\.webos\.app\.(home|starfish|systemui|screensaver)|^com\.webos\.surfacemanager|stremio/i;
+var KEEP_RE = /^com\.deganegane\.dom$|^com\.webos\.app\.(home|starfish|systemui|screensaver|hdmi|livetv|externalinput|tvhotkey|inputcommon)|^com\.webos\.surfacemanager|stremio/i;
 var lastSeen = {};
 function autoClose() {
-  var fg = foreground(), now = Date.now();
-  if (fg) lastSeen[fg] = now;
   var mins = parseInt(read(ROOT + '/dom-autoclose'), 10) || 0;
   if (!mins) return;
+  // what is on screen, from the TV itself: a stale record must never close what someone is watching
+  realForeground(function (fg) {
+  var now = Date.now();
+  if (!fg) return;
+  lastSeen[fg] = now;
   lunaSend('luna://com.webos.applicationManager/running', {}, function (err, out) {
     var j = null; try { j = JSON.parse(out); } catch (e) {}
     ((j && j.running) || []).forEach(function (r) {
@@ -191,16 +204,18 @@ function autoClose() {
       if (!lastSeen[id]) { lastSeen[id] = now; return; }   // first time we see it: the clock starts now
       if (now - lastSeen[id] < mins * 60000) return;
       log('closing ' + id + ' (not on screen for ' + Math.round((now - lastSeen[id]) / 60000) + ' min)');
+      why('closed ' + id + ' (not on screen for ' + Math.round((now - lastSeen[id]) / 60000) + ' min, on screen: ' + fg + ')');
       delete lastSeen[id];
       lunaSend('luna://com.webos.service.applicationManager/closeByAppId', { id: id });
     });
+  });
   });
 }
 
 /* ---------------- start ---------------- */
 log('start (pid ' + process.pid + ', node ' + process.version + ')');
 watchInputs();
-setInterval(function () { var fg = foreground(); if (fg) lastSeen[fg] = Date.now(); }, 10000);
+setInterval(function () { if (parseInt(read(ROOT + '/dom-autoclose'), 10)) realForeground(function (fg) { if (fg) lastSeen[fg] = Date.now(); }); }, 20000);
 setInterval(autoClose, 5 * 60000);
 setTimeout(checkEpisodes, 2 * 60000);
 setInterval(checkEpisodes, 30 * 60000);

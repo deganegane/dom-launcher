@@ -25,7 +25,13 @@ log() {
 RECENTS="/tmp/dom-recents"
 # what is really on screen, asked of the TV (not the file that follows it)
 real_fg() { luna-send -n 1 -w 3000 luna://com.webos.applicationManager/getForegroundAppInfo '{}' 2>/dev/null </dev/null | sed -n 's/.*"appId" *: *"\([^"]*\)".*/\1/p' | head -1; }
-launch_dom() {
+WHY=/home/root/dom-why.log   # why Dom came up: kept across restarts
+why() {
+  echo "$(date '+%F %T') guard: $*" >> "$WHY"
+  if [ "$(wc -l < "$WHY")" -gt 300 ]; then tail -n 200 "$WHY" > "$WHY.tmp" && mv "$WHY.tmp" "$WHY"; fi
+}
+launch_dom() {   # launch_dom [why]
+  [ -n "$1" ] && why "opened Dom: $1"
   # right after a long press of Back (see below) Dom opens straight into its list of open apps
   params="{}"
   if [ $(( $(date +%s) - $(cat "$RECENTS" 2>/dev/null || echo 0) )) -lt 6 ]; then params='{"dom":"recents"}'; fi
@@ -87,7 +93,7 @@ start_agent
     if ! skip_capture "$fg" && [ $((n % 5)) -eq 2 ]; then capture "$fg"; fi
     # kids' profile: when the day's time is up, Dom comes back over whatever is playing
     if [ -f "$KIDS" ] && [ "$(date +%s)" -ge "$(cat "$KIDS" 2>/dev/null || echo 9999999999)" ] && [ "$fg" != "$APPID" ]; then
-      rm -f "$KIDS"; log "kids: time is up"
+      rm -f "$KIDS"; log "kids: time is up"; why "opened Dom: kids' time is up ($fg on screen)"
       luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$APPID\",\"params\":{\"dom\":\"kidslimit\"}}" >/dev/null 2>&1
     fi
     # "Nadogradi Dom" in Settings: started from here, outside Homebrew Channel's service (see dom-ctl.sh)
@@ -128,7 +134,7 @@ start_agent
           if [ "$(cat "$FG" 2>/dev/null)" = "$APPID" ] || [ $(( $(date +%s) - left )) -le 2 ]; then
             date +%s > "$RECENTS"
             log "Back held on Dom -> open apps"
-            launch_dom </dev/null
+            launch_dom "Back held on Dom" </dev/null
           else
             log "Dom closed in the background ($(cat "$FG" 2>/dev/null) on screen): left closed"
           fi
@@ -181,11 +187,12 @@ while true; do
         # changes (resolution, HDR, game mode, standby). Only a Home that stays is a real one.
         (
           sleep 1.5 2>/dev/null || sleep 2
-          if [ "$(cat "$FG" 2>/dev/null)" = "$HOME_ID" ] && [ "$(real_fg)" = "$HOME_ID" ]; then launch_dom; log "-> launched Dom (after $prev)"
+          if [ "$(cat "$FG" 2>/dev/null)" = "$HOME_ID" ] && [ "$(real_fg)" = "$HOME_ID" ]; then launch_dom "LG Home stayed after $prev"; log "-> launched Dom (after $prev)"
           else log "LG Home for a moment after $prev: ignored"; fi
         ) &
       else
-        launch_dom
+        # LG Home after an app: the Home button, or the app closed by itself (finished, crashed, closed by the TV)
+        launch_dom "LG Home after ${prev:-?} (Home pressed, or ${prev:-the app} closed)"
         log "-> launched Dom"
         # if LG Home is somehow still in front, try a few more times
         (

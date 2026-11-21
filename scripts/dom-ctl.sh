@@ -147,7 +147,8 @@ case "$1" in
     echo "disk=$(df -k /home/root 2>/dev/null | tail -1 | awk '{print int($(NF-2)/1024)}')"
     echo "uptime=$(cut -d. -f1 /proc/uptime)"
     [ -s /home/root/dom-backup/previous.ipk ] && echo "prev=$(cat /home/root/dom-backup/previous.ver 2>/dev/null || echo '?')"
-    tail -n 5 /tmp/dom-homeguard.log 2>/dev/null | sed 's/^/LOG /'
+    tail -n 6 /home/root/dom-why.log 2>/dev/null | sed 's/^[0-9-]* //; s/^/LOG /'
+    tail -n 3 /tmp/dom-homeguard.log 2>/dev/null | sed 's/^/LOG /'
     cat /tmp/dom-update.log.old /tmp/dom-update.log 2>/dev/null | grep '^!!' | tail -n 2 | sed 's/^/LOG nadogradnja: /'
     tail -n 2 /tmp/dom-agent.log 2>/dev/null | sed 's/^/LOG pomoćnik: /'
     ;;

@@ -2428,7 +2428,7 @@
       toast('Vraćam verziju ' + v.prev + '. Dom će se sam ponovno pokrenuti.');
       exec('/home/root/dom-ctl.sh rollback', 20000).catch(function () { toast('Nije uspjelo'); });
     } });
-    if (v.log.length) { rows.push({ h: 'Zadnje u zapisniku' }); v.log.forEach(function (l) { rows.push({ note: l }); }); }
+    if (v.log.length) { rows.push({ h: 'Zašto se pojavio Dom (zadnje)' }); v.log.forEach(function (l) { rows.push({ note: l }); }); }
   }
 
   /* ================= new-episode notices, also while another app is on screen ================= */
