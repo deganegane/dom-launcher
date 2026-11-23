@@ -167,10 +167,24 @@
   }
   function loadApps() {
     if (DEMO) return Promise.resolve(demoApps());
-    return luna(AM + '/listLaunchPoints', {}).then(function (r) {
-      return (r.launchPoints || []).filter(function (lp) {
-        return lp.id !== APP_ID && lp.id !== 'com.webos.app.home';
-      }).map(function (lp) {
+    // LG also puts "recommended" apps on the home screen: an icon that only opens the store to download
+    // the app. Only launch points of apps that are really installed are shown (when the list can be had).
+    var installed = luna(AM + '/listApps', {}).then(function (r) {
+      var m = {};
+      (r.apps || []).forEach(function (a) { if (a && a.id && a.type !== 'stub' && a.installed !== false) m[a.id] = 1; });
+      return Object.keys(m).length > 5 ? m : null;
+    }, function () { return null; });
+    return Promise.all([luna(AM + '/listLaunchPoints', {}), installed]).then(function (res) {
+      var r = res[0], have = res[1], stubs = [];
+      var out = (r.launchPoints || []).filter(function (lp) {
+        if (lp.id === APP_ID || lp.id === 'com.webos.app.home') return false;
+        if (have && !have[lp.id]) { stubs.push(lp.title || lp.id); return false; }
+        return true;
+      });
+      S.stubs = stubs;   // shown under Settings > Apps
+      return out;
+    }).then(function (lps) {
+      return lps.map(function (lp) {
         return {
           key: lp.launchPointId || lp.id,
           id: lp.id,
@@ -2766,6 +2780,7 @@
       rows.push({ note: 'Tipke 1 do 9 na daljinskom odmah pokreću prvih devet aplikacija. Zelena tipka otvara Postavke.' });
       rows.push({ h: 'Prikaz' });
       rows.push({ note: 'Dugi pritisak na OK na ikoni pokreće premještanje. Ovdje možeš sakriti aplikacije.' });
+      if (S.stubs && S.stubs.length) rows.push({ note: 'Ne prikazuju se ikone koje LG preporučuje, a aplikacija nije instalirana (samo vode u trgovinu): ' + S.stubs.join(', ') + '.' });
       S.apps.forEach(function (a) {
         var hidden = S.hidden.indexOf(a.key) >= 0;
         rows.push({ type: 'toggle', app: a, label: a.title, value: hidden ? 'Skriveno' : 'Prikazano', off: hidden, act: function () {
