@@ -2844,7 +2844,7 @@
         rows.push({ type: 'btn', name: 'autoclose', label: 'Zatvaraj zaboravljene aplikacije', value: (S.autoClose ? 'nakon ' + fmtDur(S.autoClose * 60) : 'Nikad') + '  ›', act: function () {
           S.autoClose = AC[(AC.indexOf(S.autoClose) + 1) % AC.length]; store.set('autoClose', S.autoClose); autoCloseSync(); renderSettings();
         } });
-        if (S.autoClose) rows.push({ note: 'Aplikaciju koja toliko dugo nije bila na ekranu pomoćnik zatvori. Dom, Stremio i ono što gledaš ostaju.' });
+        if (S.autoClose) rows.push({ note: 'Aplikaciju koja toliko dugo nije bila na ekranu pomoćnik zatvori, ali samo dok je Dom na ekranu, nikad dok nešto gledaš ili igraš. Sistemske aplikacije, Dom i Stremio ostaju.' });
         TUNE_GROUPS.forEach(function (g) {
           var on = !!S.tune[g.key], busy = S.tuneBusy === g.key;
           rows.push({ type: 'toggle', name: 'tune-' + g.key, label: g.label, value: busy ? '…' : (on ? 'Uključeno' : 'Isključeno'), off: !on, act: function () {

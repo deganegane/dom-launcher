@@ -186,7 +186,8 @@ function checkEpisodes() {
 
 /* ---------------- forgotten apps ---------------- */
 // apps that keep running in the background hold memory; the ones nobody went back to are closed
-var KEEP_RE = /^com\.deganegane\.dom$|^com\.webos\.app\.(home|starfish|systemui|screensaver|hdmi|livetv|externalinput|tvhotkey|inputcommon)|^com\.webos\.surfacemanager|stremio/i;
+// never closed: Dom, the TV's own apps and services (closing one, even "airplay", ends what is playing), inputs
+var KEEP_RE = /^com\.deganegane\.dom$|^com\.webos\.|^com\.lge\.|^com\.palm\.|^airplay$|^webosbrew|^org\.webosbrew|stremio/i;
 var lastSeen = {};
 function autoClose() {
   var mins = parseInt(read(ROOT + '/dom-autoclose'), 10) || 0;
@@ -196,6 +197,9 @@ function autoClose() {
   var now = Date.now();
   if (!fg) return;
   lastSeen[fg] = now;
+  // closing apps while something plays makes the TV end that too and go back to Home (seen on a C5):
+  // only while Dom itself is on screen
+  if (fg !== APPID) return;
   lunaSend('luna://com.webos.applicationManager/running', {}, function (err, out) {
     var j = null; try { j = JSON.parse(out); } catch (e) {}
     ((j && j.running) || []).forEach(function (r) {

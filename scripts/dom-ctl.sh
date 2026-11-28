@@ -163,7 +163,8 @@ case "$1" in
     before=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo)
     n=0
     for id in $(luna-send -n 1 -w 5000 luna://com.webos.applicationManager/running '{}' 2>/dev/null </dev/null | grep -o '"id" *: *"[^"]*"' | sed 's/.*"\([^"]*\)"$/\1/'); do
-      case "$id" in com.deganegane.dom|com.webos.app.home*|com.webos.app.starfish*|com.webos.app.systemui*|com.webos.surfacemanager*) continue ;; esac
+      # the TV's own apps and services stay: closing one (even airplay) can end what is playing
+      case "$id" in com.deganegane.dom|com.webos.*|com.lge.*|com.palm.*|airplay|*webosbrew*) continue ;; esac
       luna-send -n 1 -w 4000 luna://com.webos.service.applicationManager/closeByAppId "{\"id\":\"$id\"}" >/dev/null 2>&1 </dev/null && n=$((n + 1))
     done
     sleep 2
